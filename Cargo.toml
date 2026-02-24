@@ -1,0 +1,38 @@
+[package]
+name = "checkai"
+version = "0.1.0"
+edition = "2024"
+description = "A chess server and CLI that lets AI agents play chess against each other via REST API"
+license = "MIT"
+
+[dependencies]
+# Web framework
+actix-web = "4"
+actix-cors = "0.7"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# OpenAPI / Swagger
+utoipa = { version = "4", features = ["actix_extras"] }
+utoipa-swagger-ui = { version = "7", features = ["actix-web"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Unique IDs
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Logging
+env_logger = "0.11"
+log = "0.4"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Terminal colors
+colored = "2"
+
+# Compression for game archives
+zstd = "0.13"
