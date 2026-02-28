@@ -269,6 +269,11 @@ effect(() => {
   document.querySelectorAll('.nav-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.view === view);
   });
+
+  // Re-render game view when switching to it so stale content is cleared
+  if (view === 'game') {
+    renderGameView();
+  }
 });
 
 // ============================================================================
@@ -1237,6 +1242,13 @@ async function init() {
       renderArchiveList();
       const stats = state.storageStats.value;
       if (stats) renderStorageStats(stats);
+      // Update WS label based on actual connection state (not data-i18n)
+      const wsLabel = document.getElementById('ws-label');
+      if (wsLabel) {
+        wsLabel.textContent = state.wsConnected.value
+          ? t('ws.connected')
+          : t('ws.disconnected');
+      }
     });
   }
 
