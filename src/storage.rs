@@ -751,14 +751,14 @@ mod tests {
 
     #[test]
     fn test_encode_move_size() {
-        // Every move must fit in 2 bytes (u16)
-        let encoded = encode_move(&MoveJson {
+        // Every move must fit in 2 bytes — encode_move returns u16, so success
+        // of the call is sufficient proof.
+        let _encoded = encode_move(&MoveJson {
             from: "h8".into(),
             to: "a1".into(),
             promotion: Some("N".into()),
         })
         .unwrap();
-        assert!(encoded <= u16::MAX);
     }
 
     #[test]
