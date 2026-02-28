@@ -201,8 +201,7 @@ impl Game {
             let rank_diff = (chess_move.to.rank as i8 - chess_move.from.rank as i8).abs();
             if rank_diff == 2 {
                 // Pawn double-stepped — set en passant square
-                let ep_rank = (chess_move.from.rank as i8
-                    + self.turn.pawn_direction()) as u8;
+                let ep_rank = (chess_move.from.rank as i8 + self.turn.pawn_direction()) as u8;
                 self.en_passant = Some(Square::new(chess_move.from.file, ep_rank));
             }
         }
@@ -223,7 +222,9 @@ impl Game {
         }
 
         // Record position for repetition detection
-        let fen = self.board.to_position_fen(self.turn, &self.castling, self.en_passant);
+        let fen = self
+            .board
+            .to_position_fen(self.turn, &self.castling, self.en_passant);
         self.position_history.push(fen);
 
         // Clear draw offers when a move is made
@@ -319,7 +320,10 @@ impl Game {
     /// Counts how many times the current position has occurred.
     fn count_position_repetitions(&self) -> usize {
         if let Some(current) = self.position_history.last() {
-            self.position_history.iter().filter(|p| *p == current).count()
+            self.position_history
+                .iter()
+                .filter(|p| *p == current)
+                .count()
         } else {
             0
         }
@@ -417,8 +421,7 @@ impl GameManager {
     ///
     /// On startup, loads any previously active games from disk.
     pub fn new(storage_path: &str) -> Self {
-        let storage = GameStorage::new(storage_path)
-            .expect("Failed to initialize game storage");
+        let storage = GameStorage::new(storage_path).expect("Failed to initialize game storage");
 
         let mut manager = Self {
             games: HashMap::new(),
@@ -437,15 +440,17 @@ impl GameManager {
             Ok(ids) => {
                 for id in ids {
                     match self.storage.load_active(&id) {
-                        Ok(archive) => {
-                            match archive.replay_full() {
-                                Ok(game) => {
-                                    log::info!("Restored active game {} ({} moves)", id, game.move_history.len());
-                                    self.games.insert(id, game);
-                                }
-                                Err(e) => log::warn!("Failed to replay game {}: {}", id, e),
+                        Ok(archive) => match archive.replay_full() {
+                            Ok(game) => {
+                                log::info!(
+                                    "Restored active game {} ({} moves)",
+                                    id,
+                                    game.move_history.len()
+                                );
+                                self.games.insert(id, game);
                             }
-                        }
+                            Err(e) => log::warn!("Failed to replay game {}: {}", id, e),
+                        },
                         Err(e) => log::warn!("Failed to load active game {}: {}", id, e),
                     }
                 }
@@ -491,14 +496,8 @@ impl GameManager {
             if game.is_over() {
                 // Archive completed game (compress + move to archive/)
                 match self.storage.archive_game(game) {
-                    Ok(size) => log::info!(
-                        "Game {} archived ({} bytes compressed)",
-                        game_id, size
-                    ),
-                    Err(e) => log::error!(
-                        "Failed to archive game {}: {}",
-                        game_id, e
-                    ),
+                    Ok(size) => log::info!("Game {} archived ({} bytes compressed)", game_id, size),
+                    Err(e) => log::error!("Failed to archive game {}: {}", game_id, e),
                 }
             } else {
                 // Save active game (uncompressed for crash recovery)

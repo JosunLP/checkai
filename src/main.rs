@@ -74,7 +74,7 @@ rust_i18n::i18n!("locales", fallback = "en");
 
 use actix::Actor;
 use actix_cors::Cors;
-use actix_web::{web, App, HttpServer, middleware};
+use actix_web::{App, HttpServer, middleware, web};
 use clap::{Parser, Subcommand};
 use std::str::FromStr;
 use std::sync::Mutex;
@@ -160,8 +160,7 @@ enum Commands {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Initialize logger
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let cli = Cli::parse();
 
@@ -176,7 +175,11 @@ async fn main() -> std::io::Result<()> {
     update::cleanup_old_binary();
 
     match cli.command {
-        Commands::Serve { port, host, data_dir } => {
+        Commands::Serve {
+            port,
+            host,
+            data_dir,
+        } => {
             // Check for updates in the background before starting the server
             update::check_for_updates().await;
             run_server(&host, port, &data_dir).await
@@ -235,7 +238,11 @@ async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()
     log::info!("Starting CheckAI server on {}:{}", host, port);
     log::info!("Game storage directory: {}", data_dir);
     log::info!("Web UI available at http://{}:{}/", host, port);
-    log::info!("Swagger UI available at http://{}:{}/swagger-ui/", host, port);
+    log::info!(
+        "Swagger UI available at http://{}:{}/swagger-ui/",
+        host,
+        port
+    );
     log::info!("API base URL: http://{}:{}/api", host, port);
     log::info!("WebSocket endpoint: ws://{}:{}/ws", host, port);
 
@@ -255,17 +262,19 @@ async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()
             .configure(api::configure_routes)
             .route("/ws", web::get().to(ws::ws_connect))
             .service(
-                SwaggerUi::new("/swagger-ui/{_:.*}")
-                    .url("/api-docs/openapi.json", openapi.clone()),
+                SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", openapi.clone()),
             )
             // Serve the bQuery web UI static files
             .service(actix_files::Files::new("/web", "web").show_files_listing())
             // Redirect root "/" to the web UI
-            .route("/", web::get().to(|| async {
-                actix_web::HttpResponse::Found()
-                    .append_header(("Location", "/web/index.html"))
-                    .finish()
-            }))
+            .route(
+                "/",
+                web::get().to(|| async {
+                    actix_web::HttpResponse::Found()
+                        .append_header(("Location", "/web/index.html"))
+                        .finish()
+                }),
+            )
     })
     .bind((host, port))?
     .run()

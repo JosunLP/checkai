@@ -24,13 +24,20 @@ use crate::types::*;
 pub fn is_square_attacked(board: &Board, sq: Square, attacker_color: Color) -> bool {
     // Check knight attacks
     let knight_offsets: [(i8, i8); 8] = [
-        (-2, -1), (-2, 1), (-1, -2), (-1, 2),
-        (1, -2), (1, 2), (2, -1), (2, 1),
+        (-2, -1),
+        (-2, 1),
+        (-1, -2),
+        (-1, 2),
+        (1, -2),
+        (1, 2),
+        (2, -1),
+        (2, 1),
     ];
     for &(df, dr) in &knight_offsets {
         if let Some(from) = sq.offset(df, dr)
             && let Some(piece) = board.get(from)
-            && piece.color == attacker_color && piece.kind == PieceKind::Knight
+            && piece.color == attacker_color
+            && piece.kind == PieceKind::Knight
         {
             return true;
         }
@@ -44,7 +51,8 @@ pub fn is_square_attacked(board: &Board, sq: Square, attacker_color: Color) -> b
             }
             if let Some(from) = sq.offset(df, dr)
                 && let Some(piece) = board.get(from)
-                && piece.color == attacker_color && piece.kind == PieceKind::King
+                && piece.color == attacker_color
+                && piece.kind == PieceKind::King
             {
                 return true;
             }
@@ -61,7 +69,8 @@ pub fn is_square_attacked(board: &Board, sq: Square, attacker_color: Color) -> b
         // The attacking pawn is below (for white) or above (for black) the target
         if let Some(from) = sq.offset(df, -pawn_dir)
             && let Some(piece) = board.get(from)
-            && piece.color == attacker_color && piece.kind == PieceKind::Pawn
+            && piece.color == attacker_color
+            && piece.kind == PieceKind::Pawn
         {
             return true;
         }
@@ -153,9 +162,15 @@ fn generate_pseudo_legal_moves(
 
             match piece.kind {
                 PieceKind::King => generate_king_moves(board, from, turn, castling, &mut moves),
-                PieceKind::Queen => generate_sliding_moves(board, from, turn, &QUEEN_DIRS, &mut moves),
-                PieceKind::Rook => generate_sliding_moves(board, from, turn, &ROOK_DIRS, &mut moves),
-                PieceKind::Bishop => generate_sliding_moves(board, from, turn, &BISHOP_DIRS, &mut moves),
+                PieceKind::Queen => {
+                    generate_sliding_moves(board, from, turn, &QUEEN_DIRS, &mut moves)
+                }
+                PieceKind::Rook => {
+                    generate_sliding_moves(board, from, turn, &ROOK_DIRS, &mut moves)
+                }
+                PieceKind::Bishop => {
+                    generate_sliding_moves(board, from, turn, &BISHOP_DIRS, &mut moves)
+                }
                 PieceKind::Knight => generate_knight_moves(board, from, turn, &mut moves),
                 PieceKind::Pawn => generate_pawn_moves(board, from, turn, en_passant, &mut moves),
             }
@@ -169,8 +184,14 @@ fn generate_pseudo_legal_moves(
 const ROOK_DIRS: [(i8, i8); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
 const BISHOP_DIRS: [(i8, i8); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
 const QUEEN_DIRS: [(i8, i8); 8] = [
-    (-1, 0), (1, 0), (0, -1), (0, 1),
-    (-1, -1), (-1, 1), (1, -1), (1, 1),
+    (-1, 0),
+    (1, 0),
+    (0, -1),
+    (0, 1),
+    (-1, -1),
+    (-1, 1),
+    (1, -1),
+    (1, 1),
 ];
 
 /// Generates sliding piece moves (rook, bishop, queen).
@@ -206,15 +227,16 @@ fn generate_sliding_moves(
 }
 
 /// Generates knight moves.
-fn generate_knight_moves(
-    board: &Board,
-    from: Square,
-    color: Color,
-    moves: &mut Vec<ChessMove>,
-) {
+fn generate_knight_moves(board: &Board, from: Square, color: Color, moves: &mut Vec<ChessMove>) {
     let offsets: [(i8, i8); 8] = [
-        (-2, -1), (-2, 1), (-1, -2), (-1, 2),
-        (1, -2), (1, 2), (2, -1), (2, 1),
+        (-2, -1),
+        (-2, 1),
+        (-1, -2),
+        (-1, 2),
+        (1, -2),
+        (1, 2),
+        (2, -1),
+        (2, 1),
     ];
     for &(df, dr) in &offsets {
         if let Some(to) = from.offset(df, dr) {
@@ -313,9 +335,8 @@ fn generate_king_moves(
         let rook_sq = Square::new(0, rank);
 
         // Squares between king and rook must be empty
-        let path_clear = board.get(d_sq).is_none()
-            && board.get(c_sq).is_none()
-            && board.get(b_sq).is_none();
+        let path_clear =
+            board.get(d_sq).is_none() && board.get(c_sq).is_none() && board.get(b_sq).is_none();
 
         // Rook must be present
         let rook_present = matches!(
@@ -356,7 +377,12 @@ fn generate_pawn_moves(
     let mut add_move = |from: Square, to: Square, is_ep: bool| {
         if to.rank == promo_rank {
             // Must promote — add all four options
-            for kind in [PieceKind::Queen, PieceKind::Rook, PieceKind::Bishop, PieceKind::Knight] {
+            for kind in [
+                PieceKind::Queen,
+                PieceKind::Rook,
+                PieceKind::Bishop,
+                PieceKind::Knight,
+            ] {
                 moves.push(ChessMove {
                     from,
                     to,
@@ -518,8 +544,14 @@ pub fn is_insufficient_material(board: &Board) -> bool {
     }
 
     // Filter out kings to get non-king pieces
-    let white_non_king: Vec<_> = white_pieces.iter().filter(|(k, _)| *k != PieceKind::King).collect();
-    let black_non_king: Vec<_> = black_pieces.iter().filter(|(k, _)| *k != PieceKind::King).collect();
+    let white_non_king: Vec<_> = white_pieces
+        .iter()
+        .filter(|(k, _)| *k != PieceKind::King)
+        .collect();
+    let black_non_king: Vec<_> = black_pieces
+        .iter()
+        .filter(|(k, _)| *k != PieceKind::King)
+        .collect();
 
     let wc = white_non_king.len();
     let bc = black_non_king.len();
@@ -599,7 +631,8 @@ pub fn find_matching_legal_move(
                     square = &move_json.from,
                     owner = format!("{:?}", piece.color),
                     turn = format!("{:?}", turn)
-                ).to_string());
+                )
+                .to_string());
             }
         }
     }
@@ -627,7 +660,8 @@ pub fn find_matching_legal_move(
                     "movegen.no_legal_moves",
                     piece = from_piece.to_string(),
                     square = &move_json.from
-                ).to_string())
+                )
+                .to_string())
             } else {
                 let mv_str = format!(
                     "{}{}{}",
@@ -640,7 +674,8 @@ pub fn find_matching_legal_move(
                     mv = &mv_str,
                     square = &move_json.from,
                     legal = available.join(", ")
-                ).to_string())
+                )
+                .to_string())
             }
         }
         1 => Ok(matching[0]),
@@ -660,7 +695,11 @@ mod tests {
         let board = Board::starting_position();
         let castling = CastlingRights::default();
         let moves = generate_legal_moves(&board, Color::White, &castling, None);
-        assert_eq!(moves.len(), 20, "White should have 20 legal moves in starting position");
+        assert_eq!(
+            moves.len(),
+            20,
+            "White should have 20 legal moves in starting position"
+        );
     }
 
     #[test]
@@ -673,40 +712,82 @@ mod tests {
     #[test]
     fn test_insufficient_material_k_vs_k() {
         let mut board = Board::default();
-        board.set(Square::new(4, 0), Some(Piece::new(PieceKind::King, Color::White)));
-        board.set(Square::new(4, 7), Some(Piece::new(PieceKind::King, Color::Black)));
+        board.set(
+            Square::new(4, 0),
+            Some(Piece::new(PieceKind::King, Color::White)),
+        );
+        board.set(
+            Square::new(4, 7),
+            Some(Piece::new(PieceKind::King, Color::Black)),
+        );
         assert!(is_insufficient_material(&board));
     }
 
     #[test]
     fn test_insufficient_material_kb_vs_k() {
         let mut board = Board::default();
-        board.set(Square::new(4, 0), Some(Piece::new(PieceKind::King, Color::White)));
-        board.set(Square::new(2, 2), Some(Piece::new(PieceKind::Bishop, Color::White)));
-        board.set(Square::new(4, 7), Some(Piece::new(PieceKind::King, Color::Black)));
+        board.set(
+            Square::new(4, 0),
+            Some(Piece::new(PieceKind::King, Color::White)),
+        );
+        board.set(
+            Square::new(2, 2),
+            Some(Piece::new(PieceKind::Bishop, Color::White)),
+        );
+        board.set(
+            Square::new(4, 7),
+            Some(Piece::new(PieceKind::King, Color::Black)),
+        );
         assert!(is_insufficient_material(&board));
     }
 
     #[test]
     fn test_not_insufficient_with_rook() {
         let mut board = Board::default();
-        board.set(Square::new(4, 0), Some(Piece::new(PieceKind::King, Color::White)));
-        board.set(Square::new(0, 0), Some(Piece::new(PieceKind::Rook, Color::White)));
-        board.set(Square::new(4, 7), Some(Piece::new(PieceKind::King, Color::Black)));
+        board.set(
+            Square::new(4, 0),
+            Some(Piece::new(PieceKind::King, Color::White)),
+        );
+        board.set(
+            Square::new(0, 0),
+            Some(Piece::new(PieceKind::Rook, Color::White)),
+        );
+        board.set(
+            Square::new(4, 7),
+            Some(Piece::new(PieceKind::King, Color::Black)),
+        );
         assert!(!is_insufficient_material(&board));
     }
 
     #[test]
     fn test_en_passant_move_generated() {
         let mut board = Board::default();
-        board.set(Square::new(4, 0), Some(Piece::new(PieceKind::King, Color::White)));
-        board.set(Square::new(4, 7), Some(Piece::new(PieceKind::King, Color::Black)));
-        board.set(Square::new(4, 4), Some(Piece::new(PieceKind::Pawn, Color::White)));
-        board.set(Square::new(3, 4), Some(Piece::new(PieceKind::Pawn, Color::Black)));
+        board.set(
+            Square::new(4, 0),
+            Some(Piece::new(PieceKind::King, Color::White)),
+        );
+        board.set(
+            Square::new(4, 7),
+            Some(Piece::new(PieceKind::King, Color::Black)),
+        );
+        board.set(
+            Square::new(4, 4),
+            Some(Piece::new(PieceKind::Pawn, Color::White)),
+        );
+        board.set(
+            Square::new(3, 4),
+            Some(Piece::new(PieceKind::Pawn, Color::Black)),
+        );
 
         let castling = CastlingRights {
-            white: SideCastlingRights { kingside: false, queenside: false },
-            black: SideCastlingRights { kingside: false, queenside: false },
+            white: SideCastlingRights {
+                kingside: false,
+                queenside: false,
+            },
+            black: SideCastlingRights {
+                kingside: false,
+                queenside: false,
+            },
         };
         let ep = Some(Square::new(3, 5)); // d6
         let moves = generate_legal_moves(&board, Color::White, &castling, ep);
@@ -714,24 +795,46 @@ mod tests {
         let ep_moves: Vec<_> = moves.iter().filter(|m| m.is_en_passant).collect();
         assert_eq!(ep_moves.len(), 1, "Should have exactly one en passant move");
         assert_eq!(ep_moves[0].from, Square::new(4, 4)); // e5
-        assert_eq!(ep_moves[0].to, Square::new(3, 5));   // d6
+        assert_eq!(ep_moves[0].to, Square::new(3, 5)); // d6
     }
 
     #[test]
     fn test_castling_available_in_clear_position() {
         let mut board = Board::default();
-        board.set(Square::new(4, 0), Some(Piece::new(PieceKind::King, Color::White)));
-        board.set(Square::new(7, 0), Some(Piece::new(PieceKind::Rook, Color::White)));
-        board.set(Square::new(0, 0), Some(Piece::new(PieceKind::Rook, Color::White)));
-        board.set(Square::new(4, 7), Some(Piece::new(PieceKind::King, Color::Black)));
+        board.set(
+            Square::new(4, 0),
+            Some(Piece::new(PieceKind::King, Color::White)),
+        );
+        board.set(
+            Square::new(7, 0),
+            Some(Piece::new(PieceKind::Rook, Color::White)),
+        );
+        board.set(
+            Square::new(0, 0),
+            Some(Piece::new(PieceKind::Rook, Color::White)),
+        );
+        board.set(
+            Square::new(4, 7),
+            Some(Piece::new(PieceKind::King, Color::Black)),
+        );
 
         let castling = CastlingRights {
-            white: SideCastlingRights { kingside: true, queenside: true },
-            black: SideCastlingRights { kingside: false, queenside: false },
+            white: SideCastlingRights {
+                kingside: true,
+                queenside: true,
+            },
+            black: SideCastlingRights {
+                kingside: false,
+                queenside: false,
+            },
         };
 
         let moves = generate_legal_moves(&board, Color::White, &castling, None);
         let castling_moves: Vec<_> = moves.iter().filter(|m| m.is_castling).collect();
-        assert_eq!(castling_moves.len(), 2, "Should have both kingside and queenside castling");
+        assert_eq!(
+            castling_moves.len(),
+            2,
+            "Should have both kingside and queenside castling"
+        );
     }
 }

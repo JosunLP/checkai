@@ -258,11 +258,7 @@ impl CastlingRights {
         if self.black.queenside {
             s.push('q');
         }
-        if s.is_empty() {
-            "-".to_string()
-        } else {
-            s
-        }
+        if s.is_empty() { "-".to_string() } else { s }
     }
 }
 
@@ -379,7 +375,8 @@ impl Board {
             for file in 0..8u8 {
                 let sq = Square::new(file, rank);
                 if let Some(piece) = self.get(sq)
-                    && piece.kind == PieceKind::King && piece.color == color
+                    && piece.kind == PieceKind::King
+                    && piece.color == color
                 {
                     return Some(sq);
                 }
@@ -390,7 +387,12 @@ impl Board {
 
     /// Generates a simplified FEN string for position comparison
     /// (piece placement + side to move + castling + en passant).
-    pub fn to_position_fen(&self, turn: Color, castling: &CastlingRights, en_passant: Option<Square>) -> String {
+    pub fn to_position_fen(
+        &self,
+        turn: Color,
+        castling: &CastlingRights,
+        en_passant: Option<Square>,
+    ) -> String {
         let mut fen = String::new();
         for rank in (0..8).rev() {
             let mut empty_count = 0;

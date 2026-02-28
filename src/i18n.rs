@@ -43,18 +43,14 @@ pub fn detect_system_locale() -> String {
 /// 3. Fallback to `"en"`
 pub fn extract_locale_from_request(req: &HttpRequest) -> String {
     // 1. Query parameter ?lang=xx
-    if let Some(lang) = req
-        .query_string()
-        .split('&')
-        .find_map(|pair| {
-            let mut parts = pair.splitn(2, '=');
-            if parts.next() == Some("lang") {
-                parts.next().and_then(normalize_locale)
-            } else {
-                None
-            }
-        })
-    {
+    if let Some(lang) = req.query_string().split('&').find_map(|pair| {
+        let mut parts = pair.splitn(2, '=');
+        if parts.next() == Some("lang") {
+            parts.next().and_then(normalize_locale)
+        } else {
+            None
+        }
+    }) {
         return lang;
     }
 

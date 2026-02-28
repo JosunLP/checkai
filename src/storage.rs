@@ -272,7 +272,12 @@ pub fn deserialize_game(data: &[u8]) -> Result<GameArchive, String> {
     // Validate data length
     let expected_len = 41 + move_count * 2;
     if data.len() < expected_len {
-        return Err(t!("storage.data_too_short", expected = expected_len, got = data.len()).to_string());
+        return Err(t!(
+            "storage.data_too_short",
+            expected = expected_len,
+            got = data.len()
+        )
+        .to_string());
     }
 
     // Decode moves
@@ -347,9 +352,8 @@ impl GameArchive {
             if i >= limit {
                 break;
             }
-            game.make_move(mv).map_err(|e| {
-                t!("storage.replay_failed", num = (i + 1), error = e).to_string()
-            })?;
+            game.make_move(mv)
+                .map_err(|e| t!("storage.replay_failed", num = (i + 1), error = e).to_string())?;
         }
 
         Ok(game)
@@ -394,10 +398,7 @@ impl GameStorage {
         fs::create_dir_all(&active_dir)?;
         fs::create_dir_all(&archive_dir)?;
 
-        log::info!(
-            "Game storage initialized at {}",
-            base_dir.display()
-        );
+        log::info!("Game storage initialized at {}", base_dir.display());
 
         Ok(Self {
             base_dir,
@@ -430,10 +431,8 @@ impl GameStorage {
         let path = self.active_path(&game.id);
         let temp_path = self.active_dir.join(format!("{}.cai.tmp", game.id));
 
-        fs::write(&temp_path, &data)
-            .map_err(|e| format!("Failed to write temp file: {}", e))?;
-        fs::rename(&temp_path, &path)
-            .map_err(|e| format!("Failed to rename temp file: {}", e))?;
+        fs::write(&temp_path, &data).map_err(|e| format!("Failed to write temp file: {}", e))?;
+        fs::rename(&temp_path, &path).map_err(|e| format!("Failed to rename temp file: {}", e))?;
 
         log::debug!(
             "Saved active game {} ({} bytes, {} moves)",
@@ -497,8 +496,8 @@ impl GameStorage {
     /// Loads an archived (compressed) game from disk.
     pub fn load_archive(&self, game_id: &Uuid) -> Result<GameArchive, String> {
         let path = self.archive_path(game_id);
-        let compressed = fs::read(&path)
-            .map_err(|e| format!("Failed to read archive {}: {}", game_id, e))?;
+        let compressed =
+            fs::read(&path).map_err(|e| format!("Failed to read archive {}: {}", game_id, e))?;
 
         let decompressed = zstd::decode_all(compressed.as_slice())
             .map_err(|e| format!("zstd decompression failed: {}", e))?;
@@ -609,8 +608,7 @@ impl GameStorage {
     pub fn remove_archive(&self, game_id: &Uuid) -> Result<(), String> {
         let path = self.archive_path(game_id);
         if path.exists() {
-            fs::remove_file(&path)
-                .map_err(|e| format!("Failed to remove archive file: {}", e))?;
+            fs::remove_file(&path).map_err(|e| format!("Failed to remove archive file: {}", e))?;
         }
         Ok(())
     }
@@ -711,11 +709,31 @@ mod tests {
     #[test]
     fn test_move_encode_decode_roundtrip() {
         let moves = vec![
-            MoveJson { from: "e2".into(), to: "e4".into(), promotion: None },
-            MoveJson { from: "g1".into(), to: "f3".into(), promotion: None },
-            MoveJson { from: "e7".into(), to: "e8".into(), promotion: Some("Q".into()) },
-            MoveJson { from: "a7".into(), to: "a8".into(), promotion: Some("N".into()) },
-            MoveJson { from: "a1".into(), to: "h8".into(), promotion: None },
+            MoveJson {
+                from: "e2".into(),
+                to: "e4".into(),
+                promotion: None,
+            },
+            MoveJson {
+                from: "g1".into(),
+                to: "f3".into(),
+                promotion: None,
+            },
+            MoveJson {
+                from: "e7".into(),
+                to: "e8".into(),
+                promotion: Some("Q".into()),
+            },
+            MoveJson {
+                from: "a7".into(),
+                to: "a8".into(),
+                promotion: Some("N".into()),
+            },
+            MoveJson {
+                from: "a1".into(),
+                to: "h8".into(),
+                promotion: None,
+            },
         ];
 
         for mv in &moves {
@@ -723,7 +741,11 @@ mod tests {
             let decoded = decode_move(encoded);
             assert_eq!(mv.from, decoded.from, "from mismatch for {:?}", mv);
             assert_eq!(mv.to, decoded.to, "to mismatch for {:?}", mv);
-            assert_eq!(mv.promotion, decoded.promotion, "promotion mismatch for {:?}", mv);
+            assert_eq!(
+                mv.promotion, decoded.promotion,
+                "promotion mismatch for {:?}",
+                mv
+            );
         }
     }
 
@@ -734,7 +756,8 @@ mod tests {
             from: "h8".into(),
             to: "a1".into(),
             promotion: Some("N".into()),
-        }).unwrap();
+        })
+        .unwrap();
         assert!(encoded <= u16::MAX);
     }
 
@@ -742,8 +765,18 @@ mod tests {
     fn test_serialize_deserialize_roundtrip() {
         let mut game = Game::new();
         // Play 1. e4 e5
-        game.make_move(&MoveJson { from: "e2".into(), to: "e4".into(), promotion: None }).unwrap();
-        game.make_move(&MoveJson { from: "e7".into(), to: "e5".into(), promotion: None }).unwrap();
+        game.make_move(&MoveJson {
+            from: "e2".into(),
+            to: "e4".into(),
+            promotion: None,
+        })
+        .unwrap();
+        game.make_move(&MoveJson {
+            from: "e7".into(),
+            to: "e5".into(),
+            promotion: None,
+        })
+        .unwrap();
 
         let data = serialize_game(&game).unwrap();
         assert_eq!(data.len(), 41 + 4); // header + 2 moves × 2 bytes
@@ -760,9 +793,24 @@ mod tests {
     #[test]
     fn test_replay_position() {
         let mut game = Game::new();
-        game.make_move(&MoveJson { from: "e2".into(), to: "e4".into(), promotion: None }).unwrap();
-        game.make_move(&MoveJson { from: "e7".into(), to: "e5".into(), promotion: None }).unwrap();
-        game.make_move(&MoveJson { from: "g1".into(), to: "f3".into(), promotion: None }).unwrap();
+        game.make_move(&MoveJson {
+            from: "e2".into(),
+            to: "e4".into(),
+            promotion: None,
+        })
+        .unwrap();
+        game.make_move(&MoveJson {
+            from: "e7".into(),
+            to: "e5".into(),
+            promotion: None,
+        })
+        .unwrap();
+        game.make_move(&MoveJson {
+            from: "g1".into(),
+            to: "f3".into(),
+            promotion: None,
+        })
+        .unwrap();
 
         let data = serialize_game(&game).unwrap();
         let archive = deserialize_game(&data).unwrap();
@@ -788,22 +836,31 @@ mod tests {
         let mut game = Game::new();
         // Play a few moves
         let moves = vec![
-            ("e2", "e4"), ("e7", "e5"),
-            ("g1", "f3"), ("b8", "c6"),
-            ("f1", "b5"), ("a7", "a6"),
+            ("e2", "e4"),
+            ("e7", "e5"),
+            ("g1", "f3"),
+            ("b8", "c6"),
+            ("f1", "b5"),
+            ("a7", "a6"),
         ];
         for (from, to) in moves {
             game.make_move(&MoveJson {
-                from: from.into(), to: to.into(), promotion: None,
-            }).unwrap();
+                from: from.into(),
+                to: to.into(),
+                promotion: None,
+            })
+            .unwrap();
         }
 
         let raw = serialize_game(&game).unwrap();
         let compressed = zstd::encode_all(raw.as_slice(), ZSTD_COMPRESSION_LEVEL).unwrap();
 
-        println!("Raw: {} bytes, Compressed: {} bytes, Ratio: {:.1}%",
-            raw.len(), compressed.len(),
-            (compressed.len() as f64 / raw.len() as f64) * 100.0);
+        println!(
+            "Raw: {} bytes, Compressed: {} bytes, Ratio: {:.1}%",
+            raw.len(),
+            compressed.len(),
+            (compressed.len() as f64 / raw.len() as f64) * 100.0
+        );
 
         // Verify we can decompress and replay
         let decompressed = zstd::decode_all(compressed.as_slice()).unwrap();
@@ -816,7 +873,12 @@ mod tests {
         let storage = GameStorage::new(&dir).unwrap();
 
         let mut game = Game::new();
-        game.make_move(&MoveJson { from: "e2".into(), to: "e4".into(), promotion: None }).unwrap();
+        game.make_move(&MoveJson {
+            from: "e2".into(),
+            to: "e4".into(),
+            promotion: None,
+        })
+        .unwrap();
 
         // Save active
         storage.save_active(&game).unwrap();

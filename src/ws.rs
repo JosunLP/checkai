@@ -62,14 +62,14 @@
 //! ```
 
 use actix::prelude::*;
-use actix_web::{web, HttpRequest, HttpResponse};
+use actix_web::{HttpRequest, HttpResponse, web};
 use actix_web_actors::ws;
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
-use crate::api::{board_to_ascii, AppState};
+use crate::api::{AppState, board_to_ascii};
 use crate::movegen;
 use crate::storage::StorageStats;
 use crate::types::*;
@@ -190,7 +190,10 @@ impl Handler<Disconnect> for GameBroadcaster {
     type Result = ();
 
     fn handle(&mut self, msg: Disconnect, _ctx: &mut Context<Self>) {
-        log::debug!("WS session {} disconnected from broadcaster", msg.session_id);
+        log::debug!(
+            "WS session {} disconnected from broadcaster",
+            msg.session_id
+        );
         self.sessions.remove(&msg.session_id);
 
         // Remove session from every game subscription set
@@ -306,11 +309,7 @@ struct WsClientMessage {
 // ---------------------------------------------------------------------------
 
 /// Builds a JSON success response string for a client command.
-fn build_response(
-    action: &str,
-    request_id: &Option<String>,
-    data: &serde_json::Value,
-) -> String {
+fn build_response(action: &str, request_id: &Option<String>, data: &serde_json::Value) -> String {
     serde_json::json!({
         "type": "response",
         "action": action,
@@ -322,11 +321,7 @@ fn build_response(
 }
 
 /// Builds a JSON error response string for a client command.
-fn build_error_response(
-    action: &str,
-    request_id: &Option<String>,
-    error: &str,
-) -> String {
+fn build_error_response(action: &str, request_id: &Option<String>, error: &str) -> String {
     serde_json::json!({
         "type": "response",
         "action": action,
@@ -340,8 +335,7 @@ fn build_error_response(
 /// Builds a JSON event string for broadcasting to subscribers.
 fn build_event_json(event: &str, game_id: &Uuid, payload: &str) -> String {
     // Parse the payload so it is embedded as an object, not a string
-    let data: serde_json::Value =
-        serde_json::from_str(payload).unwrap_or(serde_json::Value::Null);
+    let data: serde_json::Value = serde_json::from_str(payload).unwrap_or(serde_json::Value::Null);
     serde_json::json!({
         "type": "event",
         "event": event,
@@ -410,7 +404,11 @@ impl WsSession {
         let msg: WsClientMessage = match serde_json::from_str(text) {
             Ok(m) => m,
             Err(e) => {
-                let err = build_error_response("unknown", &None, &t!("ws.invalid_json", error = e.to_string()));
+                let err = build_error_response(
+                    "unknown",
+                    &None,
+                    &t!("ws.invalid_json", error = e.to_string()),
+                );
                 ctx.text(err);
                 return;
             }
@@ -449,12 +447,9 @@ impl WsSession {
     /// Returns `Err(response_string)` with a pre-built error if missing or
     /// invalid, so callers can simply return early.
     fn parse_game_id(&self, msg: &WsClientMessage) -> Result<Uuid, String> {
-        let id_str = msg
-            .game_id
-            .as_deref()
-            .ok_or_else(|| {
-                build_error_response(&msg.action, &msg.request_id, &t!("ws.missing_game_id"))
-            })?;
+        let id_str = msg.game_id.as_deref().ok_or_else(|| {
+            build_error_response(&msg.action, &msg.request_id, &t!("ws.missing_game_id"))
+        })?;
         Uuid::parse_str(id_str).map_err(|_| {
             build_error_response(
                 &msg.action,
@@ -598,21 +593,13 @@ impl WsSession {
         let from = match &msg.from {
             Some(f) => f.clone(),
             None => {
-                return build_error_response(
-                    &msg.action,
-                    &msg.request_id,
-                    &t!("ws.missing_from"),
-                );
+                return build_error_response(&msg.action, &msg.request_id, &t!("ws.missing_from"));
             }
         };
         let to = match &msg.to {
             Some(t) => t.clone(),
             None => {
-                return build_error_response(
-                    &msg.action,
-                    &msg.request_id,
-                    &t!("ws.missing_to"),
-                );
+                return build_error_response(&msg.action, &msg.request_id, &t!("ws.missing_to"));
             }
         };
 
@@ -641,17 +628,25 @@ impl WsSession {
                 Ok(()) => {
                     let is_check = movegen::is_in_check(&game.board, game.turn);
                     let message = if game.is_over() {
-                        t!("api.game_over_msg",
+                        t!(
+                            "api.game_over_msg",
                             result = game.result.as_ref().unwrap().to_string(),
                             reason = game.end_reason.as_ref().unwrap().to_string()
-                        ).to_string()
+                        )
+                        .to_string()
                     } else if is_check {
                         t!("api.to_move_check", color = game.turn.to_string()).to_string()
                     } else {
                         t!("api.to_move", color = game.turn.to_string()).to_string()
                     };
 
-                    log::info!("WS Game {}: Move {}{} accepted. {}", game_id, from, to, message);
+                    log::info!(
+                        "WS Game {}: Move {}{} accepted. {}",
+                        game_id,
+                        from,
+                        to,
+                        message
+                    );
 
                     Ok(serde_json::json!({
                         "success": true,
@@ -683,9 +678,7 @@ impl WsSession {
 
                 build_response(&msg.action, &msg.request_id, &data)
             }
-            Err(err) => {
-                build_error_response(&msg.action, &msg.request_id, &err)
-            }
+            Err(err) => build_error_response(&msg.action, &msg.request_id, &err),
         }
     }
 
@@ -731,10 +724,12 @@ impl WsSession {
                 Ok(()) => {
                     let is_check = movegen::is_in_check(&game.board, game.turn);
                     let message = if game.is_over() {
-                        t!("api.game_over_msg",
+                        t!(
+                            "api.game_over_msg",
                             result = game.result.as_ref().unwrap().to_string(),
                             reason = game.end_reason.as_ref().unwrap().to_string()
-                        ).to_string()
+                        )
+                        .to_string()
                     } else {
                         t!("api.action_processed", action = &action_type).to_string()
                     };
@@ -781,9 +776,7 @@ impl WsSession {
 
                 build_response(&msg.action, &msg.request_id, &data)
             }
-            Err(err) => {
-                build_error_response(&msg.action, &msg.request_id, &err)
-            }
+            Err(err) => build_error_response(&msg.action, &msg.request_id, &err),
         }
     }
 
@@ -799,8 +792,7 @@ impl WsSession {
         match manager.get_game(&game_id) {
             Some(game) => {
                 let legal_moves = game.legal_moves();
-                let move_jsons: Vec<MoveJson> =
-                    legal_moves.iter().map(|m| m.to_json()).collect();
+                let move_jsons: Vec<MoveJson> = legal_moves.iter().map(|m| m.to_json()).collect();
                 let count = move_jsons.len();
 
                 build_response(
@@ -1142,7 +1134,10 @@ pub async fn ws_connect(
     broadcaster: web::Data<Addr<GameBroadcaster>>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let session = WsSession::new(app_state, broadcaster.get_ref().clone());
-    log::info!("New WebSocket connection request from {:?}", req.peer_addr());
+    log::info!(
+        "New WebSocket connection request from {:?}",
+        req.peer_addr()
+    );
     ws::start(session, &req, stream)
 }
 

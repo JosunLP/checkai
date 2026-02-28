@@ -88,7 +88,11 @@ pub fn print_status(game: &Game) {
 
     print!(
         "{}",
-        t!("terminal.move_status", num = game.fullmove_number, color = turn_str),
+        t!(
+            "terminal.move_status",
+            num = game.fullmove_number,
+            color = turn_str
+        ),
     );
 
     if is_check {
@@ -101,14 +105,34 @@ pub fn print_status(game: &Game) {
     );
 
     // Castling rights
-    let wk = if game.castling.white.kingside { "K" } else { "-" };
-    let wq = if game.castling.white.queenside { "Q" } else { "-" };
-    let bk = if game.castling.black.kingside { "k" } else { "-" };
-    let bq = if game.castling.black.queenside { "q" } else { "-" };
+    let wk = if game.castling.white.kingside {
+        "K"
+    } else {
+        "-"
+    };
+    let wq = if game.castling.white.queenside {
+        "Q"
+    } else {
+        "-"
+    };
+    let bk = if game.castling.black.kingside {
+        "k"
+    } else {
+        "-"
+    };
+    let bq = if game.castling.black.queenside {
+        "q"
+    } else {
+        "-"
+    };
     let rights = format!("{}{}{}{}", wk, wq, bk, bq);
     println!(
         "{}",
-        t!("terminal.castling_info", rights = &rights, clock = game.halfmove_clock)
+        t!(
+            "terminal.castling_info",
+            rights = &rights,
+            clock = game.halfmove_clock
+        )
     );
 
     if let Some(ep) = game.en_passant {
@@ -126,10 +150,17 @@ pub fn print_game_result(game: &Game) {
     if let (Some(result), Some(reason)) = (&game.result, &game.end_reason) {
         println!();
         println!("{}", "═══════════════════════════════════".yellow());
-        println!("  {} — {}", t!("terminal.game_over_label").to_string().yellow().bold(), reason);
+        println!(
+            "  {} — {}",
+            t!("terminal.game_over_label").to_string().yellow().bold(),
+            reason
+        );
         println!(
             "{}",
-            t!("terminal.result_label", result = result.to_string().green().bold())
+            t!(
+                "terminal.result_label",
+                result = result.to_string().green().bold()
+            )
         );
         println!("{}", "═══════════════════════════════════".yellow());
         println!();
@@ -158,18 +189,19 @@ pub fn print_history(game: &Game) {
         return;
     }
 
-    println!("{}", t!("terminal.move_history_label").to_string().yellow().bold());
+    println!(
+        "{}",
+        t!("terminal.move_history_label")
+            .to_string()
+            .yellow()
+            .bold()
+    );
     for (i, record) in game.move_history.iter().enumerate() {
         let side = match record.side {
             Color::White => "White",
             Color::Black => "Black",
         };
-        println!(
-            "  {}. {} {}",
-            i + 1,
-            side,
-            record.notation
-        );
+        println!("  {}. {} {}", i + 1, side, record.notation);
     }
     println!();
 }
@@ -181,8 +213,18 @@ pub fn print_history(game: &Game) {
 pub fn run_terminal_game() {
     println!();
     println!("{}", "╔═══════════════════════════════════════╗".cyan());
-    println!("{}", format!("\u{2551}     {}     \u{2551}", t!("terminal.banner_title")).cyan());
-    println!("{}", format!("\u{2551}     {}                   \u{2551}", t!("terminal.banner_subtitle")).cyan());
+    println!(
+        "{}",
+        format!("\u{2551}     {}     \u{2551}", t!("terminal.banner_title")).cyan()
+    );
+    println!(
+        "{}",
+        format!(
+            "\u{2551}     {}                   \u{2551}",
+            t!("terminal.banner_subtitle")
+        )
+        .cyan()
+    );
     println!("{}", "╚═══════════════════════════════════════╝".cyan());
     println!();
 
@@ -233,7 +275,10 @@ pub fn run_terminal_game() {
                 let moves = game.legal_moves();
                 println!(
                     "{} {}",
-                    t!("terminal.legal_moves_header").to_string().yellow().bold(),
+                    t!("terminal.legal_moves_header")
+                        .to_string()
+                        .yellow()
+                        .bold(),
                     t!("terminal.moves_count", count = moves.len())
                 );
                 for (i, mv) in moves.iter().enumerate() {
@@ -256,16 +301,21 @@ pub fn run_terminal_game() {
                         print_game_result(&game);
                         break;
                     }
-                    Err(e) => println!("{}: {}", t!("terminal.error_label").to_string().red().bold(), e),
+                    Err(e) => println!(
+                        "{}: {}",
+                        t!("terminal.error_label").to_string().red().bold(),
+                        e
+                    ),
                 }
             }
             "draw" | "d" => {
                 // Try to claim a draw
-                let can_claim_repetition = game.position_history.iter()
-                    .filter(|p| {
-                        *p == game.position_history.last().unwrap()
-                    })
-                    .count() >= 3;
+                let can_claim_repetition = game
+                    .position_history
+                    .iter()
+                    .filter(|p| *p == game.position_history.last().unwrap())
+                    .count()
+                    >= 3;
 
                 let can_claim_fifty = game.halfmove_clock >= 100;
 
@@ -279,7 +329,11 @@ pub fn run_terminal_game() {
                             print_game_result(&game);
                             break;
                         }
-                        Err(e) => println!("{}: {}", t!("terminal.error_label").to_string().red().bold(), e),
+                        Err(e) => println!(
+                            "{}: {}",
+                            t!("terminal.error_label").to_string().red().bold(),
+                            e
+                        ),
                     }
                 } else if can_claim_fifty {
                     let action = ActionJson {
@@ -291,7 +345,11 @@ pub fn run_terminal_game() {
                             print_game_result(&game);
                             break;
                         }
-                        Err(e) => println!("{}: {}", t!("terminal.error_label").to_string().red().bold(), e),
+                        Err(e) => println!(
+                            "{}: {}",
+                            t!("terminal.error_label").to_string().red().bold(),
+                            e
+                        ),
                     }
                 } else {
                     println!(
@@ -299,7 +357,9 @@ pub fn run_terminal_game() {
                         t!(
                             "terminal.no_draw_available",
                             clock = game.halfmove_clock,
-                            reps = game.position_history.iter()
+                            reps = game
+                                .position_history
+                                .iter()
                                 .filter(|p| *p == game.position_history.last().unwrap())
                                 .count()
                         )
@@ -328,13 +388,21 @@ pub fn run_terminal_game() {
                             }
                         }
                         Err(e) => {
-                            println!("{}: {}", t!("terminal.illegal_move").to_string().red().bold(), e);
+                            println!(
+                                "{}: {}",
+                                t!("terminal.illegal_move").to_string().red().bold(),
+                                e
+                            );
                         }
                     }
                 } else {
                     println!(
                         "{}",
-                        t!("terminal.unknown_cmd_hint", cmd = &input, help = "help".green())
+                        t!(
+                            "terminal.unknown_cmd_hint",
+                            cmd = &input,
+                            help = "help".green()
+                        )
                     );
                 }
             }

@@ -47,11 +47,8 @@ struct GitHubAsset {
 /// - Silently ignore any errors (no internet, rate-limited, etc.)
 pub async fn check_for_updates() {
     // Use a timeout so we never block startup for too long
-    let result = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        check_latest_version(),
-    )
-    .await;
+    let result =
+        tokio::time::timeout(std::time::Duration::from_secs(5), check_latest_version()).await;
 
     match result {
         Ok(Ok(Some(info))) => {
@@ -100,7 +97,11 @@ pub async fn perform_update() -> Result<(), Box<dyn std::error::Error>> {
 
     println!(
         "{}",
-        t!("update.updating", current = CURRENT_VERSION, latest = &info.version)
+        t!(
+            "update.updating",
+            current = CURRENT_VERSION,
+            latest = &info.version
+        )
     );
 
     // Determine which release asset to download for this platform
@@ -114,7 +115,8 @@ pub async fn perform_update() -> Result<(), Box<dyn std::error::Error>> {
             t!(
                 "update.no_asset",
                 expected = &asset_name,
-                available = info.assets
+                available = info
+                    .assets
                     .iter()
                     .map(|a| a.name.as_str())
                     .collect::<Vec<_>>()

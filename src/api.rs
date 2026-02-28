@@ -13,7 +13,7 @@
 //! defined in AGENT.md.
 
 use actix::Addr;
-use actix_web::{web, HttpResponse, Responder};
+use actix_web::{HttpResponse, Responder, web};
 use std::sync::Mutex;
 use utoipa::OpenApi;
 
@@ -185,10 +185,7 @@ pub async fn list_games(data: web::Data<AppState>) -> impl Responder {
         (status = 404, description = "Game not found", body = ErrorResponse),
     )
 )]
-pub async fn get_game(
-    path: web::Path<String>,
-    data: web::Data<AppState>,
-) -> impl Responder {
+pub async fn get_game(path: web::Path<String>, data: web::Data<AppState>) -> impl Responder {
     let game_id_str = path.into_inner();
     let game_id = match uuid::Uuid::parse_str(&game_id_str) {
         Ok(id) => id,
@@ -349,7 +346,10 @@ pub async fn submit_move(
 
                 log::info!(
                     "Game {}: Move {}{} accepted. {}",
-                    game_id, body.from, body.to, message
+                    game_id,
+                    body.from,
+                    body.to,
+                    message
                 );
 
                 Ok(MoveResponse {
@@ -363,7 +363,13 @@ pub async fn submit_move(
                 })
             }
             Err(err) => {
-                log::warn!("Game {}: Illegal move {}{}: {}", game_id, body.from, body.to, err);
+                log::warn!(
+                    "Game {}: Illegal move {}{}: {}",
+                    game_id,
+                    body.from,
+                    body.to,
+                    err
+                );
                 Err(err)
             }
         }
@@ -466,7 +472,12 @@ pub async fn submit_action(
                     t!("api.action_processed", action = &body.action).to_string()
                 };
 
-                log::info!("Game {}: Action '{}' accepted. {}", game_id, body.action, message);
+                log::info!(
+                    "Game {}: Action '{}' accepted. {}",
+                    game_id,
+                    body.action,
+                    message
+                );
 
                 Ok(MoveResponse {
                     success: true,
@@ -479,7 +490,12 @@ pub async fn submit_action(
                 })
             }
             Err(err) => {
-                log::warn!("Game {}: Action '{}' rejected: {}", game_id, body.action, err);
+                log::warn!(
+                    "Game {}: Action '{}' rejected: {}",
+                    game_id,
+                    body.action,
+                    err
+                );
                 Err(err)
             }
         }
@@ -527,10 +543,7 @@ pub async fn submit_action(
         (status = 404, description = "Game not found", body = ErrorResponse),
     )
 )]
-pub async fn get_legal_moves(
-    path: web::Path<String>,
-    data: web::Data<AppState>,
-) -> impl Responder {
+pub async fn get_legal_moves(path: web::Path<String>, data: web::Data<AppState>) -> impl Responder {
     let game_id_str = path.into_inner();
     let game_id = match uuid::Uuid::parse_str(&game_id_str) {
         Ok(id) => id,
@@ -576,10 +589,7 @@ pub async fn get_legal_moves(
         (status = 404, description = "Game not found", body = ErrorResponse),
     )
 )]
-pub async fn get_board_ascii(
-    path: web::Path<String>,
-    data: web::Data<AppState>,
-) -> impl Responder {
+pub async fn get_board_ascii(path: web::Path<String>, data: web::Data<AppState>) -> impl Responder {
     let game_id_str = path.into_inner();
     let game_id = match uuid::Uuid::parse_str(&game_id_str) {
         Ok(id) => id,
@@ -594,9 +604,7 @@ pub async fn get_board_ascii(
     match manager.get_game(&game_id) {
         Some(game) => {
             let ascii = board_to_ascii(&game.board, game.turn);
-            HttpResponse::Ok()
-                .content_type("text/plain")
-                .body(ascii)
+            HttpResponse::Ok().content_type("text/plain").body(ascii)
         }
         None => HttpResponse::NotFound()
             .content_type("text/plain")
@@ -622,7 +630,11 @@ pub fn board_to_ascii(board: &Board, turn: Color) -> String {
         s.push_str("  +---+---+---+---+---+---+---+---+\n");
     }
     s.push_str("    a   b   c   d   e   f   g   h\n");
-    s.push_str(&format!("\n  {} {}\n", t!("api.board_status", color = turn.to_string()), ""));
+    s.push_str(&format!(
+        "\n  {} {}\n",
+        t!("api.board_status", color = turn.to_string()),
+        ""
+    ));
     s
 }
 
@@ -641,7 +653,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .route("/archive", web::get().to(list_archived_games))
             .route("/archive/stats", web::get().to(get_storage_stats))
             .route("/archive/{game_id}", web::get().to(get_archived_game))
-            .route("/archive/{game_id}/replay", web::get().to(replay_archived_game)),
+            .route(
+                "/archive/{game_id}/replay",
+                web::get().to(replay_archived_game),
+            ),
     );
 }
 
