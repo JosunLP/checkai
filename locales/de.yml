@@ -1,0 +1,169 @@
+# ---------------------------------------------------------------------------
+# Terminal-Oberfläche
+# ---------------------------------------------------------------------------
+terminal.banner_title: 'CheckAI — Terminal-Schachspiel'
+terminal.banner_subtitle: 'FIDE 2023 Regeln'
+terminal.move_status: '  Zug %{num}. %{color} ist am Zug.'
+terminal.check: 'SCHACH!'
+terminal.legal_moves_count: '(%{count} erlaubte Züge)'
+terminal.castling_info: '  Rochade: %{rights}  |  Halbzuguhr: %{clock}'
+terminal.en_passant_info: '  En-passant-Feld: %{square}'
+terminal.game_over_label: 'SPIEL BEENDET'
+terminal.result_label: '  Ergebnis: %{result}'
+terminal.cmd_header: 'Befehle:'
+terminal.cmd_move: 'Figur ziehen (z.B. e2e4, e7e8Q für Umwandlung)'
+terminal.cmd_moves: 'Alle erlaubten Züge anzeigen'
+terminal.cmd_board: 'Aktuelles Brett anzeigen'
+terminal.cmd_resign: 'Partie aufgeben'
+terminal.cmd_draw: 'Remis beanspruchen (falls berechtigt)'
+terminal.cmd_history: 'Zughistorie anzeigen'
+terminal.cmd_json: 'Spielzustand als JSON anzeigen'
+terminal.cmd_help: 'Diese Hilfe anzeigen'
+terminal.cmd_quit: 'Anwendung beenden'
+terminal.no_moves_yet: '  Noch keine Züge gespielt.'
+terminal.move_history_label: 'Zughistorie:'
+terminal.input_error: 'Fehler beim Lesen der Eingabe.'
+terminal.goodbye: 'Auf Wiedersehen!'
+terminal.legal_moves_header: 'Erlaubte Züge'
+terminal.moves_count: '(%{count} Züge):'
+terminal.error_label: 'Fehler'
+terminal.no_draw_available: 'Kein Remis möglich. Halbzuguhr: %{clock}, Wiederholungen: %{reps}'
+terminal.illegal_move: 'Ungültiger Zug'
+terminal.unknown_cmd: 'Unbekannter Befehl'
+terminal.unknown_cmd_hint: "'%{cmd}'. Tippe %{help} für Hilfe."
+
+# ---------------------------------------------------------------------------
+# Update / Versionsüberprüfung
+# ---------------------------------------------------------------------------
+update.new_version_title: 'Eine neue Version von CheckAI ist verfügbar!'
+update.current_latest: 'Aktuell: v%{current}       Neueste: v%{latest}'
+update.run_update_hint: 'Führe `checkai update` aus, um zu aktualisieren.'
+update.checking: 'Suche nach Updates...'
+update.up_to_date: 'Bereits aktuell (v%{version}).'
+update.updating: 'CheckAI wird aktualisiert: v%{current} → v%{latest} ...'
+update.no_asset: "Kein Release-Asset für diese Plattform gefunden (erwartet '%{expected}'). Verfügbare Assets: %{available}"
+update.downloading: '%{name} wird heruntergeladen...'
+update.downloaded: '%{bytes} Bytes heruntergeladen.'
+update.success: 'Erfolgreich auf v%{version} aktualisiert!'
+update.restart_hint: 'Bitte starte checkai neu, um die neue Version zu verwenden.'
+update.unsupported_os: 'Nicht unterstütztes Betriebssystem. CheckAI unterstützt Linux, macOS und Windows.'
+update.unsupported_arch: 'Nicht unterstützte CPU-Architektur. CheckAI unterstützt x86_64 und aarch64.'
+
+# ---------------------------------------------------------------------------
+# API-Antworten
+# ---------------------------------------------------------------------------
+api.game_created: 'Neues Schachspiel erstellt. Weiß ist am Zug.'
+api.invalid_game_id: 'Ungültige Spiel-ID: %{id}'
+api.game_not_found: 'Spiel %{id} nicht gefunden'
+api.game_deleted: 'Spiel %{id} gelöscht'
+api.game_over_msg: 'Spiel beendet: %{result} (%{reason})'
+api.to_move_check: '%{color} ist am Zug. Schach!'
+api.to_move: '%{color} ist am Zug.'
+api.action_processed: "Aktion '%{action}' verarbeitet."
+api.board_status: '%{color} ist am Zug'
+api.failed_list_archives: 'Archivliste konnte nicht geladen werden: %{error}'
+api.failed_replay: 'Spiel konnte nicht wiedergegeben werden: %{error}'
+api.failed_stats: 'Speicherstatistiken konnten nicht geladen werden: %{error}'
+
+# ---------------------------------------------------------------------------
+# Spiellogik-Fehler
+# ---------------------------------------------------------------------------
+game.already_over: 'Spiel ist bereits beendet'
+game.no_draw_offer: 'Kein Remisangebot zum Annehmen vorhanden'
+game.no_threefold: 'Dreifache Stellungswiederholung ist nicht eingetreten'
+game.no_fifty_move: '50-Züge-Regel nicht erreicht (Halbzuguhr: %{clock})'
+game.invalid_draw_reason: "Ungültiger Remisgrund: '%{reason}'"
+game.unknown_action: "Unbekannte Aktion: '%{action}'"
+
+# ---------------------------------------------------------------------------
+# Typanzeige
+# ---------------------------------------------------------------------------
+types.white: 'Weiß'
+types.black: 'Schwarz'
+types.result.white_wins: '1-0 (Weiß gewinnt)'
+types.result.black_wins: '0-1 (Schwarz gewinnt)'
+types.result.draw: '1/2-1/2 (Remis)'
+types.reason.checkmate: 'Schachmatt'
+types.reason.stalemate: 'Patt'
+types.reason.threefold: 'Dreifache Stellungswiederholung'
+types.reason.fivefold: 'Fünffache Stellungswiederholung'
+types.reason.fifty_move: '50-Züge-Regel'
+types.reason.seventy_five: '75-Züge-Regel'
+types.reason.insufficient: 'Unzureichendes Material'
+types.reason.resignation: 'Aufgabe'
+types.reason.draw_agreement: 'Remis durch Vereinbarung'
+
+# ---------------------------------------------------------------------------
+# Zugvalidierung
+# ---------------------------------------------------------------------------
+movegen.invalid_from: 'Ungültiges Ausgangsfeld: %{square}'
+movegen.invalid_to: 'Ungültiges Zielfeld: %{square}'
+movegen.invalid_promotion: 'Ungültige Umwandlungsfigur: %{piece}'
+movegen.no_piece: 'Keine Figur auf Feld %{square}'
+movegen.wrong_color: 'Figur auf %{square} gehört %{owner}, aber %{turn} ist am Zug'
+movegen.no_legal_moves: 'Ungültiger Zug: %{piece} (%{square}) hat keine erlaubten Züge'
+movegen.not_legal: 'Ungültiger Zug: %{mv} ist nicht erlaubt. Erlaubte Züge von %{square}: %{legal}'
+
+# ---------------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------------
+export.unknown_format: "Unbekanntes Exportformat '%{format}'. Gültig: text, pgn, json"
+export.box_header: 'CHECKAI SPIELEXPORT'
+export.game_id_label: 'Spiel-ID:'
+export.started_label: 'Begonnen:'
+export.ended_label: 'Beendet:'
+export.duration_label: 'Dauer:'
+export.half_moves: '%{count} Halbzüge'
+export.full_moves: '(%{count} volle Züge)'
+export.result_label: 'Ergebnis:'
+export.in_progress: 'Läuft noch'
+export.reason_label: 'Grund:'
+export.raw_size_label: 'Rohgröße:'
+export.bytes_unit: 'Bytes'
+export.compressed_label: 'Komprimiert:'
+export.move_list_header: 'ZUGLISTE'
+export.white_label: 'Weiß'
+export.black_label: 'Schwarz'
+export.final_position: 'Endstellung:'
+export.ended_by: 'Spiel beendet durch: %{reason}'
+export.in_check: '%{color} steht im Schach.'
+export.failed_open_storage: "Speicher konnte nicht geöffnet werden unter '%{path}': %{error}"
+export.specify_game_id: 'Bitte --game-id <UUID> angeben oder --list / --all verwenden'
+export.invalid_game_id: "Ungültige Spiel-ID: '%{id}'"
+export.no_games: 'Keine Spiele im Speicher gefunden.'
+export.archived_header: 'ARCHIVIERTE SPIELE'
+export.completed_summary: 'Abgeschlossen (%{count} Spiele, %{bytes} Bytes komprimiert):'
+export.active_summary: 'Aktiv (%{count} Spiele, %{bytes} Bytes):'
+export.total_storage: 'Gesamtspeicher: %{bytes} Bytes'
+export.no_archived: 'Keine archivierten Spiele gefunden.'
+export.exported_count: '%{count} Spiel(e) im Format %{format} exportiert.'
+export.write_failed: "Schreiben nach '%{path}' fehlgeschlagen: %{error}"
+export.written_to: 'Geschrieben nach: %{path}'
+
+# ---------------------------------------------------------------------------
+# Speicher
+# ---------------------------------------------------------------------------
+storage.invalid_from: 'Ungültiges Ausgangsfeld: %{value}'
+storage.invalid_to: 'Ungültiges Zielfeld: %{value}'
+storage.invalid_promotion: 'Ungültige Umwandlung: %{value}'
+storage.too_many_moves: 'Zu viele Züge zum Kodieren (max. 65535)'
+storage.header_too_short: 'Daten zu kurz für Spielkopf'
+storage.invalid_magic: 'Ungültige Magic-Bytes — keine .cai-Datei'
+storage.unsupported_version: 'Nicht unterstützte Formatversion: %{version}'
+storage.data_too_short: 'Daten zu kurz: erwartet %{expected} Bytes, erhalten %{got}'
+storage.replay_failed: 'Wiedergabe fehlgeschlagen bei Halbzug %{num}: %{error}'
+storage.game_not_found: 'Spiel %{id} nicht im Speicher gefunden'
+
+# ---------------------------------------------------------------------------
+# WebSocket
+# ---------------------------------------------------------------------------
+ws.invalid_json: 'Ungültiges JSON: %{error}'
+ws.unknown_action: "Unbekannte Aktion: '%{action}'"
+ws.missing_game_id: 'Fehlendes Feld: game_id'
+ws.invalid_game_id: 'Ungültige game_id: %{error}'
+ws.missing_from: 'Fehlendes Feld: from'
+ws.missing_to: 'Fehlendes Feld: to'
+ws.missing_action_type: 'Fehlendes Feld: action_type'
+ws.subscribed: 'Spiel %{id} abonniert'
+ws.unsubscribed: 'Spiel %{id} abbestellt'
+ws.binary_not_supported: 'Binärnachrichten werden nicht unterstützt. Bitte sende JSON-Text.'

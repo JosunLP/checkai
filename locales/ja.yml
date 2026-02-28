@@ -1,0 +1,169 @@
+# ---------------------------------------------------------------------------
+# ターミナルUI
+# ---------------------------------------------------------------------------
+terminal.banner_title: 'CheckAI — ターミナルチェス'
+terminal.banner_subtitle: 'FIDE 2023 ルール'
+terminal.move_status: '  手番 %{num}。%{color}の番です。'
+terminal.check: 'チェック！'
+terminal.legal_moves_count: '（%{count} 個の合法手）'
+terminal.castling_info: '  キャスリング：%{rights}  |  ハーフムーブ：%{clock}'
+terminal.en_passant_info: '  アンパッサン対象：%{square}'
+terminal.game_over_label: '対局終了'
+terminal.result_label: '  結果：%{result}'
+terminal.cmd_header: 'コマンド：'
+terminal.cmd_move: '駒を動かす（例：e2e4、e7e8Qでプロモーション）'
+terminal.cmd_moves: '全合法手を表示'
+terminal.cmd_board: '現在の盤面を表示'
+terminal.cmd_resign: '投了する'
+terminal.cmd_draw: '引き分けを申請する（条件を満たす場合）'
+terminal.cmd_history: '手順履歴を表示'
+terminal.cmd_json: 'ゲーム状態をJSONで表示'
+terminal.cmd_help: 'このヘルプを表示'
+terminal.cmd_quit: 'アプリを終了'
+terminal.no_moves_yet: '  まだ手が指されていません。'
+terminal.move_history_label: '手順履歴：'
+terminal.input_error: '入力の読み取りエラー。'
+terminal.goodbye: 'さようなら！'
+terminal.legal_moves_header: '合法手'
+terminal.moves_count: '（%{count} 手）：'
+terminal.error_label: 'エラー'
+terminal.no_draw_available: '引き分け申請不可。ハーフムーブ：%{clock}、繰り返し：%{reps}'
+terminal.illegal_move: '不正な手'
+terminal.unknown_cmd: '不明なコマンド'
+terminal.unknown_cmd_hint: "'%{cmd}'。%{help} でヘルプを表示。"
+
+# ---------------------------------------------------------------------------
+# アップデート / バージョンチェック
+# ---------------------------------------------------------------------------
+update.new_version_title: 'CheckAI の新バージョンが利用可能です！'
+update.current_latest: '現在：v%{current}       最新：v%{latest}'
+update.run_update_hint: '`checkai update` を実行して更新してください。'
+update.checking: 'アップデートを確認中...'
+update.up_to_date: '最新バージョンです (v%{version})。'
+update.updating: 'CheckAI を更新中：v%{current} → v%{latest} ...'
+update.no_asset: "このプラットフォーム用のリリースファイルが見つかりません（期待：'%{expected}'）。利用可能：%{available}"
+update.downloading: '%{name} をダウンロード中...'
+update.downloaded: '%{bytes} バイトダウンロード完了。'
+update.success: 'v%{version} へのアップデートに成功しました！'
+update.restart_hint: '新しいバージョンを使用するには checkai を再起動してください。'
+update.unsupported_os: 'サポートされていないOS。CheckAI は Linux、macOS、Windows をサポートしています。'
+update.unsupported_arch: 'サポートされていないCPUアーキテクチャ。CheckAI は x86_64 と aarch64 をサポートしています。'
+
+# ---------------------------------------------------------------------------
+# APIレスポンス
+# ---------------------------------------------------------------------------
+api.game_created: '新しいチェスゲームを作成しました。白の手番です。'
+api.invalid_game_id: '無効なゲームID：%{id}'
+api.game_not_found: 'ゲーム %{id} が見つかりません'
+api.game_deleted: 'ゲーム %{id} を削除しました'
+api.game_over_msg: '対局終了：%{result}（%{reason}）'
+api.to_move_check: '%{color}の手番。チェック！'
+api.to_move: '%{color}の手番。'
+api.action_processed: "アクション '%{action}' を処理しました。"
+api.board_status: '%{color}の手番'
+api.failed_list_archives: 'アーカイブ一覧の取得に失敗：%{error}'
+api.failed_replay: 'ゲームのリプレイに失敗：%{error}'
+api.failed_stats: 'ストレージ統計の取得に失敗：%{error}'
+
+# ---------------------------------------------------------------------------
+# ゲームロジックエラー
+# ---------------------------------------------------------------------------
+game.already_over: 'ゲームは既に終了しています'
+game.no_draw_offer: '受け入れる引き分け提案がありません'
+game.no_threefold: '三手繰り返しが発生していません'
+game.no_fifty_move: '50手ルール未達（ハーフムーブ：%{clock}）'
+game.invalid_draw_reason: "無効な引き分け理由：'%{reason}'"
+game.unknown_action: "不明なアクション：'%{action}'"
+
+# ---------------------------------------------------------------------------
+# 型の表示
+# ---------------------------------------------------------------------------
+types.white: '白'
+types.black: '黒'
+types.result.white_wins: '1-0（白の勝ち）'
+types.result.black_wins: '0-1（黒の勝ち）'
+types.result.draw: '1/2-1/2（引き分け）'
+types.reason.checkmate: 'チェックメイト'
+types.reason.stalemate: 'ステイルメイト'
+types.reason.threefold: '三手繰り返し'
+types.reason.fivefold: '五手繰り返し'
+types.reason.fifty_move: '50手ルール'
+types.reason.seventy_five: '75手ルール'
+types.reason.insufficient: '駒不足'
+types.reason.resignation: '投了'
+types.reason.draw_agreement: '合意による引き分け'
+
+# ---------------------------------------------------------------------------
+# 手の検証
+# ---------------------------------------------------------------------------
+movegen.invalid_from: '無効な出発マス：%{square}'
+movegen.invalid_to: '無効な目的マス：%{square}'
+movegen.invalid_promotion: '無効なプロモーション駒：%{piece}'
+movegen.no_piece: 'マス %{square} に駒がありません'
+movegen.wrong_color: '%{square} の駒は %{owner} のものですが、%{turn} の手番です'
+movegen.no_legal_moves: '不正な手：%{piece}（%{square}）には合法手がありません'
+movegen.not_legal: '不正な手：%{mv} は合法ではありません。%{square} からの合法手：%{legal}'
+
+# ---------------------------------------------------------------------------
+# エクスポート
+# ---------------------------------------------------------------------------
+export.unknown_format: "不明なエクスポート形式 '%{format}'。有効：text、pgn、json"
+export.box_header: 'CHECKAI ゲームエクスポート'
+export.game_id_label: 'ゲームID：'
+export.started_label: '開始：'
+export.ended_label: '終了：'
+export.duration_label: '所要時間：'
+export.half_moves: '%{count} ハーフムーブ'
+export.full_moves: '（%{count} フルムーブ）'
+export.result_label: '結果：'
+export.in_progress: '進行中'
+export.reason_label: '理由：'
+export.raw_size_label: '生データサイズ：'
+export.bytes_unit: 'バイト'
+export.compressed_label: '圧縮後：'
+export.move_list_header: '手順リスト'
+export.white_label: '白'
+export.black_label: '黒'
+export.final_position: '最終局面：'
+export.ended_by: '終了理由：%{reason}'
+export.in_check: '%{color}がチェックされています。'
+export.failed_open_storage: "ストレージ '%{path}' を開けません：%{error}"
+export.specify_game_id: '--game-id <UUID> を指定するか --list / --all を使用してください'
+export.invalid_game_id: "無効なゲームID：'%{id}'"
+export.no_games: 'ストレージにゲームが見つかりません。'
+export.archived_header: 'アーカイブ済みゲーム'
+export.completed_summary: '完了（%{count} ゲーム、%{bytes} バイト圧縮）：'
+export.active_summary: 'アクティブ（%{count} ゲーム、%{bytes} バイト）：'
+export.total_storage: '総ストレージ：%{bytes} バイト'
+export.no_archived: 'アーカイブ済みゲームが見つかりません。'
+export.exported_count: '%{count} ゲームを %{format} 形式でエクスポートしました。'
+export.write_failed: "'%{path}' への書き込みに失敗：%{error}"
+export.written_to: '出力先：%{path}'
+
+# ---------------------------------------------------------------------------
+# ストレージ
+# ---------------------------------------------------------------------------
+storage.invalid_from: '無効な出発マス：%{value}'
+storage.invalid_to: '無効な目的マス：%{value}'
+storage.invalid_promotion: '無効なプロモーション：%{value}'
+storage.too_many_moves: 'エンコードする手数が多すぎます（最大 65535）'
+storage.header_too_short: 'ゲームヘッダーに対してデータが短すぎます'
+storage.invalid_magic: '無効なマジックバイト — .cai ファイルではありません'
+storage.unsupported_version: 'サポートされていないフォーマットバージョン：%{version}'
+storage.data_too_short: 'データが短すぎます：期待 %{expected} バイト、実際 %{got}'
+storage.replay_failed: 'ハーフムーブ %{num} でリプレイ失敗：%{error}'
+storage.game_not_found: 'ストレージにゲーム %{id} が見つかりません'
+
+# ---------------------------------------------------------------------------
+# WebSocket
+# ---------------------------------------------------------------------------
+ws.invalid_json: '無効なJSON：%{error}'
+ws.unknown_action: "不明なアクション：'%{action}'"
+ws.missing_game_id: 'フィールド不足：game_id'
+ws.invalid_game_id: '無効なgame_id：%{error}'
+ws.missing_from: 'フィールド不足：from'
+ws.missing_to: 'フィールド不足：to'
+ws.missing_action_type: 'フィールド不足：action_type'
+ws.subscribed: 'ゲーム %{id} を購読しました'
+ws.unsubscribed: 'ゲーム %{id} の購読を解除しました'
+ws.binary_not_supported: 'バイナリメッセージはサポートされていません。JSONテキストを送信してください。'

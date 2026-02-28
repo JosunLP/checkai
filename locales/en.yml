@@ -1,0 +1,169 @@
+# ---------------------------------------------------------------------------
+# Terminal UI
+# ---------------------------------------------------------------------------
+terminal.banner_title: 'CheckAI — Terminal Chess Game'
+terminal.banner_subtitle: 'FIDE 2023 Rules'
+terminal.move_status: '  Move %{num}.  %{color} to move.'
+terminal.check: 'CHECK!'
+terminal.legal_moves_count: '(%{count} legal moves)'
+terminal.castling_info: '  Castling: %{rights}  |  Halfmove clock: %{clock}'
+terminal.en_passant_info: '  En passant target: %{square}'
+terminal.game_over_label: 'GAME OVER'
+terminal.result_label: '  Result: %{result}'
+terminal.cmd_header: 'Commands:'
+terminal.cmd_move: 'Move piece (e.g. e2e4, e7e8Q for promotion)'
+terminal.cmd_moves: 'List all legal moves'
+terminal.cmd_board: 'Show the current board'
+terminal.cmd_resign: 'Resign the game'
+terminal.cmd_draw: 'Claim a draw (if eligible)'
+terminal.cmd_history: 'Show move history'
+terminal.cmd_json: 'Show the game state as JSON'
+terminal.cmd_help: 'Show this help message'
+terminal.cmd_quit: 'Quit the application'
+terminal.no_moves_yet: '  No moves played yet.'
+terminal.move_history_label: 'Move History:'
+terminal.input_error: 'Error reading input.'
+terminal.goodbye: 'Goodbye!'
+terminal.legal_moves_header: 'Legal moves'
+terminal.moves_count: '(%{count} moves):'
+terminal.error_label: 'Error'
+terminal.no_draw_available: 'No draw claim available. Halfmove clock: %{clock}, Repetitions: %{reps}'
+terminal.illegal_move: 'Illegal move'
+terminal.unknown_cmd: 'Unknown command'
+terminal.unknown_cmd_hint: "'%{cmd}'. Type %{help} for help."
+
+# ---------------------------------------------------------------------------
+# Update / version check
+# ---------------------------------------------------------------------------
+update.new_version_title: 'A new version of CheckAI is available!'
+update.current_latest: 'Current: v%{current}       Latest: v%{latest}'
+update.run_update_hint: 'Run `checkai update` to update.'
+update.checking: 'Checking for updates...'
+update.up_to_date: 'Already up to date (v%{version}).'
+update.updating: 'Updating CheckAI: v%{current} → v%{latest} ...'
+update.no_asset: "No release asset found for this platform (expected '%{expected}'). Available assets: %{available}"
+update.downloading: 'Downloading %{name}...'
+update.downloaded: 'Downloaded %{bytes} bytes.'
+update.success: 'Successfully updated to v%{version}!'
+update.restart_hint: 'Please restart checkai to use the new version.'
+update.unsupported_os: 'Unsupported operating system. CheckAI supports Linux, macOS, and Windows.'
+update.unsupported_arch: 'Unsupported CPU architecture. CheckAI supports x86_64 and aarch64.'
+
+# ---------------------------------------------------------------------------
+# API response messages
+# ---------------------------------------------------------------------------
+api.game_created: 'New chess game created. White to move.'
+api.invalid_game_id: 'Invalid game ID: %{id}'
+api.game_not_found: 'Game %{id} not found'
+api.game_deleted: 'Game %{id} deleted'
+api.game_over_msg: 'Game over: %{result} (%{reason})'
+api.to_move_check: '%{color} to move. Check!'
+api.to_move: '%{color} to move.'
+api.action_processed: "Action '%{action}' processed."
+api.board_status: '%{color} to move'
+api.failed_list_archives: 'Failed to list archives: %{error}'
+api.failed_replay: 'Failed to replay game: %{error}'
+api.failed_stats: 'Failed to get storage stats: %{error}'
+
+# ---------------------------------------------------------------------------
+# Game logic errors
+# ---------------------------------------------------------------------------
+game.already_over: 'Game is already over'
+game.no_draw_offer: 'No draw offer to accept'
+game.no_threefold: 'Threefold repetition has not occurred'
+game.no_fifty_move: '50-move rule not reached (halfmove clock: %{clock})'
+game.invalid_draw_reason: "Invalid draw claim reason: '%{reason}'"
+game.unknown_action: "Unknown action: '%{action}'"
+
+# ---------------------------------------------------------------------------
+# Type display strings
+# ---------------------------------------------------------------------------
+types.white: 'white'
+types.black: 'black'
+types.result.white_wins: '1-0 (White wins)'
+types.result.black_wins: '0-1 (Black wins)'
+types.result.draw: '1/2-1/2 (Draw)'
+types.reason.checkmate: 'Checkmate'
+types.reason.stalemate: 'Stalemate'
+types.reason.threefold: 'Threefold repetition'
+types.reason.fivefold: 'Fivefold repetition'
+types.reason.fifty_move: '50-move rule'
+types.reason.seventy_five: '75-move rule'
+types.reason.insufficient: 'Insufficient material'
+types.reason.resignation: 'Resignation'
+types.reason.draw_agreement: 'Draw by agreement'
+
+# ---------------------------------------------------------------------------
+# Move validation
+# ---------------------------------------------------------------------------
+movegen.invalid_from: 'Invalid from square: %{square}'
+movegen.invalid_to: 'Invalid to square: %{square}'
+movegen.invalid_promotion: 'Invalid promotion piece: %{piece}'
+movegen.no_piece: 'No piece on square %{square}'
+movegen.wrong_color: "Piece on %{square} belongs to %{owner}, but it is %{turn}'s turn"
+movegen.no_legal_moves: 'Illegal move: %{piece} (%{square}) has no legal moves'
+movegen.not_legal: 'Illegal move: %{mv} is not legal. Legal moves from %{square}: %{legal}'
+
+# ---------------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------------
+export.unknown_format: "Unknown export format '%{format}'. Valid: text, pgn, json"
+export.box_header: 'CHECKAI GAME EXPORT'
+export.game_id_label: 'Game ID:'
+export.started_label: 'Started:'
+export.ended_label: 'Ended:'
+export.duration_label: 'Duration:'
+export.half_moves: '%{count} half-moves'
+export.full_moves: '(%{count} full moves)'
+export.result_label: 'Result:'
+export.in_progress: 'In progress'
+export.reason_label: 'Reason:'
+export.raw_size_label: 'Raw size:'
+export.bytes_unit: 'bytes'
+export.compressed_label: 'Compressed:'
+export.move_list_header: 'MOVE LIST'
+export.white_label: 'White'
+export.black_label: 'Black'
+export.final_position: 'Final Position:'
+export.ended_by: 'Game ended by: %{reason}'
+export.in_check: '%{color} is in check.'
+export.failed_open_storage: "Failed to open storage at '%{path}': %{error}"
+export.specify_game_id: 'Please specify --game-id <UUID> or use --list / --all'
+export.invalid_game_id: "Invalid game ID: '%{id}'"
+export.no_games: 'No games found in storage.'
+export.archived_header: 'ARCHIVED GAMES'
+export.completed_summary: 'Completed (%{count} games, %{bytes} bytes compressed):'
+export.active_summary: 'Active (%{count} games, %{bytes} bytes):'
+export.total_storage: 'Total storage: %{bytes} bytes'
+export.no_archived: 'No archived games found.'
+export.exported_count: 'Exported %{count} game(s) in %{format} format.'
+export.write_failed: "Failed to write to '%{path}': %{error}"
+export.written_to: 'Written to: %{path}'
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+storage.invalid_from: 'Invalid from square: %{value}'
+storage.invalid_to: 'Invalid to square: %{value}'
+storage.invalid_promotion: 'Invalid promotion: %{value}'
+storage.too_many_moves: 'Too many moves to encode (max 65535)'
+storage.header_too_short: 'Data too short for game header'
+storage.invalid_magic: 'Invalid magic bytes — not a .cai file'
+storage.unsupported_version: 'Unsupported format version: %{version}'
+storage.data_too_short: 'Data too short: expected %{expected} bytes, got %{got}'
+storage.replay_failed: 'Replay failed at half-move %{num}: %{error}'
+storage.game_not_found: 'Game %{id} not found in storage'
+
+# ---------------------------------------------------------------------------
+# WebSocket
+# ---------------------------------------------------------------------------
+ws.invalid_json: 'Invalid JSON: %{error}'
+ws.unknown_action: "Unknown action: '%{action}'"
+ws.missing_game_id: 'Missing field: game_id'
+ws.invalid_game_id: 'Invalid game_id: %{error}'
+ws.missing_from: 'Missing field: from'
+ws.missing_to: 'Missing field: to'
+ws.missing_action_type: 'Missing field: action_type'
+ws.subscribed: 'Subscribed to game %{id}'
+ws.unsubscribed: 'Unsubscribed from game %{id}'
+ws.binary_not_supported: 'Binary messages are not supported. Please send JSON text.'

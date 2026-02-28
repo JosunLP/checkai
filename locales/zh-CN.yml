@@ -1,0 +1,169 @@
+# ---------------------------------------------------------------------------
+# 终端界面
+# ---------------------------------------------------------------------------
+terminal.banner_title: 'CheckAI — 终端国际象棋'
+terminal.banner_subtitle: 'FIDE 2023 规则'
+terminal.move_status: '  第 %{num} 步。%{color}走棋。'
+terminal.check: '将军！'
+terminal.legal_moves_count: '（%{count} 个合法走法）'
+terminal.castling_info: '  王车易位：%{rights}  |  半步计数：%{clock}'
+terminal.en_passant_info: '  吃过路兵目标：%{square}'
+terminal.game_over_label: '对局结束'
+terminal.result_label: '  结果：%{result}'
+terminal.cmd_header: '命令：'
+terminal.cmd_move: '移动棋子（如 e2e4，e7e8Q 升变）'
+terminal.cmd_moves: '列出所有合法走法'
+terminal.cmd_board: '显示当前棋盘'
+terminal.cmd_resign: '认输'
+terminal.cmd_draw: '申请和棋（如符合条件）'
+terminal.cmd_history: '显示走棋历史'
+terminal.cmd_json: '以 JSON 显示对局状态'
+terminal.cmd_help: '显示此帮助信息'
+terminal.cmd_quit: '退出应用'
+terminal.no_moves_yet: '  尚未走棋。'
+terminal.move_history_label: '走棋历史：'
+terminal.input_error: '读取输入时出错。'
+terminal.goodbye: '再见！'
+terminal.legal_moves_header: '合法走法'
+terminal.moves_count: '（%{count} 个走法）：'
+terminal.error_label: '错误'
+terminal.no_draw_available: '无法申请和棋。半步计数：%{clock}，重复次数：%{reps}'
+terminal.illegal_move: '非法走法'
+terminal.unknown_cmd: '未知命令'
+terminal.unknown_cmd_hint: "'%{cmd}'。输入 %{help} 获取帮助。"
+
+# ---------------------------------------------------------------------------
+# 更新 / 版本检查
+# ---------------------------------------------------------------------------
+update.new_version_title: 'CheckAI 有新版本可用！'
+update.current_latest: '当前：v%{current}       最新：v%{latest}'
+update.run_update_hint: '运行 `checkai update` 进行更新。'
+update.checking: '正在检查更新...'
+update.up_to_date: '已是最新版本 (v%{version})。'
+update.updating: '正在更新 CheckAI：v%{current} → v%{latest} ...'
+update.no_asset: "未找到此平台的发布文件（预期 '%{expected}'）。可用文件：%{available}"
+update.downloading: '正在下载 %{name}...'
+update.downloaded: '已下载 %{bytes} 字节。'
+update.success: '成功更新到 v%{version}！'
+update.restart_hint: '请重启 checkai 以使用新版本。'
+update.unsupported_os: '不支持的操作系统。CheckAI 支持 Linux、macOS 和 Windows。'
+update.unsupported_arch: '不支持的 CPU 架构。CheckAI 支持 x86_64 和 aarch64。'
+
+# ---------------------------------------------------------------------------
+# API 响应
+# ---------------------------------------------------------------------------
+api.game_created: '新棋局已创建。白方先行。'
+api.invalid_game_id: '无效的对局 ID：%{id}'
+api.game_not_found: '对局 %{id} 未找到'
+api.game_deleted: '对局 %{id} 已删除'
+api.game_over_msg: '对局结束：%{result}（%{reason}）'
+api.to_move_check: '%{color}走棋。将军！'
+api.to_move: '%{color}走棋。'
+api.action_processed: "操作 '%{action}' 已处理。"
+api.board_status: '%{color}走棋'
+api.failed_list_archives: '无法列出存档：%{error}'
+api.failed_replay: '无法重放对局：%{error}'
+api.failed_stats: '无法获取存储统计：%{error}'
+
+# ---------------------------------------------------------------------------
+# 对局逻辑错误
+# ---------------------------------------------------------------------------
+game.already_over: '对局已结束'
+game.no_draw_offer: '没有可接受的和棋提议'
+game.no_threefold: '三次重复未发生'
+game.no_fifty_move: '50步规则未达到（半步计数：%{clock}）'
+game.invalid_draw_reason: "无效的和棋理由：'%{reason}'"
+game.unknown_action: "未知操作：'%{action}'"
+
+# ---------------------------------------------------------------------------
+# 类型显示
+# ---------------------------------------------------------------------------
+types.white: '白方'
+types.black: '黑方'
+types.result.white_wins: '1-0（白方胜）'
+types.result.black_wins: '0-1（黑方胜）'
+types.result.draw: '1/2-1/2（和棋）'
+types.reason.checkmate: '将杀'
+types.reason.stalemate: '逼和'
+types.reason.threefold: '三次重复'
+types.reason.fivefold: '五次重复'
+types.reason.fifty_move: '50步规则'
+types.reason.seventy_five: '75步规则'
+types.reason.insufficient: '子力不足'
+types.reason.resignation: '认输'
+types.reason.draw_agreement: '协议和棋'
+
+# ---------------------------------------------------------------------------
+# 走法验证
+# ---------------------------------------------------------------------------
+movegen.invalid_from: '无效的起始格：%{square}'
+movegen.invalid_to: '无效的目标格：%{square}'
+movegen.invalid_promotion: '无效的升变棋子：%{piece}'
+movegen.no_piece: '格 %{square} 上没有棋子'
+movegen.wrong_color: '%{square} 上的棋子属于 %{owner}，但现在是 %{turn} 的回合'
+movegen.no_legal_moves: '非法走法：%{piece}（%{square}）没有合法走法'
+movegen.not_legal: '非法走法：%{mv} 不合法。%{square} 的合法走法：%{legal}'
+
+# ---------------------------------------------------------------------------
+# 导出
+# ---------------------------------------------------------------------------
+export.unknown_format: "未知导出格式 '%{format}'。有效值：text、pgn、json"
+export.box_header: 'CHECKAI 对局导出'
+export.game_id_label: '对局 ID：'
+export.started_label: '开始时间：'
+export.ended_label: '结束时间：'
+export.duration_label: '持续时间：'
+export.half_moves: '%{count} 个半步'
+export.full_moves: '（%{count} 个完整步）'
+export.result_label: '结果：'
+export.in_progress: '进行中'
+export.reason_label: '原因：'
+export.raw_size_label: '原始大小：'
+export.bytes_unit: '字节'
+export.compressed_label: '压缩后：'
+export.move_list_header: '走法列表'
+export.white_label: '白方'
+export.black_label: '黑方'
+export.final_position: '最终局面：'
+export.ended_by: '对局结束原因：%{reason}'
+export.in_check: '%{color}被将军。'
+export.failed_open_storage: "无法打开存储路径 '%{path}'：%{error}"
+export.specify_game_id: '请指定 --game-id <UUID> 或使用 --list / --all'
+export.invalid_game_id: "无效的对局 ID：'%{id}'"
+export.no_games: '存储中未找到对局。'
+export.archived_header: '已归档对局'
+export.completed_summary: '已完成（%{count} 局，%{bytes} 字节压缩）：'
+export.active_summary: '活跃（%{count} 局，%{bytes} 字节）：'
+export.total_storage: '总存储：%{bytes} 字节'
+export.no_archived: '未找到已归档对局。'
+export.exported_count: '已导出 %{count} 局，格式为 %{format}。'
+export.write_failed: "写入 '%{path}' 失败：%{error}"
+export.written_to: '已写入：%{path}'
+
+# ---------------------------------------------------------------------------
+# 存储
+# ---------------------------------------------------------------------------
+storage.invalid_from: '无效的起始格：%{value}'
+storage.invalid_to: '无效的目标格：%{value}'
+storage.invalid_promotion: '无效的升变：%{value}'
+storage.too_many_moves: '走法过多，无法编码（最多 65535）'
+storage.header_too_short: '数据过短，不足以读取对局头'
+storage.invalid_magic: '无效的魔术字节——不是 .cai 文件'
+storage.unsupported_version: '不支持的格式版本：%{version}'
+storage.data_too_short: '数据过短：预期 %{expected} 字节，实际 %{got}'
+storage.replay_failed: '重放在第 %{num} 个半步失败：%{error}'
+storage.game_not_found: '存储中未找到对局 %{id}'
+
+# ---------------------------------------------------------------------------
+# WebSocket
+# ---------------------------------------------------------------------------
+ws.invalid_json: '无效的 JSON：%{error}'
+ws.unknown_action: "未知操作：'%{action}'"
+ws.missing_game_id: '缺少字段：game_id'
+ws.invalid_game_id: '无效的 game_id：%{error}'
+ws.missing_from: '缺少字段：from'
+ws.missing_to: '缺少字段：to'
+ws.missing_action_type: '缺少字段：action_type'
+ws.subscribed: '已订阅对局 %{id}'
+ws.unsubscribed: '已取消订阅对局 %{id}'
+ws.binary_not_supported: '不支持二进制消息。请发送 JSON 文本。'

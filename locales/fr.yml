@@ -1,0 +1,169 @@
+# ---------------------------------------------------------------------------
+# Interface terminal
+# ---------------------------------------------------------------------------
+terminal.banner_title: "CheckAI — Jeu d'échecs en terminal"
+terminal.banner_subtitle: 'Règles FIDE 2023'
+terminal.move_status: '  Coup %{num}. %{color} joue.'
+terminal.check: 'ÉCHEC !'
+terminal.legal_moves_count: '(%{count} coups légaux)'
+terminal.castling_info: '  Roque : %{rights}  |  Compteur de demi-coups : %{clock}'
+terminal.en_passant_info: '  Case en passant : %{square}'
+terminal.game_over_label: 'PARTIE TERMINÉE'
+terminal.result_label: '  Résultat : %{result}'
+terminal.cmd_header: 'Commandes :'
+terminal.cmd_move: 'Déplacer une pièce (ex. e2e4, e7e8Q pour promotion)'
+terminal.cmd_moves: 'Lister tous les coups légaux'
+terminal.cmd_board: "Afficher l'échiquier"
+terminal.cmd_resign: 'Abandonner la partie'
+terminal.cmd_draw: 'Réclamer la nulle (si éligible)'
+terminal.cmd_history: "Afficher l'historique des coups"
+terminal.cmd_json: "Afficher l'état du jeu en JSON"
+terminal.cmd_help: "Afficher ce message d'aide"
+terminal.cmd_quit: "Quitter l'application"
+terminal.no_moves_yet: "  Aucun coup joué pour l'instant."
+terminal.move_history_label: 'Historique des coups :'
+terminal.input_error: "Erreur de lecture de l'entrée."
+terminal.goodbye: 'Au revoir !'
+terminal.legal_moves_header: 'Coups légaux'
+terminal.moves_count: '(%{count} coups) :'
+terminal.error_label: 'Erreur'
+terminal.no_draw_available: 'Aucune réclamation de nulle disponible. Compteur de demi-coups : %{clock}, Répétitions : %{reps}'
+terminal.illegal_move: 'Coup illégal'
+terminal.unknown_cmd: 'Commande inconnue'
+terminal.unknown_cmd_hint: "'%{cmd}'. Tapez %{help} pour l'aide."
+
+# ---------------------------------------------------------------------------
+# Mise à jour / vérification de version
+# ---------------------------------------------------------------------------
+update.new_version_title: 'Une nouvelle version de CheckAI est disponible !'
+update.current_latest: 'Actuelle : v%{current}       Dernière : v%{latest}'
+update.run_update_hint: 'Exécutez `checkai update` pour mettre à jour.'
+update.checking: 'Recherche de mises à jour...'
+update.up_to_date: 'Déjà à jour (v%{version}).'
+update.updating: 'Mise à jour de CheckAI : v%{current} → v%{latest} ...'
+update.no_asset: "Aucun fichier de release trouvé pour cette plateforme (attendu '%{expected}'). Fichiers disponibles : %{available}"
+update.downloading: 'Téléchargement de %{name}...'
+update.downloaded: '%{bytes} octets téléchargés.'
+update.success: 'Mise à jour vers v%{version} réussie !'
+update.restart_hint: 'Veuillez redémarrer checkai pour utiliser la nouvelle version.'
+update.unsupported_os: "Système d'exploitation non supporté. CheckAI supporte Linux, macOS et Windows."
+update.unsupported_arch: 'Architecture CPU non supportée. CheckAI supporte x86_64 et aarch64.'
+
+# ---------------------------------------------------------------------------
+# Réponses API
+# ---------------------------------------------------------------------------
+api.game_created: "Nouvelle partie d'échecs créée. Les blancs jouent."
+api.invalid_game_id: 'ID de partie invalide : %{id}'
+api.game_not_found: 'Partie %{id} non trouvée'
+api.game_deleted: 'Partie %{id} supprimée'
+api.game_over_msg: 'Partie terminée : %{result} (%{reason})'
+api.to_move_check: '%{color} joue. Échec !'
+api.to_move: '%{color} joue.'
+api.action_processed: "Action '%{action}' traitée."
+api.board_status: '%{color} joue'
+api.failed_list_archives: 'Impossible de lister les archives : %{error}'
+api.failed_replay: 'Impossible de rejouer la partie : %{error}'
+api.failed_stats: "Impossible d'obtenir les statistiques : %{error}"
+
+# ---------------------------------------------------------------------------
+# Erreurs de logique de jeu
+# ---------------------------------------------------------------------------
+game.already_over: 'La partie est déjà terminée'
+game.no_draw_offer: 'Aucune offre de nulle à accepter'
+game.no_threefold: "La triple répétition n'a pas eu lieu"
+game.no_fifty_move: 'Règle des 50 coups non atteinte (compteur : %{clock})'
+game.invalid_draw_reason: "Raison de réclamation de nulle invalide : '%{reason}'"
+game.unknown_action: "Action inconnue : '%{action}'"
+
+# ---------------------------------------------------------------------------
+# Affichage des types
+# ---------------------------------------------------------------------------
+types.white: 'blancs'
+types.black: 'noirs'
+types.result.white_wins: '1-0 (Les blancs gagnent)'
+types.result.black_wins: '0-1 (Les noirs gagnent)'
+types.result.draw: '1/2-1/2 (Nulle)'
+types.reason.checkmate: 'Échec et mat'
+types.reason.stalemate: 'Pat'
+types.reason.threefold: 'Triple répétition'
+types.reason.fivefold: 'Quintuple répétition'
+types.reason.fifty_move: 'Règle des 50 coups'
+types.reason.seventy_five: 'Règle des 75 coups'
+types.reason.insufficient: 'Matériel insuffisant'
+types.reason.resignation: 'Abandon'
+types.reason.draw_agreement: 'Nulle par accord'
+
+# ---------------------------------------------------------------------------
+# Validation des coups
+# ---------------------------------------------------------------------------
+movegen.invalid_from: 'Case de départ invalide : %{square}'
+movegen.invalid_to: "Case d'arrivée invalide : %{square}"
+movegen.invalid_promotion: 'Pièce de promotion invalide : %{piece}'
+movegen.no_piece: 'Aucune pièce sur la case %{square}'
+movegen.wrong_color: "La pièce sur %{square} appartient à %{owner}, mais c'est au tour de %{turn}"
+movegen.no_legal_moves: "Coup illégal : %{piece} (%{square}) n'a aucun coup légal"
+movegen.not_legal: "Coup illégal : %{mv} n'est pas légal. Coups légaux depuis %{square} : %{legal}"
+
+# ---------------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------------
+export.unknown_format: "Format d'export inconnu '%{format}'. Valides : text, pgn, json"
+export.box_header: 'EXPORT DE PARTIE CHECKAI'
+export.game_id_label: 'ID de partie :'
+export.started_label: 'Début :'
+export.ended_label: 'Fin :'
+export.duration_label: 'Durée :'
+export.half_moves: '%{count} demi-coups'
+export.full_moves: '(%{count} coups complets)'
+export.result_label: 'Résultat :'
+export.in_progress: 'En cours'
+export.reason_label: 'Raison :'
+export.raw_size_label: 'Taille brute :'
+export.bytes_unit: 'octets'
+export.compressed_label: 'Compressé :'
+export.move_list_header: 'LISTE DES COUPS'
+export.white_label: 'Blancs'
+export.black_label: 'Noirs'
+export.final_position: 'Position finale :'
+export.ended_by: 'Partie terminée par : %{reason}'
+export.in_check: '%{color} est en échec.'
+export.failed_open_storage: "Impossible d'ouvrir le stockage à '%{path}' : %{error}"
+export.specify_game_id: 'Veuillez spécifier --game-id <UUID> ou utiliser --list / --all'
+export.invalid_game_id: "ID de partie invalide : '%{id}'"
+export.no_games: 'Aucune partie trouvée dans le stockage.'
+export.archived_header: 'PARTIES ARCHIVÉES'
+export.completed_summary: 'Terminées (%{count} parties, %{bytes} octets compressés) :'
+export.active_summary: 'Actives (%{count} parties, %{bytes} octets) :'
+export.total_storage: 'Stockage total : %{bytes} octets'
+export.no_archived: 'Aucune partie archivée trouvée.'
+export.exported_count: '%{count} partie(s) exportée(s) au format %{format}.'
+export.write_failed: "Échec d'écriture dans '%{path}' : %{error}"
+export.written_to: 'Écrit dans : %{path}'
+
+# ---------------------------------------------------------------------------
+# Stockage
+# ---------------------------------------------------------------------------
+storage.invalid_from: 'Case de départ invalide : %{value}'
+storage.invalid_to: "Case d'arrivée invalide : %{value}"
+storage.invalid_promotion: 'Promotion invalide : %{value}'
+storage.too_many_moves: 'Trop de coups à encoder (max 65535)'
+storage.header_too_short: "Données trop courtes pour l'en-tête"
+storage.invalid_magic: 'Octets magiques invalides — pas un fichier .cai'
+storage.unsupported_version: 'Version de format non supportée : %{version}'
+storage.data_too_short: 'Données trop courtes : attendu %{expected} octets, reçu %{got}'
+storage.replay_failed: 'Rejeu échoué au demi-coup %{num} : %{error}'
+storage.game_not_found: 'Partie %{id} non trouvée dans le stockage'
+
+# ---------------------------------------------------------------------------
+# WebSocket
+# ---------------------------------------------------------------------------
+ws.invalid_json: 'JSON invalide : %{error}'
+ws.unknown_action: "Action inconnue : '%{action}'"
+ws.missing_game_id: 'Champ manquant : game_id'
+ws.invalid_game_id: 'game_id invalide : %{error}'
+ws.missing_from: 'Champ manquant : from'
+ws.missing_to: 'Champ manquant : to'
+ws.missing_action_type: 'Champ manquant : action_type'
+ws.subscribed: 'Abonné à la partie %{id}'
+ws.unsubscribed: 'Désabonné de la partie %{id}'
+ws.binary_not_supported: 'Les messages binaires ne sont pas supportés. Veuillez envoyer du texte JSON.'

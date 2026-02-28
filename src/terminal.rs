@@ -86,26 +86,36 @@ pub fn print_status(game: &Game) {
     let is_check = movegen::is_in_check(&game.board, game.turn);
     let legal_moves = game.legal_moves();
 
-    print!("  Move {}.  {} to move.", game.fullmove_number, turn_str);
+    print!(
+        "{}",
+        t!("terminal.move_status", num = game.fullmove_number, color = turn_str),
+    );
 
     if is_check {
-        print!("  {}", "CHECK!".red().bold());
+        print!("  {}", t!("terminal.check").to_string().red().bold());
     }
 
-    println!("  ({} legal moves)", legal_moves.len());
+    println!(
+        "  {}",
+        t!("terminal.legal_moves_count", count = legal_moves.len())
+    );
 
     // Castling rights
     let wk = if game.castling.white.kingside { "K" } else { "-" };
     let wq = if game.castling.white.queenside { "Q" } else { "-" };
     let bk = if game.castling.black.kingside { "k" } else { "-" };
     let bq = if game.castling.black.queenside { "q" } else { "-" };
+    let rights = format!("{}{}{}{}", wk, wq, bk, bq);
     println!(
-        "  Castling: {}{}{}{}  |  Halfmove clock: {}",
-        wk, wq, bk, bq, game.halfmove_clock
+        "{}",
+        t!("terminal.castling_info", rights = &rights, clock = game.halfmove_clock)
     );
 
     if let Some(ep) = game.en_passant {
-        println!("  En passant target: {}", ep.to_algebraic());
+        println!(
+            "{}",
+            t!("terminal.en_passant_info", square = ep.to_algebraic())
+        );
     }
 
     println!();
@@ -116,8 +126,11 @@ pub fn print_game_result(game: &Game) {
     if let (Some(result), Some(reason)) = (&game.result, &game.end_reason) {
         println!();
         println!("{}", "═══════════════════════════════════".yellow());
-        println!("  {} — {}", "GAME OVER".yellow().bold(), reason);
-        println!("  Result: {}", result.to_string().green().bold());
+        println!("  {} — {}", t!("terminal.game_over_label").to_string().yellow().bold(), reason);
+        println!(
+            "{}",
+            t!("terminal.result_label", result = result.to_string().green().bold())
+        );
         println!("{}", "═══════════════════════════════════".yellow());
         println!();
     }
@@ -125,27 +138,27 @@ pub fn print_game_result(game: &Game) {
 
 /// Prints available commands in the terminal.
 pub fn print_help() {
-    println!("{}", "Commands:".yellow().bold());
-    println!("  {}      - Move piece (e.g. e2e4, e7e8Q for promotion)", "e2e4".green());
-    println!("  {}     - List all legal moves", "moves".green());
-    println!("  {}      - Show the current board", "board".green());
-    println!("  {}    - Resign the game", "resign".green());
-    println!("  {}      - Claim a draw (if eligible)", "draw".green());
-    println!("  {}   - Show move history", "history".green());
-    println!("  {}       - Show the game state as JSON", "json".green());
-    println!("  {}      - Show this help message", "help".green());
-    println!("  {}      - Quit the application", "quit".green());
+    println!("{}", t!("terminal.cmd_header").to_string().yellow().bold());
+    println!("  {}      - {}", "e2e4".green(), t!("terminal.cmd_move"));
+    println!("  {}     - {}", "moves".green(), t!("terminal.cmd_moves"));
+    println!("  {}      - {}", "board".green(), t!("terminal.cmd_board"));
+    println!("  {}    - {}", "resign".green(), t!("terminal.cmd_resign"));
+    println!("  {}      - {}", "draw".green(), t!("terminal.cmd_draw"));
+    println!("  {}   - {}", "history".green(), t!("terminal.cmd_history"));
+    println!("  {}       - {}", "json".green(), t!("terminal.cmd_json"));
+    println!("  {}      - {}", "help".green(), t!("terminal.cmd_help"));
+    println!("  {}      - {}", "quit".green(), t!("terminal.cmd_quit"));
     println!();
 }
 
 /// Prints the move history.
 pub fn print_history(game: &Game) {
     if game.move_history.is_empty() {
-        println!("  No moves played yet.");
+        println!("{}", t!("terminal.no_moves_yet"));
         return;
     }
 
-    println!("{}", "Move History:".yellow().bold());
+    println!("{}", t!("terminal.move_history_label").to_string().yellow().bold());
     for (i, record) in game.move_history.iter().enumerate() {
         let side = match record.side {
             Color::White => "White",
@@ -168,8 +181,8 @@ pub fn print_history(game: &Game) {
 pub fn run_terminal_game() {
     println!();
     println!("{}", "╔═══════════════════════════════════════╗".cyan());
-    println!("{}", "║     CheckAI — Terminal Chess Game     ║".cyan());
-    println!("{}", "║     FIDE 2023 Rules                   ║".cyan());
+    println!("{}", format!("\u{2551}     {}     \u{2551}", t!("terminal.banner_title")).cyan());
+    println!("{}", format!("\u{2551}     {}                   \u{2551}", t!("terminal.banner_subtitle")).cyan());
     println!("{}", "╚═══════════════════════════════════════╝".cyan());
     println!();
 
@@ -195,7 +208,7 @@ pub fn run_terminal_game() {
 
         let mut input = String::new();
         if io::stdin().read_line(&mut input).is_err() {
-            println!("Error reading input.");
+            println!("{}", t!("terminal.input_error"));
             continue;
         }
         let input = input.trim().to_lowercase();
@@ -206,7 +219,7 @@ pub fn run_terminal_game() {
 
         match input.as_str() {
             "quit" | "exit" | "q" => {
-                println!("Goodbye!");
+                println!("{}", t!("terminal.goodbye"));
                 break;
             }
             "help" | "h" | "?" => {
@@ -218,7 +231,11 @@ pub fn run_terminal_game() {
             }
             "moves" | "m" => {
                 let moves = game.legal_moves();
-                println!("{} ({} moves):", "Legal moves".yellow().bold(), moves.len());
+                println!(
+                    "{} {}",
+                    t!("terminal.legal_moves_header").to_string().yellow().bold(),
+                    t!("terminal.moves_count", count = moves.len())
+                );
                 for (i, mv) in moves.iter().enumerate() {
                     if i > 0 && i % 8 == 0 {
                         println!();
@@ -239,7 +256,7 @@ pub fn run_terminal_game() {
                         print_game_result(&game);
                         break;
                     }
-                    Err(e) => println!("{}: {}", "Error".red().bold(), e),
+                    Err(e) => println!("{}: {}", t!("terminal.error_label").to_string().red().bold(), e),
                 }
             }
             "draw" | "d" => {
@@ -262,7 +279,7 @@ pub fn run_terminal_game() {
                             print_game_result(&game);
                             break;
                         }
-                        Err(e) => println!("{}: {}", "Error".red().bold(), e),
+                        Err(e) => println!("{}: {}", t!("terminal.error_label").to_string().red().bold(), e),
                     }
                 } else if can_claim_fifty {
                     let action = ActionJson {
@@ -274,14 +291,18 @@ pub fn run_terminal_game() {
                             print_game_result(&game);
                             break;
                         }
-                        Err(e) => println!("{}: {}", "Error".red().bold(), e),
+                        Err(e) => println!("{}: {}", t!("terminal.error_label").to_string().red().bold(), e),
                     }
                 } else {
-                    println!("No draw claim available. Halfmove clock: {}, Repetitions: {}",
-                        game.halfmove_clock,
-                        game.position_history.iter()
-                            .filter(|p| *p == game.position_history.last().unwrap())
-                            .count()
+                    println!(
+                        "{}",
+                        t!(
+                            "terminal.no_draw_available",
+                            clock = game.halfmove_clock,
+                            reps = game.position_history.iter()
+                                .filter(|p| *p == game.position_history.last().unwrap())
+                                .count()
+                        )
                     );
                 }
             }
@@ -307,15 +328,13 @@ pub fn run_terminal_game() {
                             }
                         }
                         Err(e) => {
-                            println!("{}: {}", "Illegal move".red().bold(), e);
+                            println!("{}: {}", t!("terminal.illegal_move").to_string().red().bold(), e);
                         }
                     }
                 } else {
                     println!(
-                        "{}: '{}'. Type {} for help.",
-                        "Unknown command".red(),
-                        input,
-                        "help".green()
+                        "{}",
+                        t!("terminal.unknown_cmd_hint", cmd = &input, help = "help".green())
                     );
                 }
             }

@@ -1,0 +1,169 @@
+# ---------------------------------------------------------------------------
+# Терминальный интерфейс
+# ---------------------------------------------------------------------------
+terminal.banner_title: 'CheckAI — Шахматы в терминале'
+terminal.banner_subtitle: 'Правила ФИДЕ 2023'
+terminal.move_status: '  Ход %{num}. Ходят %{color}.'
+terminal.check: 'ШАХ!'
+terminal.legal_moves_count: '(%{count} допустимых ходов)'
+terminal.castling_info: '  Рокировка: %{rights}  |  Счётчик полуходов: %{clock}'
+terminal.en_passant_info: '  Поле взятия на проходе: %{square}'
+terminal.game_over_label: 'ПАРТИЯ ОКОНЧЕНА'
+terminal.result_label: '  Результат: %{result}'
+terminal.cmd_header: 'Команды:'
+terminal.cmd_move: 'Переместить фигуру (напр. e2e4, e7e8Q для превращения)'
+terminal.cmd_moves: 'Показать все допустимые ходы'
+terminal.cmd_board: 'Показать текущую доску'
+terminal.cmd_resign: 'Сдаться'
+terminal.cmd_draw: 'Потребовать ничью (при наличии оснований)'
+terminal.cmd_history: 'Показать историю ходов'
+terminal.cmd_json: 'Показать состояние игры в JSON'
+terminal.cmd_help: 'Показать эту справку'
+terminal.cmd_quit: 'Выход из приложения'
+terminal.no_moves_yet: '  Ходов ещё не сделано.'
+terminal.move_history_label: 'История ходов:'
+terminal.input_error: 'Ошибка чтения ввода.'
+terminal.goodbye: 'До свидания!'
+terminal.legal_moves_header: 'Допустимые ходы'
+terminal.moves_count: '(%{count} ходов):'
+terminal.error_label: 'Ошибка'
+terminal.no_draw_available: 'Ничья невозможна. Счётчик полуходов: %{clock}, Повторения: %{reps}'
+terminal.illegal_move: 'Недопустимый ход'
+terminal.unknown_cmd: 'Неизвестная команда'
+terminal.unknown_cmd_hint: "'%{cmd}'. Введите %{help} для справки."
+
+# ---------------------------------------------------------------------------
+# Обновление / проверка версии
+# ---------------------------------------------------------------------------
+update.new_version_title: 'Доступна новая версия CheckAI!'
+update.current_latest: 'Текущая: v%{current}       Последняя: v%{latest}'
+update.run_update_hint: 'Выполните `checkai update` для обновления.'
+update.checking: 'Проверка обновлений...'
+update.up_to_date: 'Уже установлена последняя версия (v%{version}).'
+update.updating: 'Обновление CheckAI: v%{current} → v%{latest} ...'
+update.no_asset: "Файл релиза для этой платформы не найден (ожидался '%{expected}'). Доступные: %{available}"
+update.downloading: 'Загрузка %{name}...'
+update.downloaded: 'Загружено %{bytes} байт.'
+update.success: 'Успешно обновлено до v%{version}!'
+update.restart_hint: 'Перезапустите checkai для использования новой версии.'
+update.unsupported_os: 'Неподдерживаемая ОС. CheckAI поддерживает Linux, macOS и Windows.'
+update.unsupported_arch: 'Неподдерживаемая архитектура ЦП. CheckAI поддерживает x86_64 и aarch64.'
+
+# ---------------------------------------------------------------------------
+# Ответы API
+# ---------------------------------------------------------------------------
+api.game_created: 'Новая шахматная партия создана. Белые ходят.'
+api.invalid_game_id: 'Недопустимый ID игры: %{id}'
+api.game_not_found: 'Игра %{id} не найдена'
+api.game_deleted: 'Игра %{id} удалена'
+api.game_over_msg: 'Партия окончена: %{result} (%{reason})'
+api.to_move_check: 'Ходят %{color}. Шах!'
+api.to_move: 'Ходят %{color}.'
+api.action_processed: "Действие '%{action}' обработано."
+api.board_status: 'Ходят %{color}'
+api.failed_list_archives: 'Не удалось получить список архивов: %{error}'
+api.failed_replay: 'Не удалось воспроизвести партию: %{error}'
+api.failed_stats: 'Не удалось получить статистику хранилища: %{error}'
+
+# ---------------------------------------------------------------------------
+# Ошибки игровой логики
+# ---------------------------------------------------------------------------
+game.already_over: 'Партия уже завершена'
+game.no_draw_offer: 'Нет предложения ничьей для принятия'
+game.no_threefold: 'Троекратное повторение не произошло'
+game.no_fifty_move: 'Правило 50 ходов не достигнуто (счётчик: %{clock})'
+game.invalid_draw_reason: "Недопустимая причина ничьей: '%{reason}'"
+game.unknown_action: "Неизвестное действие: '%{action}'"
+
+# ---------------------------------------------------------------------------
+# Отображение типов
+# ---------------------------------------------------------------------------
+types.white: 'белые'
+types.black: 'чёрные'
+types.result.white_wins: '1-0 (Белые побеждают)'
+types.result.black_wins: '0-1 (Чёрные побеждают)'
+types.result.draw: '1/2-1/2 (Ничья)'
+types.reason.checkmate: 'Мат'
+types.reason.stalemate: 'Пат'
+types.reason.threefold: 'Троекратное повторение'
+types.reason.fivefold: 'Пятикратное повторение'
+types.reason.fifty_move: 'Правило 50 ходов'
+types.reason.seventy_five: 'Правило 75 ходов'
+types.reason.insufficient: 'Недостаточно материала'
+types.reason.resignation: 'Сдача'
+types.reason.draw_agreement: 'Ничья по соглашению'
+
+# ---------------------------------------------------------------------------
+# Валидация ходов
+# ---------------------------------------------------------------------------
+movegen.invalid_from: 'Недопустимое начальное поле: %{square}'
+movegen.invalid_to: 'Недопустимое целевое поле: %{square}'
+movegen.invalid_promotion: 'Недопустимая фигура превращения: %{piece}'
+movegen.no_piece: 'На поле %{square} нет фигуры'
+movegen.wrong_color: 'Фигура на %{square} принадлежит %{owner}, но ходят %{turn}'
+movegen.no_legal_moves: 'Недопустимый ход: %{piece} (%{square}) не имеет допустимых ходов'
+movegen.not_legal: 'Недопустимый ход: %{mv} не является допустимым. Допустимые ходы с %{square}: %{legal}'
+
+# ---------------------------------------------------------------------------
+# Экспорт
+# ---------------------------------------------------------------------------
+export.unknown_format: "Неизвестный формат экспорта '%{format}'. Допустимые: text, pgn, json"
+export.box_header: 'ЭКСПОРТ ПАРТИИ CHECKAI'
+export.game_id_label: 'ID партии:'
+export.started_label: 'Начало:'
+export.ended_label: 'Конец:'
+export.duration_label: 'Длительность:'
+export.half_moves: '%{count} полуходов'
+export.full_moves: '(%{count} полных ходов)'
+export.result_label: 'Результат:'
+export.in_progress: 'В процессе'
+export.reason_label: 'Причина:'
+export.raw_size_label: 'Размер без сжатия:'
+export.bytes_unit: 'байт'
+export.compressed_label: 'Сжатый:'
+export.move_list_header: 'СПИСОК ХОДОВ'
+export.white_label: 'Белые'
+export.black_label: 'Чёрные'
+export.final_position: 'Финальная позиция:'
+export.ended_by: 'Партия завершена: %{reason}'
+export.in_check: '%{color} под шахом.'
+export.failed_open_storage: "Не удалось открыть хранилище '%{path}': %{error}"
+export.specify_game_id: 'Укажите --game-id <UUID> или используйте --list / --all'
+export.invalid_game_id: "Недопустимый ID партии: '%{id}'"
+export.no_games: 'Партий в хранилище не найдено.'
+export.archived_header: 'АРХИВНЫЕ ПАРТИИ'
+export.completed_summary: 'Завершённые (%{count} партий, %{bytes} байт сжато):'
+export.active_summary: 'Активные (%{count} партий, %{bytes} байт):'
+export.total_storage: 'Общий объём: %{bytes} байт'
+export.no_archived: 'Архивных партий не найдено.'
+export.exported_count: 'Экспортировано %{count} партий в формате %{format}.'
+export.write_failed: "Ошибка записи в '%{path}': %{error}"
+export.written_to: 'Записано в: %{path}'
+
+# ---------------------------------------------------------------------------
+# Хранилище
+# ---------------------------------------------------------------------------
+storage.invalid_from: 'Недопустимое начальное поле: %{value}'
+storage.invalid_to: 'Недопустимое целевое поле: %{value}'
+storage.invalid_promotion: 'Недопустимое превращение: %{value}'
+storage.too_many_moves: 'Слишком много ходов для кодирования (макс. 65535)'
+storage.header_too_short: 'Данные слишком короткие для заголовка'
+storage.invalid_magic: 'Недопустимые магические байты — не файл .cai'
+storage.unsupported_version: 'Неподдерживаемая версия формата: %{version}'
+storage.data_too_short: 'Данные слишком короткие: ожидалось %{expected} байт, получено %{got}'
+storage.replay_failed: 'Воспроизведение не удалось на полуходе %{num}: %{error}'
+storage.game_not_found: 'Партия %{id} не найдена в хранилище'
+
+# ---------------------------------------------------------------------------
+# WebSocket
+# ---------------------------------------------------------------------------
+ws.invalid_json: 'Недопустимый JSON: %{error}'
+ws.unknown_action: "Неизвестное действие: '%{action}'"
+ws.missing_game_id: 'Отсутствует поле: game_id'
+ws.invalid_game_id: 'Недопустимый game_id: %{error}'
+ws.missing_from: 'Отсутствует поле: from'
+ws.missing_to: 'Отсутствует поле: to'
+ws.missing_action_type: 'Отсутствует поле: action_type'
+ws.subscribed: 'Подписка на партию %{id}'
+ws.unsubscribed: 'Отписка от партии %{id}'
+ws.binary_not_supported: 'Бинарные сообщения не поддерживаются. Отправляйте текст JSON.'

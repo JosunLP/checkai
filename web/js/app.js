@@ -35,14 +35,14 @@ const PIECE_UNICODE = {
   p: '♟',
 };
 
-const PIECE_NAMES = {
-  K: 'König',
-  Q: 'Dame',
-  R: 'Turm',
-  B: 'Läufer',
-  N: 'Springer',
-  P: 'Bauer',
-};
+/**
+ * Returns the translated piece name for the given piece character.
+ * @param {string} piece — one of K, Q, R, B, N, P
+ * @returns {string}
+ */
+function pieceName(piece) {
+  return t(`piece.${piece}`);
+}
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANKS = ['1', '2', '3', '4', '5', '6', '7', '8'];
@@ -234,7 +234,7 @@ function handleWsMessage(msg) {
         break;
       case 'game_created':
         refreshGameList();
-        showToast('Neues Spiel erstellt', 'info');
+        showToast(t('toast.new_game_created'), 'info');
         break;
       case 'game_deleted':
         refreshGameList();
@@ -242,7 +242,7 @@ function handleWsMessage(msg) {
           state.currentGameId.value = null;
           state.currentGame.value = null;
           navigateTo('dashboard');
-          showToast('Aktuelles Spiel wurde gelöscht', 'warning');
+          showToast(t('toast.current_game_deleted'), 'warning');
         }
         break;
     }
@@ -284,7 +284,7 @@ effect(() => {
     indicator.classList.toggle('disconnected', !connected);
   }
   if (label) {
-    label.textContent = connected ? 'Verbunden' : 'Getrennt';
+    label.textContent = connected ? t('ws.connected') : t('ws.disconnected');
   }
 });
 
@@ -461,7 +461,7 @@ async function executeMove(from, to, promotion = null) {
     await refreshCurrentGame();
   } catch (err) {
     showGameMessage(err.message, 'error');
-    showToast(`Ungültiger Zug: ${err.message}`, 'error');
+    showToast(t('toast.invalid_move', { error: err.message }), 'error');
   }
 }
 
@@ -525,7 +525,7 @@ async function refreshCurrentGame() {
     renderGameView();
   } catch (err) {
     console.error('Failed to load game:', err);
-    showToast(`Fehler: ${err.message}`, 'error');
+    showToast(t('toast.error', { error: err.message }), 'error');
   }
 }
 
@@ -551,18 +551,18 @@ async function loadGame(gameId) {
 async function createNewGame() {
   try {
     const res = await api.createGame();
-    showToast('Neues Spiel erstellt!', 'success');
+    showToast(t('toast.new_game_created'), 'success');
     await refreshGameList();
     await loadGame(res.game_id);
   } catch (err) {
-    showToast(`Fehler: ${err.message}`, 'error');
+    showToast(t('toast.error', { error: err.message }), 'error');
   }
 }
 
 async function deleteCurrentGame() {
   const gameId = state.currentGameId.value;
   if (!gameId) return;
-  if (!confirm('Dieses Spiel wirklich löschen?')) return;
+  if (!confirm(t('confirm.delete'))) return;
 
   try {
     await api.deleteGame(gameId);
@@ -570,11 +570,11 @@ async function deleteCurrentGame() {
       state.currentGameId.value = null;
       state.currentGame.value = null;
     });
-    showToast('Spiel gelöscht', 'info');
+    showToast(t('toast.game_deleted'), 'info');
     navigateTo('dashboard');
     await refreshGameList();
   } catch (err) {
-    showToast(`Fehler: ${err.message}`, 'error');
+    showToast(t('toast.error', { error: err.message }), 'error');
   }
 }
 
@@ -604,17 +604,18 @@ function renderGameList() {
     card.className = 'game-card';
     card.addEventListener('click', () => loadGame(game.game_id));
 
-    const turnLabel = game.turn === 'white' ? '♔ Weiß' : '♚ Schwarz';
+    const turnLabel =
+      game.turn === 'white' ? t('game.turn_white') : t('game.turn_black');
     const badge = game.is_over
-      ? `<span class="game-card-badge badge-over">Beendet</span>`
-      : `<span class="game-card-badge badge-active">Aktiv</span>`;
+      ? `<span class="game-card-badge badge-over">${t('game.badge_over')}</span>`
+      : `<span class="game-card-badge badge-active">${t('game.badge_active')}</span>`;
 
     let resultText = '';
     if (game.result) {
       const resultMap = {
-        WhiteWins: '1-0 Weiß gewinnt',
-        BlackWins: '0-1 Schwarz gewinnt',
-        Draw: '½-½ Remis',
+        WhiteWins: t('result.white_wins'),
+        BlackWins: t('result.black_wins'),
+        Draw: t('result.draw'),
       };
       resultText = `<div class="game-card-result">${resultMap[game.result] || game.result}</div>`;
     }
@@ -625,8 +626,8 @@ function renderGameList() {
         ${badge}
       </div>
       <div class="game-card-info">
-        <span>Am Zug: ${turnLabel}</span>
-        <span>Zug ${game.fullmove_number}</span>
+        <span>${t('game.turn')}: ${turnLabel}</span>
+        <span>${t('game.move_number')} ${game.fullmove_number}</span>
       </div>
       ${resultText}
     `;
@@ -653,11 +654,17 @@ function renderGameView() {
   updateElement('info-game-id', game.game_id.substring(0, 12) + '…');
   updateElement(
     'info-turn',
-    game.state.turn === 'white' ? '♔ Weiß' : '♚ Schwarz'
+    game.state.turn === 'white' ? t('game.turn_white') : t('game.turn_black')
   );
   updateElement('info-move-num', game.state.fullmove_number);
-  updateElement('info-status', game.is_over ? 'Beendet' : 'Läuft');
-  updateElement('info-check', game.is_check ? '⚠ Ja!' : 'Nein');
+  updateElement(
+    'info-status',
+    game.is_over ? t('game.status_over') : t('game.status_active')
+  );
+  updateElement(
+    'info-check',
+    game.is_check ? t('game.check_yes') : t('game.check_no')
+  );
   updateElement('info-legal-moves', game.legal_move_count);
 
   // Castling rights
@@ -678,8 +685,10 @@ function renderGameView() {
   // Player status
   const ws = document.getElementById('white-status');
   const bs = document.getElementById('black-status');
-  if (ws) ws.textContent = game.state.turn === 'white' ? '⏱ Am Zug' : '';
-  if (bs) bs.textContent = game.state.turn === 'black' ? '⏱ Am Zug' : '';
+  if (ws)
+    ws.textContent = game.state.turn === 'white' ? t('game.your_turn') : '';
+  if (bs)
+    bs.textContent = game.state.turn === 'black' ? t('game.your_turn') : '';
 
   // Disable actions if game is over
   const actions = document.getElementById('game-actions');
@@ -742,7 +751,7 @@ function renderMoveHistory(history) {
   if (!container) return;
 
   if (!history || history.length === 0) {
-    container.innerHTML = '<div class="empty-hint">Noch keine Züge.</div>';
+    container.innerHTML = `<div class="empty-hint">${t('game.no_moves')}</div>`;
     return;
   }
 
@@ -787,7 +796,7 @@ async function refreshArchiveList() {
     }
   } catch (err) {
     console.error('Failed to load archive:', err);
-    showToast(`Archiv laden fehlgeschlagen: ${err.message}`, 'error');
+    showToast(t('toast.load_archive_failed', { error: err.message }), 'error');
   }
 }
 
@@ -815,39 +824,32 @@ function renderArchiveList() {
     );
 
     const resultMap = {
-      WhiteWins: { text: '1-0 Weiß gewinnt', cls: 'result-white' },
-      BlackWins: { text: '0-1 Schwarz gewinnt', cls: 'result-black' },
-      Draw: { text: '½-½ Remis', cls: 'result-draw' },
+      WhiteWins: { text: t('result.white_wins'), cls: 'result-white' },
+      BlackWins: { text: t('result.black_wins'), cls: 'result-black' },
+      Draw: { text: t('result.draw'), cls: 'result-draw' },
     };
     const result = resultMap[game.result] || {
       text: game.result || '?',
       cls: '',
     };
 
-    const endReasonMap = {
-      Checkmate: 'Schachmatt',
-      Stalemate: 'Patt',
-      ThreefoldRepetition: 'Dreifache Stellungswiederholung',
-      FivefoldRepetition: 'Fünffache Wiederholung',
-      FiftyMoveRule: '50-Züge-Regel',
-      SeventyFiveMoveRule: '75-Züge-Regel',
-      InsufficientMaterial: 'Ungenügendes Material',
-      Resignation: 'Aufgabe',
-      DrawAgreement: 'Remis durch Vereinbarung',
-    };
-    const reason = endReasonMap[game.end_reason] || game.end_reason || '';
+    const reason = game.end_reason
+      ? t(`reason.${game.end_reason}`) || game.end_reason
+      : '';
 
     const date = game.start_timestamp
-      ? new Date(game.start_timestamp * 1000).toLocaleString('de-DE')
+      ? new Date(game.start_timestamp * 1000).toLocaleString(
+          getLocale() === 'zh-CN' ? 'zh-CN' : getLocale()
+        )
       : '';
 
     card.innerHTML = `
       <div class="game-card-header">
         <span class="game-card-id" title="${game.game_id}">${game.game_id.substring(0, 8)}…</span>
-        <span class="game-card-badge badge-over">Archiv</span>
+        <span class="game-card-badge badge-over">${t('archive.badge')}</span>
       </div>
       <div class="game-card-info">
-        <span>${game.move_count} Halbzüge</span>
+        <span>${t('archive.half_moves', { n: game.move_count })}</span>
         <span>${formatBytes(game.compressed_bytes)}</span>
       </div>
       <div class="game-card-result ${result.cls}">${result.text}</div>
@@ -872,7 +874,10 @@ async function openReplay(gameId, totalMoves) {
   }
 
   updateElement('replay-total-moves', totalMoves || 0);
-  updateElement('replay-title', `Wiedergabe — ${gameId.substring(0, 8)}…`);
+  updateElement(
+    'replay-title',
+    t('archive.replay_title', { id: gameId.substring(0, 8) + '…' })
+  );
 
   replaySection.style.display = 'block';
   replaySection.dataset.gameId = gameId;
@@ -889,7 +894,7 @@ async function loadReplayPosition(gameId, moveNum) {
 
     renderBoard('replay-board', data.state.board, { interactive: false });
   } catch (err) {
-    showToast(`Wiedergabe fehlgeschlagen: ${err.message}`, 'error');
+    showToast(t('toast.replay_failed', { error: err.message }), 'error');
   }
 }
 
@@ -922,7 +927,7 @@ function renderStorageStats(stats) {
 async function resign() {
   const gameId = state.currentGameId.value;
   if (!gameId) return;
-  if (!confirm('Wirklich aufgeben?')) return;
+  if (!confirm(t('confirm.resign'))) return;
 
   try {
     const res = await api.submitAction(gameId, 'resign');
@@ -930,7 +935,7 @@ async function resign() {
     await refreshCurrentGame();
     await refreshGameList();
   } catch (err) {
-    showToast(`Fehler: ${err.message}`, 'error');
+    showToast(t('toast.error', { error: err.message }), 'error');
   }
 }
 
@@ -943,7 +948,7 @@ async function offerDraw() {
     showGameMessage(res.message, 'info');
     await refreshCurrentGame();
   } catch (err) {
-    showToast(`Fehler: ${err.message}`, 'error');
+    showToast(t('toast.error', { error: err.message }), 'error');
   }
 }
 
@@ -952,9 +957,7 @@ async function claimDraw() {
   if (!gameId) return;
 
   // Ask for reason
-  const reason = prompt(
-    'Grund angeben: threefold_repetition oder fifty_move_rule'
-  );
+  const reason = prompt(t('confirm.claim_draw_reason'));
   if (!reason) return;
 
   try {
@@ -963,7 +966,7 @@ async function claimDraw() {
     await refreshCurrentGame();
     await refreshGameList();
   } catch (err) {
-    showToast(`Fehler: ${err.message}`, 'error');
+    showToast(t('toast.error', { error: err.message }), 'error');
   }
 }
 
@@ -974,7 +977,7 @@ async function submitMoveFromInput() {
     .toLowerCase();
   const to = document.getElementById('input-to')?.value?.trim().toLowerCase();
   if (!from || !to) {
-    showToast('Bitte "von" und "nach" Feld angeben', 'warning');
+    showToast(t('toast.enter_from_to'), 'warning');
     return;
   }
 
@@ -1001,7 +1004,7 @@ async function submitMoveFromInput() {
     await refreshCurrentGame();
   } catch (err) {
     showGameMessage(err.message, 'error');
-    showToast(`Ungültiger Zug: ${err.message}`, 'error');
+    showToast(t('toast.invalid_move', { error: err.message }), 'error');
   }
 }
 
@@ -1212,6 +1215,30 @@ function bindEvents() {
 
 async function init() {
   console.log('CheckAI Web UI initializing...');
+
+  // Initialize i18n (detect locale, translate static DOM)
+  initI18n();
+
+  // Populate language selector
+  const langSelect = document.getElementById('lang-select');
+  if (langSelect) {
+    SUPPORTED_LOCALES.forEach((loc) => {
+      const opt = document.createElement('option');
+      opt.value = loc.code;
+      opt.textContent = loc.name;
+      langSelect.appendChild(opt);
+    });
+    langSelect.value = getLocale();
+    langSelect.addEventListener('change', () => {
+      setLocale(langSelect.value);
+      // Re-render dynamic content with new locale
+      renderGameList();
+      if (state.currentGame.value) renderGameView();
+      renderArchiveList();
+      const stats = state.storageStats.value;
+      if (stats) renderStorageStats(stats);
+    });
+  }
 
   // Bind DOM events
   bindEvents();

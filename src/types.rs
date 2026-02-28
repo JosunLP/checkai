@@ -63,8 +63,8 @@ impl Color {
 impl fmt::Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Color::White => write!(f, "white"),
-            Color::Black => write!(f, "black"),
+            Color::White => write!(f, "{}", t!("types.white")),
+            Color::Black => write!(f, "{}", t!("types.black")),
         }
     }
 }
@@ -530,9 +530,9 @@ pub enum GameResult {
 impl fmt::Display for GameResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GameResult::WhiteWins => write!(f, "1-0 (White wins)"),
-            GameResult::BlackWins => write!(f, "0-1 (Black wins)"),
-            GameResult::Draw => write!(f, "1/2-1/2 (Draw)"),
+            GameResult::WhiteWins => write!(f, "{}", t!("types.result.white_wins")),
+            GameResult::BlackWins => write!(f, "{}", t!("types.result.black_wins")),
+            GameResult::Draw => write!(f, "{}", t!("types.result.draw")),
         }
     }
 }
@@ -554,15 +554,15 @@ pub enum GameEndReason {
 impl fmt::Display for GameEndReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GameEndReason::Checkmate => write!(f, "Checkmate"),
-            GameEndReason::Stalemate => write!(f, "Stalemate"),
-            GameEndReason::ThreefoldRepetition => write!(f, "Threefold repetition"),
-            GameEndReason::FivefoldRepetition => write!(f, "Fivefold repetition"),
-            GameEndReason::FiftyMoveRule => write!(f, "50-move rule"),
-            GameEndReason::SeventyFiveMoveRule => write!(f, "75-move rule"),
-            GameEndReason::InsufficientMaterial => write!(f, "Insufficient material"),
-            GameEndReason::Resignation => write!(f, "Resignation"),
-            GameEndReason::DrawAgreement => write!(f, "Draw by agreement"),
+            GameEndReason::Checkmate => write!(f, "{}", t!("types.reason.checkmate")),
+            GameEndReason::Stalemate => write!(f, "{}", t!("types.reason.stalemate")),
+            GameEndReason::ThreefoldRepetition => write!(f, "{}", t!("types.reason.threefold")),
+            GameEndReason::FivefoldRepetition => write!(f, "{}", t!("types.reason.fivefold")),
+            GameEndReason::FiftyMoveRule => write!(f, "{}", t!("types.reason.fifty_move")),
+            GameEndReason::SeventyFiveMoveRule => write!(f, "{}", t!("types.reason.seventy_five")),
+            GameEndReason::InsufficientMaterial => write!(f, "{}", t!("types.reason.insufficient")),
+            GameEndReason::Resignation => write!(f, "{}", t!("types.reason.resignation")),
+            GameEndReason::DrawAgreement => write!(f, "{}", t!("types.reason.draw_agreement")),
         }
     }
 }
@@ -616,9 +616,9 @@ impl ChessMove {
     /// during move validation.
     pub fn from_json(mj: &MoveJson) -> Result<Self, String> {
         let from = Square::from_algebraic(&mj.from)
-            .ok_or_else(|| format!("Invalid from square: {}", mj.from))?;
+            .ok_or_else(|| t!("movegen.invalid_from", square = &mj.from).to_string())?;
         let to = Square::from_algebraic(&mj.to)
-            .ok_or_else(|| format!("Invalid to square: {}", mj.to))?;
+            .ok_or_else(|| t!("movegen.invalid_to", square = &mj.to).to_string())?;
         let promotion = match &mj.promotion {
             Some(p) => {
                 let kind = match p.as_str() {
@@ -626,7 +626,7 @@ impl ChessMove {
                     "R" => PieceKind::Rook,
                     "B" => PieceKind::Bishop,
                     "N" => PieceKind::Knight,
-                    _ => return Err(format!("Invalid promotion piece: {}", p)),
+                    _ => return Err(t!("movegen.invalid_promotion", piece = p).to_string()),
                 };
                 Some(kind)
             }

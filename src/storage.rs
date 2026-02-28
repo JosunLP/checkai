@@ -76,9 +76,9 @@ const ZSTD_COMPRESSION_LEVEL: i32 = 19;
 /// This packs any possible chess move into exactly 2 bytes.
 pub fn encode_move(mv: &MoveJson) -> Result<u16, String> {
     let from = Square::from_algebraic(&mv.from)
-        .ok_or_else(|| format!("Invalid from square: {}", mv.from))?;
+        .ok_or_else(|| t!("storage.invalid_from", value = &mv.from).to_string())?;
     let to = Square::from_algebraic(&mv.to)
-        .ok_or_else(|| format!("Invalid to square: {}", mv.to))?;
+        .ok_or_else(|| t!("storage.invalid_to", value = &mv.to).to_string())?;
 
     let from_idx = from.index() as u16;
     let to_idx = to.index() as u16;
@@ -90,7 +90,7 @@ pub fn encode_move(mv: &MoveJson) -> Result<u16, String> {
             "R" => 2,
             "B" => 3,
             "N" => 4,
-            _ => return Err(format!("Invalid promotion: {}", p)),
+            _ => return Err(t!("storage.invalid_promotion", value = p).to_string()),
         },
     };
 
@@ -194,7 +194,7 @@ fn decode_end_reason(byte: u8) -> Option<GameEndReason> {
 pub fn serialize_game(game: &Game) -> Result<Vec<u8>, String> {
     let move_count = game.move_history.len();
     if move_count > u16::MAX as usize {
-        return Err("Too many moves to encode (max 65535)".to_string());
+        return Err(t!("storage.too_many_moves").to_string());
     }
 
     // Calculate buffer size: header (41) + moves (2 each)
@@ -240,18 +240,18 @@ pub fn serialize_game(game: &Game) -> Result<Vec<u8>, String> {
 /// Use `GameArchive::replay()` to reconstruct the full game state.
 pub fn deserialize_game(data: &[u8]) -> Result<GameArchive, String> {
     if data.len() < 41 {
-        return Err("Data too short for game header".to_string());
+        return Err(t!("storage.header_too_short").to_string());
     }
 
     // Validate magic
     if &data[0..4] != MAGIC {
-        return Err("Invalid magic bytes — not a .cai file".to_string());
+        return Err(t!("storage.invalid_magic").to_string());
     }
 
     // Version
     let version = data[4];
     if version != FORMAT_VERSION {
-        return Err(format!("Unsupported format version: {}", version));
+        return Err(t!("storage.unsupported_version", version = version).to_string());
     }
 
     // Game UUID
@@ -272,11 +272,7 @@ pub fn deserialize_game(data: &[u8]) -> Result<GameArchive, String> {
     // Validate data length
     let expected_len = 41 + move_count * 2;
     if data.len() < expected_len {
-        return Err(format!(
-            "Data too short: expected {} bytes, got {}",
-            expected_len,
-            data.len()
-        ));
+        return Err(t!("storage.data_too_short", expected = expected_len, got = data.len()).to_string());
     }
 
     // Decode moves
@@ -352,7 +348,7 @@ impl GameArchive {
                 break;
             }
             game.make_move(mv).map_err(|e| {
-                format!("Replay failed at half-move {}: {}", i + 1, e)
+                t!("storage.replay_failed", num = (i + 1), error = e).to_string()
             })?;
         }
 
@@ -528,7 +524,7 @@ impl GameStorage {
             return Ok((archive, true)); // true = compressed
         }
 
-        Err(format!("Game {} not found in storage", game_id))
+        Err(t!("storage.game_not_found", id = game_id).to_string())
     }
 
     /// Lists all archived game IDs.

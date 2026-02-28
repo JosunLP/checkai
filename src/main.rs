@@ -57,12 +57,20 @@
 pub mod api;
 pub mod export;
 pub mod game;
+pub mod i18n;
 pub mod movegen;
 pub mod storage;
 pub mod terminal;
 pub mod types;
 pub mod update;
 pub mod ws;
+
+#[macro_use]
+extern crate rust_i18n;
+
+// Initialize i18n with locale files from the "locales" directory.
+// Falls back to English when a key is missing in the active locale.
+rust_i18n::i18n!("locales", fallback = "en");
 
 use actix::Actor;
 use actix_cors::Cors;
@@ -86,6 +94,10 @@ use crate::ws::GameBroadcaster;
 #[command(about = "Chess server for AI agents — FIDE 2023 rules")]
 #[command(version)]
 struct Cli {
+    /// Override the language / locale (e.g. "de", "fr", "zh-CN").
+    #[arg(short, long, global = true)]
+    lang: Option<String>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -153,6 +165,13 @@ async fn main() -> std::io::Result<()> {
 
     let cli = Cli::parse();
 
+    // Set the active locale: --lang flag takes priority, then system detection
+    let locale = match &cli.lang {
+        Some(lang) => i18n::normalize_locale(lang).unwrap_or_else(|| "en".to_string()),
+        None => i18n::detect_system_locale(),
+    };
+    rust_i18n::set_locale(&locale);
+
     // Clean up leftover .old.exe from previous updates (Windows)
     update::cleanup_old_binary();
 
@@ -191,7 +210,7 @@ async fn main() -> std::io::Result<()> {
         Commands::Update => {
             update::perform_update()
                 .await
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+                .map_err(|e| std::io::Error::other(e.to_string()))?;
             Ok(())
         }
         Commands::Version => {

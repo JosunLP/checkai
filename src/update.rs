@@ -9,7 +9,7 @@
 
 use semver::Version;
 use serde::Deserialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// GitHub repository identifier (owner/repo).
 const GITHUB_REPO: &str = "JosunLP/checkai";
@@ -62,13 +62,13 @@ pub async fn check_for_updates() {
             // Build the notice dynamically so column alignment is clean
             println!();
             println!("  ╔══════════════════════════════════════════════════════════╗");
-            println!("  ║  A new version of CheckAI is available!                 ║");
+            println!("  ║  {:<57}║", t!("update.new_version_title"));
             println!(
-                "  ║  Current: v{:<12} Latest: v{:<12}          ║",
-                current, latest
+                "  ║  {:<57}║",
+                t!("update.current_latest", current = current, latest = latest)
             );
             println!("  ║                                                          ║");
-            println!("  ║  Run `checkai update` to update.                         ║");
+            println!("  ║  {:<57}║", t!("update.run_update_hint"));
             println!("  ║  {:<57}║", url);
             println!("  ╚══════════════════════════════════════════════════════════╝");
             println!();
@@ -86,21 +86,21 @@ pub async fn check_for_updates() {
 ///
 /// This is the implementation behind `checkai update`.
 pub async fn perform_update() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Checking for updates...");
+    println!("{}", t!("update.checking"));
 
     let info = check_latest_version().await?;
 
     let info = match info {
         Some(info) => info,
         None => {
-            println!("Already up to date (v{}).", CURRENT_VERSION);
+            println!("{}", t!("update.up_to_date", version = CURRENT_VERSION));
             return Ok(());
         }
     };
 
     println!(
-        "Updating CheckAI: v{} → v{} ...",
-        CURRENT_VERSION, info.version
+        "{}",
+        t!("update.updating", current = CURRENT_VERSION, latest = &info.version)
     );
 
     // Determine which release asset to download for this platform
@@ -111,19 +111,19 @@ pub async fn perform_update() -> Result<(), Box<dyn std::error::Error>> {
         .iter()
         .find(|a| a.name == asset_name)
         .ok_or_else(|| {
-            format!(
-                "No release asset found for this platform (expected '{}'). \
-                 Available assets: {}",
-                asset_name,
-                info.assets
+            t!(
+                "update.no_asset",
+                expected = &asset_name,
+                available = info.assets
                     .iter()
                     .map(|a| a.name.as_str())
                     .collect::<Vec<_>>()
                     .join(", ")
             )
+            .to_string()
         })?;
 
-    println!("Downloading {}...", asset.name);
+    println!("{}", t!("update.downloading", name = &asset.name));
 
     let client = build_client()?;
     let response = client
@@ -134,14 +134,14 @@ pub async fn perform_update() -> Result<(), Box<dyn std::error::Error>> {
 
     let bytes = response.bytes().await?;
 
-    println!("Downloaded {} bytes.", bytes.len());
+    println!("{}", t!("update.downloaded", bytes = bytes.len()));
 
     // Write the new binary and replace the current one
     replace_binary(&bytes)?;
 
     println!();
-    println!("Successfully updated to v{}!", info.version);
-    println!("Please restart checkai to use the new version.");
+    println!("{}", t!("update.success", version = &info.version));
+    println!("{}", t!("update.restart_hint"));
 
     Ok(())
 }
@@ -213,9 +213,7 @@ fn get_asset_name() -> Result<String, String> {
     } else if cfg!(target_os = "windows") {
         "windows"
     } else {
-        return Err("Unsupported operating system. \
-                    CheckAI supports Linux, macOS, and Windows."
-            .to_string());
+        return Err(t!("update.unsupported_os").to_string());
     };
 
     let arch = if cfg!(target_arch = "x86_64") {
@@ -223,9 +221,7 @@ fn get_asset_name() -> Result<String, String> {
     } else if cfg!(target_arch = "aarch64") {
         "aarch64"
     } else {
-        return Err("Unsupported CPU architecture. \
-                    CheckAI supports x86_64 and aarch64."
-            .to_string());
+        return Err(t!("update.unsupported_arch").to_string());
     };
 
     let ext = if cfg!(target_os = "windows") {
@@ -290,8 +286,8 @@ fn replace_binary(bytes: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Returns a temporary path next to the given binary for staging downloads.
-fn temp_binary_path(current_exe: &PathBuf) -> PathBuf {
-    let mut temp = current_exe.clone();
+fn temp_binary_path(current_exe: &Path) -> PathBuf {
+    let mut temp = current_exe.to_path_buf();
     temp.set_extension("update-tmp");
     temp
 }

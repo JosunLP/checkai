@@ -330,7 +330,7 @@ impl Game {
     /// Returns `Ok(())` on success, or `Err(String)` if the action is invalid.
     pub fn process_action(&mut self, action: &ActionJson) -> Result<(), String> {
         if self.is_over() {
-            return Err("Game is already over".to_string());
+            return Err(t!("game.already_over").to_string());
         }
 
         match action.action.as_str() {
@@ -356,7 +356,7 @@ impl Game {
                     self.end_timestamp = storage::unix_timestamp();
                     Ok(())
                 } else {
-                    Err("No draw offer to accept".to_string())
+                    Err(t!("game.no_draw_offer").to_string())
                 }
             }
 
@@ -370,7 +370,7 @@ impl Game {
                             self.end_timestamp = storage::unix_timestamp();
                             Ok(())
                         } else {
-                            Err("Threefold repetition has not occurred".to_string())
+                            Err(t!("game.no_threefold").to_string())
                         }
                     }
                     "fifty_move_rule" => {
@@ -380,17 +380,14 @@ impl Game {
                             self.end_timestamp = storage::unix_timestamp();
                             Ok(())
                         } else {
-                            Err(format!(
-                                "50-move rule not reached (halfmove clock: {})",
-                                self.halfmove_clock
-                            ))
+                            Err(t!("game.no_fifty_move", clock = self.halfmove_clock).to_string())
                         }
                     }
-                    _ => Err(format!("Invalid draw claim reason: '{}'", reason)),
+                    _ => Err(t!("game.invalid_draw_reason", reason = reason).to_string()),
                 }
             }
 
-            _ => Err(format!("Unknown action: '{}'", action.action)),
+            _ => Err(t!("game.unknown_action", action = &action.action).to_string()),
         }
     }
 }

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CheckAI — Schach für KI-Agenten</title>
+    <title>CheckAI — Chess for AI Agents</title>
     <link rel="stylesheet" href="/web/css/styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -22,23 +22,31 @@
         </div>
         <nav id="main-nav">
           <button class="nav-btn active" data-view="dashboard">
-            <span class="nav-icon">⊞</span> Dashboard
+            <span class="nav-icon">⊞</span>
+            <span data-i18n="nav.dashboard">Dashboard</span>
           </button>
           <button class="nav-btn" data-view="game">
-            <span class="nav-icon">♟</span> Spiel
+            <span class="nav-icon">♟</span>
+            <span data-i18n="nav.game">Game</span>
           </button>
           <button class="nav-btn" data-view="archive">
-            <span class="nav-icon">📦</span> Archiv
+            <span class="nav-icon">📦</span>
+            <span data-i18n="nav.archive">Archive</span>
           </button>
         </nav>
         <div class="header-status">
+          <select
+            id="lang-select"
+            class="lang-select"
+            title="Language"
+          ></select>
           <span
             id="ws-status"
             class="ws-indicator disconnected"
             title="WebSocket Status"
             >⬤</span
           >
-          <span id="ws-label">Getrennt</span>
+          <span id="ws-label" data-i18n="ws.disconnected">Disconnected</span>
         </div>
       </div>
     </header>
@@ -48,27 +56,30 @@
       <!-- ========== DASHBOARD VIEW ========== -->
       <section id="view-dashboard" class="view active">
         <div class="section-header">
-          <h1>Aktive Spiele</h1>
+          <h1 data-i18n="dashboard.active_games">Active Games</h1>
           <button id="btn-new-game" class="btn btn-primary">
-            <span>＋</span> Neues Spiel
+            <span>＋</span> <span data-i18n="dashboard.new_game">New Game</span>
           </button>
         </div>
 
         <div id="games-list" class="games-grid">
           <div class="empty-state" id="no-games">
             <span class="empty-icon">♔</span>
-            <p>Noch keine Spiele vorhanden.</p>
-            <p class="subtle">Erstelle ein neues Spiel um zu beginnen.</p>
+            <p data-i18n="dashboard.no_games">No games yet.</p>
+            <p class="subtle" data-i18n="dashboard.no_games_hint">
+              Create a new game to get started.
+            </p>
           </div>
         </div>
 
         <!-- Storage Stats -->
         <div class="section-header" style="margin-top: 2rem">
-          <h2>Speicherstatistik</h2>
+          <h2 data-i18n="dashboard.storage_stats">Storage Statistics</h2>
           <button
             id="btn-refresh-stats"
             class="btn btn-ghost"
-            title="Aktualisieren"
+            data-i18n-title="dashboard.refresh"
+            title="Refresh"
           >
             ↻
           </button>
@@ -76,19 +87,27 @@
         <div id="storage-stats" class="stats-grid">
           <div class="stat-card">
             <span class="stat-value" id="stat-active">–</span>
-            <span class="stat-label">Aktive Spiele</span>
+            <span class="stat-label" data-i18n="stat.active_games"
+              >Active Games</span
+            >
           </div>
           <div class="stat-card">
             <span class="stat-value" id="stat-archived">–</span>
-            <span class="stat-label">Archivierte Spiele</span>
+            <span class="stat-label" data-i18n="stat.archived_games"
+              >Archived Games</span
+            >
           </div>
           <div class="stat-card">
             <span class="stat-value" id="stat-active-bytes">–</span>
-            <span class="stat-label">Aktiver Speicher</span>
+            <span class="stat-label" data-i18n="stat.active_storage"
+              >Active Storage</span
+            >
           </div>
           <div class="stat-card">
             <span class="stat-value" id="stat-archive-bytes">–</span>
-            <span class="stat-label">Archiv-Speicher</span>
+            <span class="stat-label" data-i18n="stat.archive_storage"
+              >Archive Storage</span
+            >
           </div>
         </div>
       </section>
@@ -97,9 +116,9 @@
       <section id="view-game" class="view">
         <div id="game-placeholder" class="empty-state">
           <span class="empty-icon">♟</span>
-          <p>Kein Spiel ausgewählt.</p>
-          <p class="subtle">
-            Wähle ein Spiel aus dem Dashboard oder erstelle ein neues.
+          <p data-i18n="game.no_game_selected">No game selected.</p>
+          <p class="subtle" data-i18n="game.no_game_hint">
+            Select a game from the dashboard or create a new one.
           </p>
         </div>
 
@@ -109,7 +128,7 @@
             <div class="board-info-top">
               <div class="player-bar black-bar">
                 <span class="player-piece">♚</span>
-                <span class="player-name">Schwarz</span>
+                <span class="player-name" data-i18n="game.black">Black</span>
                 <span id="black-status" class="player-status"></span>
               </div>
             </div>
@@ -119,7 +138,7 @@
             <div class="board-info-bottom">
               <div class="player-bar white-bar">
                 <span class="player-piece">♔</span>
-                <span class="player-name">Weiß</span>
+                <span class="player-name" data-i18n="game.white">White</span>
                 <span id="white-status" class="player-status"></span>
               </div>
             </div>
@@ -132,7 +151,7 @@
             >
               <div class="promotion-overlay"></div>
               <div class="promotion-content">
-                <h3>Bauernumwandlung</h3>
+                <h3 data-i18n="game.promotion_title">Pawn Promotion</h3>
                 <div class="promotion-pieces">
                   <button class="promotion-btn" data-piece="Q">
                     <span class="promo-piece"></span>
@@ -154,30 +173,36 @@
           <!-- Right: Info Panel -->
           <div class="info-panel">
             <div class="panel-section">
-              <h3>Spielinfo</h3>
+              <h3 data-i18n="game.info">Game Info</h3>
               <div class="info-grid">
                 <div class="info-item">
-                  <span class="info-label">Spiel-ID</span>
+                  <span class="info-label" data-i18n="game.game_id"
+                    >Game ID</span
+                  >
                   <span id="info-game-id" class="info-value mono">–</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">Am Zug</span>
+                  <span class="info-label" data-i18n="game.turn">Turn</span>
                   <span id="info-turn" class="info-value">–</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">Zugnummer</span>
+                  <span class="info-label" data-i18n="game.move_number"
+                    >Move Number</span
+                  >
                   <span id="info-move-num" class="info-value">–</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">Status</span>
+                  <span class="info-label" data-i18n="game.status">Status</span>
                   <span id="info-status" class="info-value">–</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">Schach</span>
+                  <span class="info-label" data-i18n="game.check">Check</span>
                   <span id="info-check" class="info-value">–</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">Legale Züge</span>
+                  <span class="info-label" data-i18n="game.legal_moves"
+                    >Legal Moves</span
+                  >
                   <span id="info-legal-moves" class="info-value">–</span>
                 </div>
               </div>
@@ -192,32 +217,49 @@
 
             <!-- Actions -->
             <div class="panel-section" id="game-actions">
-              <h3>Aktionen</h3>
+              <h3 data-i18n="game.actions">Actions</h3>
               <div class="action-buttons">
-                <button id="btn-resign" class="btn btn-danger btn-sm">
-                  Aufgeben
+                <button
+                  id="btn-resign"
+                  class="btn btn-danger btn-sm"
+                  data-i18n="game.resign"
+                >
+                  Resign
                 </button>
-                <button id="btn-offer-draw" class="btn btn-warning btn-sm">
-                  Remis anbieten
+                <button
+                  id="btn-offer-draw"
+                  class="btn btn-warning btn-sm"
+                  data-i18n="game.offer_draw"
+                >
+                  Offer Draw
                 </button>
-                <button id="btn-claim-draw" class="btn btn-ghost btn-sm">
-                  Remis beanspruchen
+                <button
+                  id="btn-claim-draw"
+                  class="btn btn-ghost btn-sm"
+                  data-i18n="game.claim_draw"
+                >
+                  Claim Draw
                 </button>
-                <button id="btn-delete-game" class="btn btn-ghost btn-sm">
-                  Spiel löschen
+                <button
+                  id="btn-delete-game"
+                  class="btn btn-ghost btn-sm"
+                  data-i18n="game.delete"
+                >
+                  Delete Game
                 </button>
               </div>
             </div>
 
             <!-- Manual Move Input -->
             <div class="panel-section">
-              <h3>Zug eingeben</h3>
+              <h3 data-i18n="game.move_input">Enter Move</h3>
               <div class="move-input-row">
                 <input
                   type="text"
                   id="input-from"
                   class="move-input"
-                  placeholder="von (z.B. e2)"
+                  data-i18n-placeholder="game.from_placeholder"
+                  placeholder="from (e.g. e2)"
                   maxlength="2"
                 />
                 <span class="move-arrow">→</span>
@@ -225,38 +267,53 @@
                   type="text"
                   id="input-to"
                   class="move-input"
-                  placeholder="nach (z.B. e4)"
+                  data-i18n-placeholder="game.to_placeholder"
+                  placeholder="to (e.g. e4)"
                   maxlength="2"
                 />
-                <button id="btn-submit-move" class="btn btn-primary btn-sm">
-                  Ziehen
+                <button
+                  id="btn-submit-move"
+                  class="btn btn-primary btn-sm"
+                  data-i18n="game.submit_move"
+                >
+                  Move
                 </button>
               </div>
             </div>
 
             <!-- Move History -->
             <div class="panel-section">
-              <h3>Zughistorie</h3>
+              <h3 data-i18n="game.move_history">Move History</h3>
               <div id="move-history" class="move-history">
-                <div class="empty-hint">Noch keine Züge.</div>
+                <div class="empty-hint" data-i18n="game.no_moves">
+                  No moves yet.
+                </div>
               </div>
             </div>
 
             <!-- Castling Rights -->
             <div class="panel-section">
-              <h3>Rochaderechte</h3>
+              <h3 data-i18n="game.castling_rights">Castling Rights</h3>
               <div id="castling-info" class="castling-grid">
                 <div class="castling-item">
-                  <span>♔</span> Königsseite: <span id="castle-wk">✓</span>
+                  <span>♔</span>
+                  <span data-i18n="game.kingside">Kingside</span>:
+                  <span id="castle-wk">✓</span>
                 </div>
                 <div class="castling-item">
-                  <span>♔</span> Damenseite: <span id="castle-wq">✓</span>
+                  <span>♔</span>
+                  <span data-i18n="game.queenside">Queenside</span>:
+                  <span id="castle-wq">✓</span>
                 </div>
                 <div class="castling-item">
-                  <span>♚</span> Königsseite: <span id="castle-bk">✓</span>
+                  <span>♚</span>
+                  <span data-i18n="game.kingside">Kingside</span>:
+                  <span id="castle-bk">✓</span>
                 </div>
                 <div class="castling-item">
-                  <span>♚</span> Damenseite: <span id="castle-bq">✓</span>
+                  <span>♚</span>
+                  <span data-i18n="game.queenside">Queenside</span>:
+                  <span id="castle-bq">✓</span>
                 </div>
               </div>
             </div>
@@ -267,25 +324,33 @@
       <!-- ========== ARCHIVE VIEW ========== -->
       <section id="view-archive" class="view">
         <div class="section-header">
-          <h1>Spielarchiv</h1>
-          <button id="btn-refresh-archive" class="btn btn-ghost">
-            ↻ Aktualisieren
+          <h1 data-i18n="archive.title">Game Archive</h1>
+          <button
+            id="btn-refresh-archive"
+            class="btn btn-ghost"
+            data-i18n="archive.refresh"
+          >
+            ↻ Refresh
           </button>
         </div>
 
         <div id="archive-list" class="games-grid">
           <div class="empty-state" id="no-archive">
             <span class="empty-icon">📦</span>
-            <p>Noch keine archivierten Spiele.</p>
+            <p data-i18n="archive.no_games">No archived games yet.</p>
           </div>
         </div>
 
         <!-- Archive Replay -->
         <div id="archive-replay" style="display: none">
           <div class="section-header">
-            <h2 id="replay-title">Wiedergabe</h2>
-            <button id="btn-close-replay" class="btn btn-ghost">
-              ✕ Schließen
+            <h2 id="replay-title" data-i18n="archive.replay">Replay</h2>
+            <button
+              id="btn-close-replay"
+              class="btn btn-ghost"
+              data-i18n="archive.close"
+            >
+              ✕ Close
             </button>
           </div>
           <div class="replay-layout">
@@ -309,7 +374,8 @@
                 <button id="replay-end" class="btn btn-ghost btn-sm">⏭</button>
               </div>
               <div class="replay-info">
-                Zug <span id="replay-move-num">0</span> /
+                <span data-i18n="archive.move_label">Move</span>
+                <span id="replay-move-num">0</span> /
                 <span id="replay-total-moves">0</span>
               </div>
             </div>
@@ -323,6 +389,7 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@bquery/bquery@1/dist/full.umd.min.js"></script>
+    <script src="/web/js/i18n.js"></script>
     <script src="/web/js/app.js"></script>
   </body>
 </html>

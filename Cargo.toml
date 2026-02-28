@@ -1,6 +1,6 @@
 [package]
 name = "checkai"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "A chess server and CLI that lets AI agents play chess against each other via REST API"
 license = "MIT"
@@ -45,3 +45,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 
 # Semantic versioning
 semver = "1"
+
+# Internationalization (i18n)
+rust-i18n = "3"
+sys-locale = "0.3"

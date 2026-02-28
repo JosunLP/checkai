@@ -130,7 +130,7 @@ pub async fn create_game(
 
     HttpResponse::Created().json(CreateGameResponse {
         game_id: game_id.to_string(),
-        message: "New chess game created. White to move.".to_string(),
+        message: t!("api.game_created").to_string(),
     })
 }
 
@@ -194,7 +194,7 @@ pub async fn get_game(
         Ok(id) => id,
         Err(_) => {
             return HttpResponse::BadRequest().json(ErrorResponse {
-                error: format!("Invalid game ID: {}", game_id_str),
+                error: t!("api.invalid_game_id", id = &game_id_str).to_string(),
             });
         }
     };
@@ -217,7 +217,7 @@ pub async fn get_game(
             })
         }
         None => HttpResponse::NotFound().json(ErrorResponse {
-            error: format!("Game {} not found", game_id),
+            error: t!("api.game_not_found", id = &game_id.to_string()).to_string(),
         }),
     }
 }
@@ -247,7 +247,7 @@ pub async fn delete_game(
         Ok(id) => id,
         Err(_) => {
             return HttpResponse::BadRequest().json(ErrorResponse {
-                error: format!("Invalid game ID: {}", game_id_str),
+                error: t!("api.invalid_game_id", id = &game_id_str).to_string(),
             });
         }
     };
@@ -265,11 +265,11 @@ pub async fn delete_game(
         );
 
         HttpResponse::Ok().json(serde_json::json!({
-            "message": format!("Game {} deleted", game_id)
+            "message": t!("api.game_deleted", id = &game_id.to_string()).to_string()
         }))
     } else {
         HttpResponse::NotFound().json(ErrorResponse {
-            error: format!("Game {} not found", game_id),
+            error: t!("api.game_not_found", id = &game_id.to_string()).to_string(),
         })
     }
 }
@@ -307,7 +307,7 @@ pub async fn submit_move(
         Ok(id) => id,
         Err(_) => {
             return HttpResponse::BadRequest().json(ErrorResponse {
-                error: format!("Invalid game ID: {}", game_id_str),
+                error: t!("api.invalid_game_id", id = &game_id_str).to_string(),
             });
         }
     };
@@ -320,7 +320,7 @@ pub async fn submit_move(
             Some(g) => g,
             None => {
                 return HttpResponse::NotFound().json(ErrorResponse {
-                    error: format!("Game {} not found", game_id),
+                    error: t!("api.game_not_found", id = &game_id.to_string()).to_string(),
                 });
             }
         };
@@ -335,15 +335,16 @@ pub async fn submit_move(
             Ok(()) => {
                 let is_check = movegen::is_in_check(&game.board, game.turn);
                 let message = if game.is_over() {
-                    format!(
-                        "Game over: {} ({})",
-                        game.result.as_ref().unwrap(),
-                        game.end_reason.as_ref().unwrap()
+                    t!(
+                        "api.game_over_msg",
+                        result = game.result.as_ref().unwrap().to_string(),
+                        reason = game.end_reason.as_ref().unwrap().to_string()
                     )
+                    .to_string()
                 } else if is_check {
-                    format!("{} to move. Check!", game.turn)
+                    t!("api.to_move_check", color = game.turn.to_string()).to_string()
                 } else {
-                    format!("{} to move.", game.turn)
+                    t!("api.to_move", color = game.turn.to_string()).to_string()
                 };
 
                 log::info!(
@@ -428,7 +429,7 @@ pub async fn submit_action(
         Ok(id) => id,
         Err(_) => {
             return HttpResponse::BadRequest().json(ErrorResponse {
-                error: format!("Invalid game ID: {}", game_id_str),
+                error: t!("api.invalid_game_id", id = &game_id_str).to_string(),
             });
         }
     };
@@ -441,7 +442,7 @@ pub async fn submit_action(
             Some(g) => g,
             None => {
                 return HttpResponse::NotFound().json(ErrorResponse {
-                    error: format!("Game {} not found", game_id),
+                    error: t!("api.game_not_found", id = &game_id.to_string()).to_string(),
                 });
             }
         };
@@ -455,13 +456,14 @@ pub async fn submit_action(
             Ok(()) => {
                 let is_check = movegen::is_in_check(&game.board, game.turn);
                 let message = if game.is_over() {
-                    format!(
-                        "Game over: {} ({})",
-                        game.result.as_ref().unwrap(),
-                        game.end_reason.as_ref().unwrap()
+                    t!(
+                        "api.game_over_msg",
+                        result = game.result.as_ref().unwrap().to_string(),
+                        reason = game.end_reason.as_ref().unwrap().to_string()
                     )
+                    .to_string()
                 } else {
-                    format!("Action '{}' processed.", body.action)
+                    t!("api.action_processed", action = &body.action).to_string()
                 };
 
                 log::info!("Game {}: Action '{}' accepted. {}", game_id, body.action, message);
@@ -534,7 +536,7 @@ pub async fn get_legal_moves(
         Ok(id) => id,
         Err(_) => {
             return HttpResponse::BadRequest().json(ErrorResponse {
-                error: format!("Invalid game ID: {}", game_id_str),
+                error: t!("api.invalid_game_id", id = &game_id_str).to_string(),
             });
         }
     };
@@ -553,7 +555,7 @@ pub async fn get_legal_moves(
             })
         }
         None => HttpResponse::NotFound().json(ErrorResponse {
-            error: format!("Game {} not found", game_id),
+            error: t!("api.game_not_found", id = &game_id.to_string()).to_string(),
         }),
     }
 }
@@ -584,7 +586,7 @@ pub async fn get_board_ascii(
         Err(_) => {
             return HttpResponse::BadRequest()
                 .content_type("text/plain")
-                .body(format!("Invalid game ID: {}", game_id_str));
+                .body(t!("api.invalid_game_id", id = &game_id_str).to_string());
         }
     };
 
@@ -598,7 +600,7 @@ pub async fn get_board_ascii(
         }
         None => HttpResponse::NotFound()
             .content_type("text/plain")
-            .body(format!("Game {} not found", game_id)),
+            .body(t!("api.game_not_found", id = &game_id.to_string()).to_string()),
     }
 }
 
@@ -620,7 +622,7 @@ pub fn board_to_ascii(board: &Board, turn: Color) -> String {
         s.push_str("  +---+---+---+---+---+---+---+---+\n");
     }
     s.push_str("    a   b   c   d   e   f   g   h\n");
-    s.push_str(&format!("\n  {} to move\n", turn));
+    s.push_str(&format!("\n  {} {}\n", t!("api.board_status", color = turn.to_string()), ""));
     s
 }
 
@@ -665,7 +667,7 @@ pub async fn list_archived_games(data: web::Data<AppState>) -> impl Responder {
         Ok(ids) => ids,
         Err(e) => {
             return HttpResponse::InternalServerError().json(ErrorResponse {
-                error: format!("Failed to list archives: {}", e),
+                error: t!("api.failed_list_archives", error = &e).to_string(),
             });
         }
     };
@@ -729,7 +731,7 @@ pub async fn get_archived_game(
         Ok(id) => id,
         Err(_) => {
             return HttpResponse::BadRequest().json(ErrorResponse {
-                error: format!("Invalid game ID: {}", game_id_str),
+                error: t!("api.invalid_game_id", id = &game_id_str).to_string(),
             });
         }
     };
@@ -757,7 +759,7 @@ pub async fn get_archived_game(
             })
         }
         Err(e) => HttpResponse::InternalServerError().json(ErrorResponse {
-            error: format!("Failed to replay game: {}", e),
+            error: t!("api.failed_replay", error = &e).to_string(),
         }),
     }
 }
@@ -792,7 +794,7 @@ pub async fn replay_archived_game(
         Ok(id) => id,
         Err(_) => {
             return HttpResponse::BadRequest().json(ErrorResponse {
-                error: format!("Invalid game ID: {}", game_id_str),
+                error: t!("api.invalid_game_id", id = &game_id_str).to_string(),
             });
         }
     };
@@ -822,7 +824,7 @@ pub async fn replay_archived_game(
             })
         }
         Err(e) => HttpResponse::InternalServerError().json(ErrorResponse {
-            error: format!("Failed to replay game: {}", e),
+            error: t!("api.failed_replay", error = &e).to_string(),
         }),
     }
 }
@@ -850,7 +852,7 @@ pub async fn get_storage_stats(data: web::Data<AppState>) -> impl Responder {
     match manager.storage.stats() {
         Ok(stats) => HttpResponse::Ok().json(stats),
         Err(e) => HttpResponse::InternalServerError().json(ErrorResponse {
-            error: format!("Failed to get storage stats: {}", e),
+            error: t!("api.failed_stats", error = &e).to_string(),
         }),
     }
 }

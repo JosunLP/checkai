@@ -1,0 +1,169 @@
+# ---------------------------------------------------------------------------
+# Interface de terminal
+# ---------------------------------------------------------------------------
+terminal.banner_title: 'CheckAI — Xadrez no Terminal'
+terminal.banner_subtitle: 'Regras FIDE 2023'
+terminal.move_status: '  Lance %{num}. %{color} joga.'
+terminal.check: 'XEQUE!'
+terminal.legal_moves_count: '(%{count} lances legais)'
+terminal.castling_info: '  Roque: %{rights}  |  Relógio de meio-lance: %{clock}'
+terminal.en_passant_info: '  Casa en passant: %{square}'
+terminal.game_over_label: 'FIM DE JOGO'
+terminal.result_label: '  Resultado: %{result}'
+terminal.cmd_header: 'Comandos:'
+terminal.cmd_move: 'Mover peça (ex. e2e4, e7e8Q para promoção)'
+terminal.cmd_moves: 'Listar todos os lances legais'
+terminal.cmd_board: 'Mostrar o tabuleiro atual'
+terminal.cmd_resign: 'Desistir da partida'
+terminal.cmd_draw: 'Reivindicar empate (se elegível)'
+terminal.cmd_history: 'Mostrar histórico de lances'
+terminal.cmd_json: 'Mostrar estado do jogo em JSON'
+terminal.cmd_help: 'Mostrar esta mensagem de ajuda'
+terminal.cmd_quit: 'Sair do aplicativo'
+terminal.no_moves_yet: '  Nenhum lance realizado ainda.'
+terminal.move_history_label: 'Histórico de lances:'
+terminal.input_error: 'Erro ao ler entrada.'
+terminal.goodbye: 'Até logo!'
+terminal.legal_moves_header: 'Lances legais'
+terminal.moves_count: '(%{count} lances):'
+terminal.error_label: 'Erro'
+terminal.no_draw_available: 'Nenhuma reivindicação de empate disponível. Relógio: %{clock}, Repetições: %{reps}'
+terminal.illegal_move: 'Lance ilegal'
+terminal.unknown_cmd: 'Comando desconhecido'
+terminal.unknown_cmd_hint: "'%{cmd}'. Digite %{help} para ajuda."
+
+# ---------------------------------------------------------------------------
+# Atualização / verificação de versão
+# ---------------------------------------------------------------------------
+update.new_version_title: 'Uma nova versão do CheckAI está disponível!'
+update.current_latest: 'Atual: v%{current}       Mais recente: v%{latest}'
+update.run_update_hint: 'Execute `checkai update` para atualizar.'
+update.checking: 'Verificando atualizações...'
+update.up_to_date: 'Já está atualizado (v%{version}).'
+update.updating: 'Atualizando CheckAI: v%{current} → v%{latest} ...'
+update.no_asset: "Arquivo de release não encontrado para esta plataforma (esperado '%{expected}'). Disponíveis: %{available}"
+update.downloading: 'Baixando %{name}...'
+update.downloaded: '%{bytes} bytes baixados.'
+update.success: 'Atualizado com sucesso para v%{version}!'
+update.restart_hint: 'Por favor reinicie o checkai para usar a nova versão.'
+update.unsupported_os: 'Sistema operacional não suportado. CheckAI suporta Linux, macOS e Windows.'
+update.unsupported_arch: 'Arquitetura de CPU não suportada. CheckAI suporta x86_64 e aarch64.'
+
+# ---------------------------------------------------------------------------
+# Respostas da API
+# ---------------------------------------------------------------------------
+api.game_created: 'Nova partida de xadrez criada. Brancas jogam.'
+api.invalid_game_id: 'ID de partida inválido: %{id}'
+api.game_not_found: 'Partida %{id} não encontrada'
+api.game_deleted: 'Partida %{id} excluída'
+api.game_over_msg: 'Partida encerrada: %{result} (%{reason})'
+api.to_move_check: '%{color} joga. Xeque!'
+api.to_move: '%{color} joga.'
+api.action_processed: "Ação '%{action}' processada."
+api.board_status: '%{color} joga'
+api.failed_list_archives: 'Falha ao listar arquivos: %{error}'
+api.failed_replay: 'Falha ao reproduzir partida: %{error}'
+api.failed_stats: 'Falha ao obter estatísticas: %{error}'
+
+# ---------------------------------------------------------------------------
+# Erros de lógica do jogo
+# ---------------------------------------------------------------------------
+game.already_over: 'A partida já terminou'
+game.no_draw_offer: 'Nenhuma oferta de empate para aceitar'
+game.no_threefold: 'Repetição tripla não ocorreu'
+game.no_fifty_move: 'Regra dos 50 lances não atingida (relógio: %{clock})'
+game.invalid_draw_reason: "Razão de reivindicação de empate inválida: '%{reason}'"
+game.unknown_action: "Ação desconhecida: '%{action}'"
+
+# ---------------------------------------------------------------------------
+# Exibição de tipos
+# ---------------------------------------------------------------------------
+types.white: 'brancas'
+types.black: 'pretas'
+types.result.white_wins: '1-0 (Brancas vencem)'
+types.result.black_wins: '0-1 (Pretas vencem)'
+types.result.draw: '1/2-1/2 (Empate)'
+types.reason.checkmate: 'Xeque-mate'
+types.reason.stalemate: 'Afogamento'
+types.reason.threefold: 'Repetição tripla'
+types.reason.fivefold: 'Repetição quíntupla'
+types.reason.fifty_move: 'Regra dos 50 lances'
+types.reason.seventy_five: 'Regra dos 75 lances'
+types.reason.insufficient: 'Material insuficiente'
+types.reason.resignation: 'Desistência'
+types.reason.draw_agreement: 'Empate por acordo'
+
+# ---------------------------------------------------------------------------
+# Validação de lances
+# ---------------------------------------------------------------------------
+movegen.invalid_from: 'Casa de origem inválida: %{square}'
+movegen.invalid_to: 'Casa de destino inválida: %{square}'
+movegen.invalid_promotion: 'Peça de promoção inválida: %{piece}'
+movegen.no_piece: 'Nenhuma peça na casa %{square}'
+movegen.wrong_color: 'A peça em %{square} pertence a %{owner}, mas é a vez de %{turn}'
+movegen.no_legal_moves: 'Lance ilegal: %{piece} (%{square}) não tem lances legais'
+movegen.not_legal: 'Lance ilegal: %{mv} não é legal. Lances legais de %{square}: %{legal}'
+
+# ---------------------------------------------------------------------------
+# Exportação
+# ---------------------------------------------------------------------------
+export.unknown_format: "Formato de exportação desconhecido '%{format}'. Válidos: text, pgn, json"
+export.box_header: 'EXPORTAÇÃO DE PARTIDA CHECKAI'
+export.game_id_label: 'ID da partida:'
+export.started_label: 'Início:'
+export.ended_label: 'Fim:'
+export.duration_label: 'Duração:'
+export.half_moves: '%{count} meios-lances'
+export.full_moves: '(%{count} lances completos)'
+export.result_label: 'Resultado:'
+export.in_progress: 'Em andamento'
+export.reason_label: 'Razão:'
+export.raw_size_label: 'Tamanho bruto:'
+export.bytes_unit: 'bytes'
+export.compressed_label: 'Comprimido:'
+export.move_list_header: 'LISTA DE LANCES'
+export.white_label: 'Brancas'
+export.black_label: 'Pretas'
+export.final_position: 'Posição final:'
+export.ended_by: 'Partida encerrada por: %{reason}'
+export.in_check: '%{color} está em xeque.'
+export.failed_open_storage: "Falha ao abrir armazenamento em '%{path}': %{error}"
+export.specify_game_id: 'Por favor especifique --game-id <UUID> ou use --list / --all'
+export.invalid_game_id: "ID de partida inválido: '%{id}'"
+export.no_games: 'Nenhuma partida encontrada no armazenamento.'
+export.archived_header: 'PARTIDAS ARQUIVADAS'
+export.completed_summary: 'Concluídas (%{count} partidas, %{bytes} bytes comprimidos):'
+export.active_summary: 'Ativas (%{count} partidas, %{bytes} bytes):'
+export.total_storage: 'Armazenamento total: %{bytes} bytes'
+export.no_archived: 'Nenhuma partida arquivada encontrada.'
+export.exported_count: '%{count} partida(s) exportada(s) no formato %{format}.'
+export.write_failed: "Falha ao escrever em '%{path}': %{error}"
+export.written_to: 'Escrito em: %{path}'
+
+# ---------------------------------------------------------------------------
+# Armazenamento
+# ---------------------------------------------------------------------------
+storage.invalid_from: 'Casa de origem inválida: %{value}'
+storage.invalid_to: 'Casa de destino inválida: %{value}'
+storage.invalid_promotion: 'Promoção inválida: %{value}'
+storage.too_many_moves: 'Lances demais para codificar (máx 65535)'
+storage.header_too_short: 'Dados curtos demais para o cabeçalho'
+storage.invalid_magic: 'Bytes mágicos inválidos — não é um arquivo .cai'
+storage.unsupported_version: 'Versão de formato não suportada: %{version}'
+storage.data_too_short: 'Dados curtos demais: esperado %{expected} bytes, recebido %{got}'
+storage.replay_failed: 'Reprodução falhou no meio-lance %{num}: %{error}'
+storage.game_not_found: 'Partida %{id} não encontrada no armazenamento'
+
+# ---------------------------------------------------------------------------
+# WebSocket
+# ---------------------------------------------------------------------------
+ws.invalid_json: 'JSON inválido: %{error}'
+ws.unknown_action: "Ação desconhecida: '%{action}'"
+ws.missing_game_id: 'Campo ausente: game_id'
+ws.invalid_game_id: 'game_id inválido: %{error}'
+ws.missing_from: 'Campo ausente: from'
+ws.missing_to: 'Campo ausente: to'
+ws.missing_action_type: 'Campo ausente: action_type'
+ws.subscribed: 'Inscrito na partida %{id}'
+ws.unsubscribed: 'Desinscrito da partida %{id}'
+ws.binary_not_supported: 'Mensagens binárias não são suportadas. Por favor envie texto JSON.'

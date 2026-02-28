@@ -41,10 +41,7 @@ impl std::str::FromStr for ExportFormat {
             "text" | "txt" => Ok(Self::Text),
             "pgn" => Ok(Self::Pgn),
             "json" => Ok(Self::Json),
-            _ => Err(format!(
-                "Unknown export format '{}'. Valid: text, pgn, json",
-                s
-            )),
+            _ => Err(t!("export.unknown_format", format = s).to_string()),
         }
     }
 }
@@ -125,38 +122,38 @@ pub fn format_text(archive: &GameArchive, compressed_bytes: Option<u64>) -> Resu
 
     // ── Header ──────────────────────────────────────────────
     out.push_str("╔══════════════════════════════════════════════════════════╗\n");
-    out.push_str("║                    CHECKAI GAME EXPORT                  ║\n");
+    out.push_str(&format!("║{:^58}║\n", t!("export.box_header")));
     out.push_str("╚══════════════════════════════════════════════════════════╝\n\n");
 
-    out.push_str(&format!("  Game ID:    {}\n", archive.game_id));
-    out.push_str(&format!("  Started:    {}\n", format_timestamp(archive.start_timestamp)));
-    out.push_str(&format!("  Ended:      {}\n", format_timestamp(archive.end_timestamp)));
+    out.push_str(&format!("  {:<10}  {}\n", t!("export.game_id_label"), archive.game_id));
+    out.push_str(&format!("  {:<10}  {}\n", t!("export.started_label"), format_timestamp(archive.start_timestamp)));
+    out.push_str(&format!("  {:<10}  {}\n", t!("export.ended_label"), format_timestamp(archive.end_timestamp)));
 
     if archive.end_timestamp > archive.start_timestamp && archive.start_timestamp > 0 {
         let duration = archive.end_timestamp - archive.start_timestamp;
-        out.push_str(&format!("  Duration:   {}\n", format_duration(duration)));
+        out.push_str(&format!("  {:<10}  {}\n", t!("export.duration_label"), format_duration(duration)));
     }
 
-    out.push_str(&format!("  Moves:      {} half-moves", archive.move_count()));
+    out.push_str(&format!("  Moves:      {}", t!("export.half_moves", count = archive.move_count())));
     let fullmoves = archive.move_count().div_ceil(2);
-    out.push_str(&format!(" ({} full moves)\n", fullmoves));
+    out.push_str(&format!(" {}\n", t!("export.full_moves", count = fullmoves)));
 
     // Result
     match &archive.result {
         Some(result) => {
-            out.push_str(&format!("  Result:     {}\n", result));
+            out.push_str(&format!("  {:<10}  {}\n", t!("export.result_label"), result));
         }
         None => {
-            out.push_str("  Result:     In progress\n");
+            out.push_str(&format!("  {:<10}  {}\n", t!("export.result_label"), t!("export.in_progress")));
         }
     }
     if let Some(reason) = &archive.end_reason {
-        out.push_str(&format!("  Reason:     {}\n", reason));
+        out.push_str(&format!("  {:<10}  {}\n", t!("export.reason_label"), reason));
     }
 
     // Storage info
     let raw = archive.raw_size();
-    out.push_str(&format!("  Raw size:   {} bytes\n", raw));
+    out.push_str(&format!("  {:<10}  {} {}\n", t!("export.raw_size_label"), raw, t!("export.bytes_unit")));
     if let Some(comp) = compressed_bytes {
         let ratio = if raw > 0 {
             (comp as f64 / raw as f64) * 100.0
@@ -164,16 +161,16 @@ pub fn format_text(archive: &GameArchive, compressed_bytes: Option<u64>) -> Resu
             0.0
         };
         out.push_str(&format!(
-            "  Compressed: {} bytes ({:.1}%)\n",
-            comp, ratio
+            "  {:<10}  {} {} ({:.1}%)\n",
+            t!("export.compressed_label"), comp, t!("export.bytes_unit"), ratio
         ));
     }
 
     // ── Move list ───────────────────────────────────────────
     out.push_str("\n┌──────────────────────────────────┐\n");
-    out.push_str("│           MOVE LIST              │\n");
+    out.push_str(&format!("│{:^34}│\n", t!("export.move_list_header")));
     out.push_str("├─────┬─────────────┬──────────────┤\n");
-    out.push_str("│  #  │    White    │    Black     │\n");
+    out.push_str(&format!("│  #  │{:^13}│{:^14}│\n", t!("export.white_label"), t!("export.black_label")));
     out.push_str("├─────┼─────────────┼──────────────┤\n");
 
     let mut i = 0;
@@ -198,7 +195,7 @@ pub fn format_text(archive: &GameArchive, compressed_bytes: Option<u64>) -> Resu
     out.push_str("└─────┴─────────────┴──────────────┘\n");
 
     // ── Final position board ────────────────────────────────
-    out.push_str("\n  Final Position:\n\n");
+    out.push_str(&format!("\n  {}\n\n", t!("export.final_position")));
     let game = archive.replay_full()?;
     let board_str = board_to_ascii(&game.board, game.turn);
     // Indent the board
@@ -209,12 +206,12 @@ pub fn format_text(archive: &GameArchive, compressed_bytes: Option<u64>) -> Resu
     // ── Check / checkmate status at end ─────────────────────
     if game.is_over() {
         if let Some(reason) = &game.end_reason {
-            out.push_str(&format!("\n  Game ended by: {}\n", reason));
+            out.push_str(&format!("\n  {}\n", t!("export.ended_by", reason = reason.to_string())));
         }
     } else {
         let is_check = movegen::is_in_check(&game.board, game.turn);
         if is_check {
-            out.push_str(&format!("\n  {} is in check.\n", game.turn));
+            out.push_str(&format!("\n  {}\n", t!("export.in_check", color = game.turn.to_string())));
         }
     }
 
@@ -395,7 +392,7 @@ pub fn run_export(
     output: Option<&str>,
 ) -> Result<(), String> {
     let storage = GameStorage::new(data_dir)
-        .map_err(|e| format!("Failed to open storage at '{}': {}", data_dir, e))?;
+        .map_err(|e| t!("export.failed_open_storage", path = data_dir, error = e.to_string()).to_string())?;
 
     // ── List mode ───────────────────────────────────────────
     if list_only {
@@ -409,10 +406,10 @@ pub fn run_export(
 
     // ── Export single game ──────────────────────────────────
     let id_str = game_id.ok_or(
-        "Please specify --game-id <UUID> or use --list / --all"
+        t!("export.specify_game_id").to_string()
     )?;
     let id = Uuid::parse_str(id_str)
-        .map_err(|_| format!("Invalid game ID: '{}'", id_str))?;
+        .map_err(|_| t!("export.invalid_game_id", id = id_str).to_string())?;
 
     let (archive, _compressed) = storage.load_any(&id)?;
     let compressed_bytes = storage.archive_file_size(&id);
@@ -428,20 +425,20 @@ fn run_list(storage: &GameStorage) -> Result<(), String> {
     let active = storage.list_active_on_disk()?;
 
     if archived.is_empty() && active.is_empty() {
-        println!("No games found in storage.");
+        println!("{}", t!("export.no_games"));
         return Ok(());
     }
 
     let stats = storage.stats()?;
 
     println!("╔══════════════════════════════════════════════════════════════════╗");
-    println!("║                       ARCHIVED GAMES                           ║");
+    println!("║{:^66}║", t!("export.archived_header"));
     println!("╠══════════════════════════════════════════════════════════════════╣");
 
     if !archived.is_empty() {
         println!("║                                                                ║");
-        println!("║  Completed ({} games, {} bytes compressed):                  ",
-            stats.archived_count, stats.archive_bytes);
+        println!("║  {}",
+            t!("export.completed_summary", count = stats.archived_count, bytes = stats.archive_bytes));
         println!("║                                                                ║");
 
         for id in &archived {
@@ -462,23 +459,23 @@ fn run_list(storage: &GameStorage) -> Result<(), String> {
 
     if !active.is_empty() {
         println!("║                                                                ║");
-        println!("║  Active ({} games, {} bytes):",
-            stats.active_count, stats.active_bytes);
+        println!("║  {}",
+            t!("export.active_summary", count = stats.active_count, bytes = stats.active_bytes));
         println!("║                                                                ║");
 
         for id in &active {
             if let Ok(archive) = storage.load_active(id) {
                 let fullmoves = archive.move_count().div_ceil(2);
                 println!(
-                    "║  {} │ {:>3} moves │ In progress",
-                    id, fullmoves
+                    "║  {} │ {:>3} moves │ {}",
+                    id, fullmoves, t!("export.in_progress")
                 );
             }
         }
     }
 
     println!("║                                                                ║");
-    println!("║  Total storage: {} bytes                                     ", stats.total_bytes);
+    println!("║  {}", t!("export.total_storage", bytes = stats.total_bytes));
     println!("╚══════════════════════════════════════════════════════════════════╝");
 
     Ok(())
@@ -492,7 +489,7 @@ fn run_export_all(
 ) -> Result<(), String> {
     let archived = storage.list_archived()?;
     if archived.is_empty() {
-        println!("No archived games found.");
+        println!("{}", t!("export.no_archived"));
         return Ok(());
     }
 
@@ -525,9 +522,8 @@ fn run_export_all(
     write_output(&combined, output)?;
 
     eprintln!(
-        "Exported {} game(s) in {:?} format.",
-        archived.len(),
-        format
+        "{}",
+        t!("export.exported_count", count = archived.len(), format = format!("{:?}", format))
     );
 
     Ok(())
@@ -551,8 +547,8 @@ fn write_output(content: &str, output_path: Option<&str>) -> Result<(), String> 
     match output_path {
         Some(path) => {
             std::fs::write(path, content)
-                .map_err(|e| format!("Failed to write to '{}': {}", path, e))?;
-            eprintln!("Written to: {}", path);
+                .map_err(|e| t!("export.write_failed", path = path, error = e.to_string()).to_string())?;
+            eprintln!("{}", t!("export.written_to", path = path));
             Ok(())
         }
         None => {

@@ -575,29 +575,31 @@ pub fn find_matching_legal_move(
     move_json: &MoveJson,
 ) -> Result<ChessMove, String> {
     let from = Square::from_algebraic(&move_json.from)
-        .ok_or_else(|| format!("Invalid from square: {}", move_json.from))?;
+        .ok_or_else(|| t!("movegen.invalid_from", square = &move_json.from).to_string())?;
     let to = Square::from_algebraic(&move_json.to)
-        .ok_or_else(|| format!("Invalid to square: {}", move_json.to))?;
+        .ok_or_else(|| t!("movegen.invalid_to", square = &move_json.to).to_string())?;
     let promotion = match &move_json.promotion {
         Some(p) => Some(match p.as_str() {
             "Q" => PieceKind::Queen,
             "R" => PieceKind::Rook,
             "B" => PieceKind::Bishop,
             "N" => PieceKind::Knight,
-            _ => return Err(format!("Invalid promotion piece: {}", p)),
+            _ => return Err(t!("movegen.invalid_promotion", piece = p).to_string()),
         }),
         None => None,
     };
 
     // Verify a piece of the correct color is on the from square
     match board.get(from) {
-        None => return Err(format!("No piece on square {}", move_json.from)),
+        None => return Err(t!("movegen.no_piece", square = &move_json.from).to_string()),
         Some(piece) => {
             if piece.color != turn {
-                return Err(format!(
-                    "Piece on {} belongs to {:?}, but it is {:?}'s turn",
-                    move_json.from, piece.color, turn
-                ));
+                return Err(t!(
+                    "movegen.wrong_color",
+                    square = &move_json.from,
+                    owner = format!("{:?}", piece.color),
+                    turn = format!("{:?}", turn)
+                ).to_string());
             }
         }
     }
@@ -621,19 +623,24 @@ pub fn find_matching_legal_move(
                 .map(|m| m.to_string())
                 .collect();
             if available.is_empty() {
-                Err(format!(
-                    "Illegal move: {} ({}) has no legal moves",
-                    move_json.from, from_piece
-                ))
+                Err(t!(
+                    "movegen.no_legal_moves",
+                    piece = from_piece.to_string(),
+                    square = &move_json.from
+                ).to_string())
             } else {
-                Err(format!(
-                    "Illegal move: {}{}{} is not legal. Legal moves from {}: {}",
+                let mv_str = format!(
+                    "{}{}{}",
                     move_json.from,
                     move_json.to,
-                    move_json.promotion.as_deref().unwrap_or(""),
-                    move_json.from,
-                    available.join(", ")
-                ))
+                    move_json.promotion.as_deref().unwrap_or("")
+                );
+                Err(t!(
+                    "movegen.not_legal",
+                    mv = &mv_str,
+                    square = &move_json.from,
+                    legal = available.join(", ")
+                ).to_string())
             }
         }
         1 => Ok(matching[0]),

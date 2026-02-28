@@ -410,7 +410,7 @@ impl WsSession {
         let msg: WsClientMessage = match serde_json::from_str(text) {
             Ok(m) => m,
             Err(e) => {
-                let err = build_error_response("unknown", &None, &format!("Invalid JSON: {}", e));
+                let err = build_error_response("unknown", &None, &t!("ws.invalid_json", error = e.to_string()));
                 ctx.text(err);
                 return;
             }
@@ -434,7 +434,7 @@ impl WsSession {
             _ => build_error_response(
                 &msg.action,
                 &msg.request_id,
-                &format!("Unknown action: '{}'", msg.action),
+                &t!("ws.unknown_action", action = &msg.action),
             ),
         };
 
@@ -453,13 +453,13 @@ impl WsSession {
             .game_id
             .as_deref()
             .ok_or_else(|| {
-                build_error_response(&msg.action, &msg.request_id, "Missing field: game_id")
+                build_error_response(&msg.action, &msg.request_id, &t!("ws.missing_game_id"))
             })?;
         Uuid::parse_str(id_str).map_err(|_| {
             build_error_response(
                 &msg.action,
                 &msg.request_id,
-                &format!("Invalid game_id: {}", id_str),
+                &t!("ws.invalid_game_id", error = id_str),
             )
         })
     }
@@ -488,7 +488,7 @@ impl WsSession {
             &msg.request_id,
             &serde_json::json!({
                 "game_id": game_id.to_string(),
-                "message": "New chess game created. White to move.",
+                "message": t!("api.game_created").to_string(),
             }),
         )
     }
@@ -549,7 +549,7 @@ impl WsSession {
             None => build_error_response(
                 &msg.action,
                 &msg.request_id,
-                &format!("Game {} not found", game_id),
+                &t!("api.game_not_found", id = game_id),
             ),
         }
     }
@@ -576,13 +576,13 @@ impl WsSession {
             build_response(
                 &msg.action,
                 &msg.request_id,
-                &serde_json::json!({ "message": format!("Game {} deleted", game_id) }),
+                &serde_json::json!({ "message": t!("api.game_deleted", id = game_id).to_string() }),
             )
         } else {
             build_error_response(
                 &msg.action,
                 &msg.request_id,
-                &format!("Game {} not found", game_id),
+                &t!("api.game_not_found", id = game_id),
             )
         }
     }
@@ -601,7 +601,7 @@ impl WsSession {
                 return build_error_response(
                     &msg.action,
                     &msg.request_id,
-                    "Missing field: from",
+                    &t!("ws.missing_from"),
                 );
             }
         };
@@ -611,7 +611,7 @@ impl WsSession {
                 return build_error_response(
                     &msg.action,
                     &msg.request_id,
-                    "Missing field: to",
+                    &t!("ws.missing_to"),
                 );
             }
         };
@@ -626,7 +626,7 @@ impl WsSession {
                     return build_error_response(
                         &msg.action,
                         &msg.request_id,
-                        &format!("Game {} not found", game_id),
+                        &t!("api.game_not_found", id = game_id),
                     );
                 }
             };
@@ -641,15 +641,14 @@ impl WsSession {
                 Ok(()) => {
                     let is_check = movegen::is_in_check(&game.board, game.turn);
                     let message = if game.is_over() {
-                        format!(
-                            "Game over: {} ({})",
-                            game.result.as_ref().unwrap(),
-                            game.end_reason.as_ref().unwrap()
-                        )
+                        t!("api.game_over_msg",
+                            result = game.result.as_ref().unwrap().to_string(),
+                            reason = game.end_reason.as_ref().unwrap().to_string()
+                        ).to_string()
                     } else if is_check {
-                        format!("{} to move. Check!", game.turn)
+                        t!("api.to_move_check", color = game.turn.to_string()).to_string()
                     } else {
-                        format!("{} to move.", game.turn)
+                        t!("api.to_move", color = game.turn.to_string()).to_string()
                     };
 
                     log::info!("WS Game {}: Move {}{} accepted. {}", game_id, from, to, message);
@@ -703,7 +702,7 @@ impl WsSession {
                 return build_error_response(
                     &msg.action,
                     &msg.request_id,
-                    "Missing field: action_type",
+                    &t!("ws.missing_action_type"),
                 );
             }
         };
@@ -718,7 +717,7 @@ impl WsSession {
                     return build_error_response(
                         &msg.action,
                         &msg.request_id,
-                        &format!("Game {} not found", game_id),
+                        &t!("api.game_not_found", id = game_id),
                     );
                 }
             };
@@ -732,13 +731,12 @@ impl WsSession {
                 Ok(()) => {
                     let is_check = movegen::is_in_check(&game.board, game.turn);
                     let message = if game.is_over() {
-                        format!(
-                            "Game over: {} ({})",
-                            game.result.as_ref().unwrap(),
-                            game.end_reason.as_ref().unwrap()
-                        )
+                        t!("api.game_over_msg",
+                            result = game.result.as_ref().unwrap().to_string(),
+                            reason = game.end_reason.as_ref().unwrap().to_string()
+                        ).to_string()
                     } else {
-                        format!("Action '{}' processed.", action_type)
+                        t!("api.action_processed", action = &action_type).to_string()
                     };
 
                     log::info!(
@@ -818,7 +816,7 @@ impl WsSession {
             None => build_error_response(
                 &msg.action,
                 &msg.request_id,
-                &format!("Game {} not found", game_id),
+                &t!("api.game_not_found", id = game_id),
             ),
         }
     }
@@ -844,7 +842,7 @@ impl WsSession {
             None => build_error_response(
                 &msg.action,
                 &msg.request_id,
-                &format!("Game {} not found", game_id),
+                &t!("api.game_not_found", id = game_id),
             ),
         }
     }
@@ -865,7 +863,7 @@ impl WsSession {
             &msg.action,
             &msg.request_id,
             &serde_json::json!({
-                "message": format!("Subscribed to game {}", game_id),
+                "message": t!("ws.subscribed", id = game_id).to_string(),
                 "game_id": game_id.to_string(),
             }),
         )
@@ -887,7 +885,7 @@ impl WsSession {
             &msg.action,
             &msg.request_id,
             &serde_json::json!({
-                "message": format!("Unsubscribed from game {}", game_id),
+                "message": t!("ws.unsubscribed", id = game_id).to_string(),
                 "game_id": game_id.to_string(),
             }),
         )
@@ -902,7 +900,7 @@ impl WsSession {
                 return build_error_response(
                     &msg.action,
                     &msg.request_id,
-                    &format!("Failed to list archives: {}", e),
+                    &t!("api.failed_list_archives", error = e),
                 );
             }
         };
@@ -979,7 +977,7 @@ impl WsSession {
             Err(e) => build_error_response(
                 &msg.action,
                 &msg.request_id,
-                &format!("Failed to replay game: {}", e),
+                &t!("api.failed_replay", error = e),
             ),
         }
     }
@@ -1023,7 +1021,7 @@ impl WsSession {
             Err(e) => build_error_response(
                 &msg.action,
                 &msg.request_id,
-                &format!("Failed to replay game: {}", e),
+                &t!("api.failed_replay", error = e),
             ),
         }
     }
@@ -1040,7 +1038,7 @@ impl WsSession {
             Err(e) => build_error_response(
                 &msg.action,
                 &msg.request_id,
-                &format!("Failed to get storage stats: {}", e),
+                &t!("api.failed_stats", error = e),
             ),
         }
     }
@@ -1092,7 +1090,7 @@ impl actix::StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession 
                 ctx.text(build_error_response(
                     "binary",
                     &None,
-                    "Binary messages are not supported. Please send JSON text.",
+                    &t!("ws.binary_not_supported"),
                 ));
             }
             Ok(ws::Message::Ping(data)) => {
