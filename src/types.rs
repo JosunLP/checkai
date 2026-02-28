@@ -220,19 +220,10 @@ impl Default for SideCastlingRights {
 }
 
 /// Castling rights for both sides.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct CastlingRights {
     pub white: SideCastlingRights,
     pub black: SideCastlingRights,
-}
-
-impl Default for CastlingRights {
-    fn default() -> Self {
-        Self {
-            white: SideCastlingRights::default(),
-            black: SideCastlingRights::default(),
-        }
-    }
 }
 
 impl CastlingRights {
@@ -387,10 +378,10 @@ impl Board {
         for rank in 0..8u8 {
             for file in 0..8u8 {
                 let sq = Square::new(file, rank);
-                if let Some(piece) = self.get(sq) {
-                    if piece.kind == PieceKind::King && piece.color == color {
-                        return Some(sq);
-                    }
+                if let Some(piece) = self.get(sq)
+                    && piece.kind == PieceKind::King && piece.color == color
+                {
+                    return Some(sq);
                 }
             }
         }

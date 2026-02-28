@@ -80,6 +80,12 @@ pub struct MoveRecord {
     pub move_json: MoveJson,
 }
 
+impl Default for Game {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Game {
     /// Creates a new game from the standard starting position.
     pub fn new() -> Self {
@@ -237,12 +243,12 @@ impl Game {
     /// Updates castling rights after a move.
     fn update_castling_rights(&mut self, mv: &ChessMove) {
         // King move — lose all castling rights for that side
-        if let Some(piece) = self.board.get(mv.to) {
-            if piece.kind == PieceKind::King {
-                let rights = self.castling.for_color_mut(piece.color);
-                rights.kingside = false;
-                rights.queenside = false;
-            }
+        if let Some(piece) = self.board.get(mv.to)
+            && piece.kind == PieceKind::King
+        {
+            let rights = self.castling.for_color_mut(piece.color);
+            rights.kingside = false;
+            rights.queenside = false;
         }
 
         // Check if a rook moved from or was captured on its starting square

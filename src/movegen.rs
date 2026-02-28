@@ -28,12 +28,11 @@ pub fn is_square_attacked(board: &Board, sq: Square, attacker_color: Color) -> b
         (1, -2), (1, 2), (2, -1), (2, 1),
     ];
     for &(df, dr) in &knight_offsets {
-        if let Some(from) = sq.offset(df, dr) {
-            if let Some(piece) = board.get(from) {
-                if piece.color == attacker_color && piece.kind == PieceKind::Knight {
-                    return true;
-                }
-            }
+        if let Some(from) = sq.offset(df, dr)
+            && let Some(piece) = board.get(from)
+            && piece.color == attacker_color && piece.kind == PieceKind::Knight
+        {
+            return true;
         }
     }
 
@@ -43,12 +42,11 @@ pub fn is_square_attacked(board: &Board, sq: Square, attacker_color: Color) -> b
             if df == 0 && dr == 0 {
                 continue;
             }
-            if let Some(from) = sq.offset(df, dr) {
-                if let Some(piece) = board.get(from) {
-                    if piece.color == attacker_color && piece.kind == PieceKind::King {
-                        return true;
-                    }
-                }
+            if let Some(from) = sq.offset(df, dr)
+                && let Some(piece) = board.get(from)
+                && piece.color == attacker_color && piece.kind == PieceKind::King
+            {
+                return true;
             }
         }
     }
@@ -61,12 +59,11 @@ pub fn is_square_attacked(board: &Board, sq: Square, attacker_color: Color) -> b
     // Pawns attack diagonally from their perspective
     for df in [-1i8, 1] {
         // The attacking pawn is below (for white) or above (for black) the target
-        if let Some(from) = sq.offset(df, -pawn_dir) {
-            if let Some(piece) = board.get(from) {
-                if piece.color == attacker_color && piece.kind == PieceKind::Pawn {
-                    return true;
-                }
-            }
+        if let Some(from) = sq.offset(df, -pawn_dir)
+            && let Some(piece) = board.get(from)
+            && piece.color == attacker_color && piece.kind == PieceKind::Pawn
+        {
+            return true;
         }
     }
 
@@ -380,18 +377,17 @@ fn generate_pawn_moves(
     };
 
     // Single step forward
-    if let Some(one_ahead) = from.offset(0, dir) {
-        if board.get(one_ahead).is_none() {
-            add_move(from, one_ahead, false);
+    if let Some(one_ahead) = from.offset(0, dir)
+        && board.get(one_ahead).is_none()
+    {
+        add_move(from, one_ahead, false);
 
-            // Double step from starting rank
-            if from.rank == start_rank {
-                if let Some(two_ahead) = from.offset(0, dir * 2) {
-                    if board.get(two_ahead).is_none() {
-                        add_move(from, two_ahead, false);
-                    }
-                }
-            }
+        // Double step from starting rank
+        if from.rank == start_rank
+            && let Some(two_ahead) = from.offset(0, dir * 2)
+            && board.get(two_ahead).is_none()
+        {
+            add_move(from, two_ahead, false);
         }
     }
 
@@ -399,17 +395,17 @@ fn generate_pawn_moves(
     for df in [-1i8, 1] {
         if let Some(to) = from.offset(df, dir) {
             // Normal capture
-            if let Some(target) = board.get(to) {
-                if target.color != color {
-                    add_move(from, to, false);
-                }
+            if let Some(target) = board.get(to)
+                && target.color != color
+            {
+                add_move(from, to, false);
             }
 
             // En passant capture
-            if let Some(ep_sq) = en_passant {
-                if to == ep_sq {
-                    add_move(from, to, true);
-                }
+            if let Some(ep_sq) = en_passant
+                && to == ep_sq
+            {
+                add_move(from, to, true);
             }
         }
     }

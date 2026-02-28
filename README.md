@@ -15,6 +15,11 @@ following the **FIDE 2023 Laws of Chess**.
   submit moves, and handle special actions (draw claims, resignation).
   Follows the protocol defined in [`docs/AGENT.md`](docs/AGENT.md).
 
+- **WebSocket API** — Full WebSocket support at `/ws` mirroring every REST
+  endpoint, with real-time event broadcasting. Clients can subscribe to
+  individual games and receive push notifications for moves, state changes,
+  and game deletions.
+
 - **Swagger/OpenAPI Documentation** — Auto-generated interactive API docs
   available at `/swagger-ui/`.
 
@@ -59,6 +64,7 @@ cargo run -- play
 | `POST`   | `/api/games/{id}/action` | Submit a special action |
 | `GET`    | `/api/games/{id}/moves`  | Get all legal moves     |
 | `GET`    | `/api/games/{id}/board`  | Get ASCII board display |
+| `GET`    | `/ws`                    | WebSocket endpoint      |
 
 ## API Usage Example
 
@@ -113,6 +119,91 @@ curl -X POST http://localhost:8080/api/games/{game_id}/action \
   -d '{"action": "claim_draw", "reason": "threefold_repetition"}'
 ```
 
+## WebSocket API
+
+Connect to `ws://localhost:8080/ws` to use the fully reactive WebSocket API.
+
+### Client → Server Messages
+
+All messages are JSON with an `"action"` field. Include an optional
+`"request_id"` for response correlation.
+
+| Action              | Extra Fields                          |
+| ------------------- | ------------------------------------- |
+| `create_game`       | —                                     |
+| `list_games`        | —                                     |
+| `get_game`          | `game_id`                             |
+| `delete_game`       | `game_id`                             |
+| `submit_move`       | `game_id`, `from`, `to`, `promotion?` |
+| `submit_action`     | `game_id`, `action_type`, `reason?`   |
+| `get_legal_moves`   | `game_id`                             |
+| `get_board`         | `game_id`                             |
+| `subscribe`         | `game_id`                             |
+| `unsubscribe`       | `game_id`                             |
+| `list_archived`     | —                                     |
+| `get_archived`      | `game_id`                             |
+| `replay_archived`   | `game_id`, `move_number?`             |
+| `get_storage_stats` | —                                     |
+
+### Server → Client Messages
+
+**Response** (to a command):
+
+```json
+{
+  "type": "response",
+  "action": "submit_move",
+  "request_id": "abc123",
+  "success": true,
+  "data": { ... }
+}
+```
+
+**Event** (pushed to subscribers):
+
+```json
+{
+  "type": "event",
+  "event": "game_updated",
+  "game_id": "550e8400-...",
+  "data": { ... }
+}
+```
+
+### WebSocket Example (JavaScript)
+
+```javascript
+const ws = new WebSocket("ws://localhost:8080/ws");
+
+ws.onopen = () => {
+  // Create a game
+  ws.send(JSON.stringify({ action: "create_game", request_id: "1" }));
+};
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+
+  if (msg.type === "response" && msg.action === "create_game") {
+    const gameId = msg.data.game_id;
+
+    // Subscribe to real-time events
+    ws.send(JSON.stringify({ action: "subscribe", game_id: gameId }));
+
+    // Make a move
+    ws.send(JSON.stringify({
+      action: "submit_move",
+      game_id: gameId,
+      from: "e2",
+      to: "e4"
+    }));
+  }
+
+  if (msg.type === "event") {
+    console.log("Game event:", msg.event, msg.data);
+  }
+};
+```
+
 ## Terminal Commands
 
 When running in terminal mode (`checkai play`):
@@ -144,6 +235,9 @@ checkai/
     ├── movegen.rs      # Move generation and validation engine
     ├── game.rs         # Game state management and API response types
     ├── api.rs          # REST API handlers with OpenAPI annotations
+    ├── ws.rs           # WebSocket API, broadcaster, and session actors
+    ├── storage.rs      # Persistent binary game storage with zstd compression
+    ├── export.rs       # Game export in text, PGN, and JSON formats
     └── terminal.rs     # Terminal interface with colored output
 ```
 

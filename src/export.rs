@@ -32,9 +32,11 @@ pub enum ExportFormat {
     Json,
 }
 
-impl ExportFormat {
+impl std::str::FromStr for ExportFormat {
+    type Err = String;
+
     /// Parses a format string (case-insensitive).
-    pub fn from_str(s: &str) -> Result<Self, String> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "text" | "txt" => Ok(Self::Text),
             "pgn" => Ok(Self::Pgn),
@@ -136,7 +138,7 @@ pub fn format_text(archive: &GameArchive, compressed_bytes: Option<u64>) -> Resu
     }
 
     out.push_str(&format!("  Moves:      {} half-moves", archive.move_count()));
-    let fullmoves = (archive.move_count() + 1) / 2;
+    let fullmoves = archive.move_count().div_ceil(2);
     out.push_str(&format!(" ({} full moves)\n", fullmoves));
 
     // Result
@@ -244,12 +246,8 @@ pub fn format_pgn(archive: &GameArchive) -> Result<String, String> {
     let mut out = String::new();
 
     // PGN headers (Seven Tag Roster)
-    out.push_str(&format!(
-        "[Event \"CheckAI Game\"]\n"
-    ));
-    out.push_str(&format!(
-        "[Site \"CheckAI Server\"]\n"
-    ));
+    out.push_str("[Event \"CheckAI Game\"]\n");
+    out.push_str("[Site \"CheckAI Server\"]\n");
 
     // Date
     if archive.start_timestamp > 0 {
@@ -360,7 +358,7 @@ pub fn format_json(archive: &GameArchive) -> Result<String, String> {
         "result": archive.result.as_ref().map(|r| r.to_string()),
         "end_reason": archive.end_reason.as_ref().map(|r| r.to_string()),
         "move_count": archive.move_count(),
-        "fullmove_count": (archive.move_count() + 1) / 2,
+        "fullmove_count": archive.move_count().div_ceil(2),
         "moves": archive.moves.iter().enumerate().map(|(i, mv)| {
             serde_json::json!({
                 "half_move": i + 1,
@@ -453,7 +451,7 @@ fn run_list(storage: &GameStorage) -> Result<(), String> {
                     None => "—".to_string(),
                 };
                 let size = storage.archive_file_size(id).unwrap_or(0);
-                let fullmoves = (archive.move_count() + 1) / 2;
+                let fullmoves = archive.move_count().div_ceil(2);
                 println!(
                     "║  {} │ {:>3} moves │ {:>5} B │ {}",
                     id, fullmoves, size, result_str
@@ -470,7 +468,7 @@ fn run_list(storage: &GameStorage) -> Result<(), String> {
 
         for id in &active {
             if let Ok(archive) = storage.load_active(id) {
-                let fullmoves = (archive.move_count() + 1) / 2;
+                let fullmoves = archive.move_count().div_ceil(2);
                 println!(
                     "║  {} │ {:>3} moves │ In progress",
                     id, fullmoves

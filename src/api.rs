@@ -12,6 +12,7 @@
 //! All endpoints accept and return JSON following the protocol
 //! defined in AGENT.md.
 
+use actix::Addr;
 use actix_web::{web, HttpResponse, Responder};
 use std::sync::Mutex;
 use utoipa::OpenApi;
@@ -20,9 +21,14 @@ use crate::game::*;
 use crate::movegen;
 use crate::storage::{ArchiveListResponse, ArchiveSummary, ReplayResponse, StorageStats};
 use crate::types::*;
+use crate::ws::GameBroadcaster;
 
 /// Shared application state containing the game manager.
+///
+/// This struct is wrapped in `web::Data` (which uses `Arc` internally)
+/// and shared across all HTTP and WebSocket handlers.
 pub struct AppState {
+    /// The central game manager (protected by a Mutex for thread safety).
     pub game_manager: Mutex<GameManager>,
 }
 
@@ -105,11 +111,22 @@ pub struct ApiDoc;
         (status = 201, description = "Game created successfully", body = CreateGameResponse),
     )
 )]
-pub async fn create_game(data: web::Data<AppState>) -> impl Responder {
+pub async fn create_game(
+    data: web::Data<AppState>,
+    broadcaster: web::Data<Addr<GameBroadcaster>>,
+) -> impl Responder {
     let mut manager = data.game_manager.lock().unwrap();
     let game_id = manager.create_game();
 
     log::info!("Created new game: {}", game_id);
+
+    // Broadcast a "game_created" event to all WebSocket subscribers
+    crate::ws::broadcast_game_event(
+        &broadcaster,
+        game_id,
+        "game_created",
+        &serde_json::json!({ "game_id": game_id.to_string() }),
+    );
 
     HttpResponse::Created().json(CreateGameResponse {
         game_id: game_id.to_string(),
@@ -223,6 +240,7 @@ pub async fn get_game(
 pub async fn delete_game(
     path: web::Path<String>,
     data: web::Data<AppState>,
+    broadcaster: web::Data<Addr<GameBroadcaster>>,
 ) -> impl Responder {
     let game_id_str = path.into_inner();
     let game_id = match uuid::Uuid::parse_str(&game_id_str) {
@@ -237,6 +255,15 @@ pub async fn delete_game(
     let mut manager = data.game_manager.lock().unwrap();
     if manager.delete_game(&game_id) {
         log::info!("Deleted game: {}", game_id);
+
+        // Broadcast a "game_deleted" event to all WebSocket subscribers
+        crate::ws::broadcast_game_event(
+            &broadcaster,
+            game_id,
+            "game_deleted",
+            &serde_json::json!({ "game_id": game_id.to_string() }),
+        );
+
         HttpResponse::Ok().json(serde_json::json!({
             "message": format!("Game {} deleted", game_id)
         }))
@@ -273,6 +300,7 @@ pub async fn submit_move(
     path: web::Path<String>,
     body: web::Json<SubmitMoveRequest>,
     data: web::Data<AppState>,
+    broadcaster: web::Data<Addr<GameBroadcaster>>,
 ) -> impl Responder {
     let game_id_str = path.into_inner();
     let game_id = match uuid::Uuid::parse_str(&game_id_str) {
@@ -344,6 +372,22 @@ pub async fn submit_move(
         Ok(response) => {
             // Persist game state (archive if completed, save if active)
             manager.persist_game(&game_id);
+
+            // Broadcast the game update to all WebSocket subscribers
+            crate::ws::broadcast_game_event(
+                &broadcaster,
+                game_id,
+                "game_updated",
+                &serde_json::json!({
+                    "state": response.state,
+                    "is_over": response.is_over,
+                    "result": response.result,
+                    "end_reason": response.end_reason,
+                    "is_check": response.is_check,
+                    "message": response.message,
+                }),
+            );
+
             HttpResponse::Ok().json(response)
         }
         Err(err) => HttpResponse::BadRequest().json(ErrorResponse { error: err }),
@@ -377,6 +421,7 @@ pub async fn submit_action(
     path: web::Path<String>,
     body: web::Json<SubmitActionRequest>,
     data: web::Data<AppState>,
+    broadcaster: web::Data<Addr<GameBroadcaster>>,
 ) -> impl Responder {
     let game_id_str = path.into_inner();
     let game_id = match uuid::Uuid::parse_str(&game_id_str) {
@@ -441,6 +486,22 @@ pub async fn submit_action(
     match result {
         Ok(response) => {
             manager.persist_game(&game_id);
+
+            // Broadcast the game update to all WebSocket subscribers
+            crate::ws::broadcast_game_event(
+                &broadcaster,
+                game_id,
+                "game_updated",
+                &serde_json::json!({
+                    "state": response.state,
+                    "is_over": response.is_over,
+                    "result": response.result,
+                    "end_reason": response.end_reason,
+                    "is_check": response.is_check,
+                    "message": response.message,
+                }),
+            );
+
             HttpResponse::Ok().json(response)
         }
         Err(err) => HttpResponse::BadRequest().json(ErrorResponse { error: err }),

@@ -9,6 +9,8 @@ license = "MIT"
 # Web framework
 actix-web = "4"
 actix-cors = "0.7"
+actix = "0.13"
+actix-web-actors = "4"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

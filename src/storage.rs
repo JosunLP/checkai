@@ -540,10 +540,10 @@ impl GameStorage {
         for entry in entries {
             let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
             let filename = entry.file_name().to_string_lossy().to_string();
-            if let Some(id_str) = filename.strip_suffix(".cai.zst") {
-                if let Ok(id) = Uuid::parse_str(id_str) {
-                    ids.push(id);
-                }
+            if let Some(id_str) = filename.strip_suffix(".cai.zst")
+                && let Ok(id) = Uuid::parse_str(id_str)
+            {
+                ids.push(id);
             }
         }
 
@@ -559,10 +559,10 @@ impl GameStorage {
         for entry in entries {
             let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
             let filename = entry.file_name().to_string_lossy().to_string();
-            if let Some(id_str) = filename.strip_suffix(".cai") {
-                if let Ok(id) = Uuid::parse_str(id_str) {
-                    ids.push(id);
-                }
+            if let Some(id_str) = filename.strip_suffix(".cai")
+                && let Ok(id) = Uuid::parse_str(id_str)
+            {
+                ids.push(id);
             }
         }
 

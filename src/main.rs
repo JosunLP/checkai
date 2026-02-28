@@ -1,8 +1,8 @@
 //! # CheckAI — Chess Server for AI Agents
 //!
 //! CheckAI is a Rust application that provides both a terminal interface
-//! and a REST API for playing chess. It is designed to facilitate chess
-//! games between AI agents, following the FIDE 2023 Laws of Chess.
+//! and a REST + WebSocket API for playing chess. It is designed to facilitate
+//! chess games between AI agents, following the FIDE 2023 Laws of Chess.
 //!
 //! ## Features
 //!
@@ -14,6 +14,11 @@
 //! - **REST API**: JSON-based API for AI agents to create games,
 //!   query state, submit moves, and handle special actions (draw,
 //!   resign). Uses the protocol defined in AGENT.md.
+//!
+//! - **WebSocket API**: Full reactive WebSocket support at `/ws`,
+//!   mirroring every REST endpoint. Clients can subscribe to games
+//!   and receive real-time push events for moves, state changes,
+//!   and game deletions.
 //!
 //! - **Swagger/OpenAPI Documentation**: Auto-generated API docs
 //!   available at `/swagger-ui/`.
@@ -46,6 +51,7 @@
 //! | POST   | `/api/games/{id}/action`      | Submit an action               |
 //! | GET    | `/api/games/{id}/moves`       | Get legal moves                |
 //! | GET    | `/api/games/{id}/board`       | Get ASCII board                |
+//! | GET    | `/ws`                         | WebSocket endpoint             |
 //! | GET    | `/swagger-ui/`               | Swagger UI documentation       |
 
 pub mod api;
@@ -55,16 +61,20 @@ pub mod movegen;
 pub mod storage;
 pub mod terminal;
 pub mod types;
+pub mod ws;
 
+use actix::Actor;
 use actix_cors::Cors;
 use actix_web::{web, App, HttpServer, middleware};
 use clap::{Parser, Subcommand};
+use std::str::FromStr;
 use std::sync::Mutex;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::api::{ApiDoc, AppState};
 use crate::game::GameManager;
+use crate::ws::GameBroadcaster;
 
 /// CheckAI — A chess server and CLI for AI agents.
 ///
@@ -163,12 +173,12 @@ async fn main() -> std::io::Result<()> {
                 all,
                 output.as_deref(),
             )
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+            .map_err(std::io::Error::other)
         }
     }
 }
 
-/// Starts the HTTP server with all API routes and Swagger UI.
+/// Starts the HTTP + WebSocket server with all API routes and Swagger UI.
 async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()> {
     let openapi = ApiDoc::openapi();
 
@@ -176,10 +186,15 @@ async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()
         game_manager: Mutex::new(GameManager::new(data_dir)),
     });
 
+    // Start the central WebSocket event broadcaster actor
+    let broadcaster = GameBroadcaster::new().start();
+    let broadcaster_data = web::Data::new(broadcaster);
+
     log::info!("Starting CheckAI server on {}:{}", host, port);
     log::info!("Game storage directory: {}", data_dir);
     log::info!("Swagger UI available at http://{}:{}/swagger-ui/", host, port);
     log::info!("API base URL: http://{}:{}/api", host, port);
+    log::info!("WebSocket endpoint: ws://{}:{}/ws", host, port);
 
     HttpServer::new(move || {
         // Configure CORS to allow all origins (for development/agent access)
@@ -193,7 +208,9 @@ async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()
             .wrap(cors)
             .wrap(middleware::Logger::default())
             .app_data(game_manager.clone())
+            .app_data(broadcaster_data.clone())
             .configure(api::configure_routes)
+            .route("/ws", web::get().to(ws::ws_connect))
             .service(
                 SwaggerUi::new("/swagger-ui/{_:.*}")
                     .url("/api-docs/openapi.json", openapi.clone()),
