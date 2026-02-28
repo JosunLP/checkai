@@ -192,6 +192,7 @@ async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()
 
     log::info!("Starting CheckAI server on {}:{}", host, port);
     log::info!("Game storage directory: {}", data_dir);
+    log::info!("Web UI available at http://{}:{}/", host, port);
     log::info!("Swagger UI available at http://{}:{}/swagger-ui/", host, port);
     log::info!("API base URL: http://{}:{}/api", host, port);
     log::info!("WebSocket endpoint: ws://{}:{}/ws", host, port);
@@ -215,6 +216,14 @@ async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()
                 SwaggerUi::new("/swagger-ui/{_:.*}")
                     .url("/api-docs/openapi.json", openapi.clone()),
             )
+            // Serve the bQuery web UI static files
+            .service(actix_files::Files::new("/web", "web").show_files_listing())
+            // Redirect root "/" to the web UI
+            .route("/", web::get().to(|| async {
+                actix_web::HttpResponse::Found()
+                    .append_header(("Location", "/web/index.html"))
+                    .finish()
+            }))
     })
     .bind((host, port))?
     .run()
