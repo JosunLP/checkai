@@ -478,6 +478,8 @@ dependencies = [
  "colored",
  "env_logger",
  "log",
+ "reqwest",
+ "semver",
  "serde",
  "serde_json",
  "tokio",

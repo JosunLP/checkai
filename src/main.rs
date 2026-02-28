@@ -61,6 +61,7 @@ pub mod movegen;
 pub mod storage;
 pub mod terminal;
 pub mod types;
+pub mod update;
 pub mod ws;
 
 use actix::Actor;
@@ -136,6 +137,12 @@ enum Commands {
         #[arg(short, long)]
         output: Option<String>,
     },
+
+    /// Update CheckAI to the latest version from GitHub.
+    Update,
+
+    /// Print the current version.
+    Version,
 }
 
 #[actix_web::main]
@@ -146,11 +153,17 @@ async fn main() -> std::io::Result<()> {
 
     let cli = Cli::parse();
 
+    // Clean up leftover .old.exe from previous updates (Windows)
+    update::cleanup_old_binary();
+
     match cli.command {
         Commands::Serve { port, host, data_dir } => {
+            // Check for updates in the background before starting the server
+            update::check_for_updates().await;
             run_server(&host, port, &data_dir).await
         }
         Commands::Play => {
+            update::check_for_updates().await;
             terminal::run_terminal_game();
             Ok(())
         }
@@ -174,6 +187,16 @@ async fn main() -> std::io::Result<()> {
                 output.as_deref(),
             )
             .map_err(std::io::Error::other)
+        }
+        Commands::Update => {
+            update::perform_update()
+                .await
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            Ok(())
+        }
+        Commands::Version => {
+            println!("checkai v{}", update::version());
+            Ok(())
         }
     }
 }

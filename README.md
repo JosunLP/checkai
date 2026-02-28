@@ -28,7 +28,35 @@ following the **FIDE 2023 Laws of Chess**.
 
 ## Quick Start
 
-### Build
+### Install (pre-built binary)
+
+**Linux / macOS:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.ps1 | iex
+```
+
+### Uninstall
+
+**Linux / macOS:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.ps1 | iex
+```
+
+### Build from source
 
 ```bash
 cargo build --release
@@ -221,14 +249,36 @@ When running in terminal mode (`checkai play`):
 | `help`    | Show help message                    |
 | `quit`    | Quit the application                 |
 
+## Update
+
+CheckAI checks for new versions automatically on startup. To update manually:
+
+```bash
+checkai update
+```
+
+This downloads the latest release from GitHub and replaces the current binary
+in-place. Works on Linux, macOS, and Windows.
+
 ## Project Structure
 
 ```bash
 checkai/
 ├── Cargo.toml          # Dependencies and project metadata
+├── CHANGELOG.md        # Version history (Keep a Changelog)
 ├── README.md           # This file
+├── .github/
+│   └── workflows/
+│       ├── ci.yml      # CI pipeline (fmt, clippy, test, build)
+│       └── release.yml # Release pipeline (cross-platform binaries)
+├── scripts/
+│   ├── install.sh      # Installer for Linux / macOS
+│   ├── install.ps1     # Installer for Windows
+│   ├── uninstall.sh    # Uninstaller for Linux / macOS
+│   └── uninstall.ps1   # Uninstaller for Windows
 ├── docs/
 │   └── AGENT.md        # Chess rules and JSON protocol for AI agents
+├── web/                # Browser-based game UI
 └── src/
     ├── main.rs         # Entry point, CLI parsing, server setup
     ├── types.rs        # Core types (pieces, board, squares, JSON protocol)
@@ -238,6 +288,7 @@ checkai/
     ├── ws.rs           # WebSocket API, broadcaster, and session actors
     ├── storage.rs      # Persistent binary game storage with zstd compression
     ├── export.rs       # Game export in text, PGN, and JSON formats
+    ├── update.rs       # Self-update and version check against GitHub
     └── terminal.rs     # Terminal interface with colored output
 ```
 
