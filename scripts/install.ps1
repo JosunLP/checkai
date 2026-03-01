@@ -56,6 +56,7 @@ if (!(Test-Path $installDir)) {
     New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 }
 
+
 # --- Download binary ---
 $downloadUrl = $asset.browser_download_url
 $targetPath = Join-Path $installDir $binaryName

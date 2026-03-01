@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-03-01
+
+### Fixed
+
+- Web UI now embedded into the binary via `rust-embed`, eliminating the need for an external `web/` directory
+  - Fixes `Specified path is not a directory: "web"` error when running after installation
+  - Frontend is always in sync with the binary version — no separate copy/update step needed
+- Removed `actix-files` dependency in favor of `rust-embed` for self-contained static asset serving
+- Cleaned up broken web-directory copy logic from `update.rs`
+- Reverted unnecessary web-copy additions in `install.ps1` (no longer needed)
+
 ## [0.2.0] - 2026-03-01
 
 ### Added
@@ -61,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Game archiving with zstd compression
 - Web UI for browser-based game viewing
 
-[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/JosunLP/checkai/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/JosunLP/checkai/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JosunLP/checkai/releases/tag/v0.1.0

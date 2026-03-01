@@ -74,8 +74,9 @@ rust_i18n::i18n!("locales", fallback = "en");
 
 use actix::Actor;
 use actix_cors::Cors;
-use actix_web::{App, HttpServer, middleware, web};
+use actix_web::{App, HttpResponse, HttpServer, middleware, web};
 use clap::{Parser, Subcommand};
+use rust_embed::RustEmbed;
 use std::str::FromStr;
 use std::sync::Mutex;
 use utoipa::OpenApi;
@@ -84,6 +85,36 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::api::{ApiDoc, AppState};
 use crate::game::GameManager;
 use crate::ws::GameBroadcaster;
+
+/// Embedded web UI assets (compiled into the binary).
+#[derive(RustEmbed)]
+#[folder = "web/"]
+struct WebAssets;
+
+/// Serves embedded web UI files.
+async fn serve_web_asset(path: web::Path<String>) -> HttpResponse {
+    let file_path = path.into_inner();
+    match WebAssets::get(&file_path) {
+        Some(content) => {
+            let mime_type = match file_path.rsplit('.').next() {
+                Some("html") => "text/html; charset=utf-8",
+                Some("css") => "text/css; charset=utf-8",
+                Some("js") => "application/javascript; charset=utf-8",
+                Some("json") => "application/json",
+                Some("png") => "image/png",
+                Some("svg") => "image/svg+xml",
+                Some("ico") => "image/x-icon",
+                Some("woff2") => "font/woff2",
+                Some("woff") => "font/woff",
+                _ => "application/octet-stream",
+            };
+            HttpResponse::Ok()
+                .content_type(mime_type)
+                .body(content.data.into_owned())
+        }
+        None => HttpResponse::NotFound().finish(),
+    }
+}
 
 /// CheckAI — A chess server and CLI for AI agents.
 ///
@@ -264,8 +295,8 @@ async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()
             .service(
                 SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", openapi.clone()),
             )
-            // Serve the bQuery web UI static files
-            .service(actix_files::Files::new("/web", "web").show_files_listing())
+            // Serve the embedded bQuery web UI
+            .route("/web/{filename:.*}", web::get().to(serve_web_asset))
             // Redirect root "/" to the web UI
             .route(
                 "/",
