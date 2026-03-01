@@ -498,7 +498,7 @@ not be output.
     "white": { "kingside": true, "queenside": true },
     "black": { "kingside": true, "queenside": true }
   },
-  "en_passant": null,
+  "en_passant": "e3",
   "halfmove_clock": 0,
   "fullmove_number": 1,
   "position_history": []

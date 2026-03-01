@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-03-01
+
+### Fixed
+
+- Draw offer logic: offers now persist correctly after the offerer makes a move, allowing the opponent to accept or decline; previously, offers were cleared immediately on any move
+- AGENT.md example 15 (Sicilian Defense): corrected `en_passant` field from `null` to `"e3"` after `1. e4`
+
+### Added
+
+- 37 comprehensive unit tests in `game.rs` covering all critical chess engine edge cases:
+  - Draw offer lifecycle (persist, decline-by-moving, accept, self-accept rejection)
+  - Resignation (both sides)
+  - Checkmate patterns (Scholar's mate, Fool's mate)
+  - Stalemate detection
+  - Castling (kingside, blocked by check, blocked by attacked transit square)
+  - En passant (capture, discovered check blocking, expiration after one move)
+  - Pawn promotion (requirement enforcement, queen promotion)
+  - Pinned pieces (rook along pin line, knight with no moves)
+  - Halfmove clock (reset on pawn move, reset on capture)
+  - Fullmove number increment after Black's move
+  - Position history tracking and threefold repetition claim
+  - 50-move rule claim (valid and premature)
+  - Insufficient material (K vs K, K+N vs K, K+N+N vs K, K+B vs K+B same/different color)
+  - Castling rights updates (king move, rook move, rook capture)
+  - Game flow validation (move after game over, illegal move, opponent piece)
+
 ## [0.2.1] - 2026-03-01
 
 ### Fixed
@@ -72,7 +98,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Game archiving with zstd compression
 - Web UI for browser-based game viewing
 
-[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/JosunLP/checkai/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/JosunLP/checkai/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/JosunLP/checkai/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/JosunLP/checkai/releases/tag/v0.1.0
