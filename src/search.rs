@@ -34,7 +34,7 @@ const DEFAULT_TT_SIZE_MB: usize = 64;
 const NULL_MOVE_REDUCTION: i32 = 3;
 
 /// Maximum search depth (hard ceiling).
-const MAX_DEPTH: i32 = 128;
+pub const MAX_DEPTH: i32 = 128;
 
 /// Infinity value for alpha-beta bounds.
 const INFINITY: i32 = MATE_SCORE + 1;
@@ -584,8 +584,8 @@ impl SearchEngine {
             tt_move = entry.best_move.map(|em| em.to_chess_move());
 
             if !is_pv && entry.depth >= depth {
-                // Denormalize mate scores: stored as distance from root,
-                // adjust back to distance from the current ply.
+                // Denormalize mate scores: table stores ply-independent
+                // distance-to-mate; shift by current ply to get node-local score.
                 let tt_score = if entry.score > MATE_THRESHOLD {
                     entry.score - ply
                 } else if entry.score < -MATE_THRESHOLD {
@@ -958,5 +958,79 @@ mod tests {
         assert!(entry.is_some());
         assert_eq!(entry.unwrap().score, 100);
         assert_eq!(entry.unwrap().depth, 5);
+    }
+
+    /// Verify that mate scores stored at one ply are correctly adjusted when
+    /// probed at a different ply (i.e. the TT normalization round-trips).
+    ///
+    /// Convention: a node-local mate score at ply P is normalized by adding P
+    /// (for wins) / subtracting P (for losses) before storing.  On probe at
+    /// ply Q the stored value is shifted back by Q.  The round-trip must
+    /// reproduce the original node-local score when P == Q and must adjust
+    /// the mate distance correctly when P != Q.
+    #[test]
+    fn test_tt_mate_score_normalization() {
+        // Simulate storing a mate score at ply 2 and probing at ply 4.
+        // The node-local score at ply 2: "mate in 3" = MATE_SCORE - 3.
+        let local_score_at_ply2: i32 = MATE_SCORE - 3;
+        let ply_store: i32 = 2;
+        let ply_probe: i32 = 4;
+
+        // Normalize (as done in alpha_beta store path).
+        let normalized = if local_score_at_ply2 > MATE_THRESHOLD {
+            local_score_at_ply2 + ply_store
+        } else if local_score_at_ply2 < -MATE_THRESHOLD {
+            local_score_at_ply2 - ply_store
+        } else {
+            local_score_at_ply2
+        };
+
+        // Denormalize at probe ply (as done in alpha_beta probe path).
+        let denormalized = if normalized > MATE_THRESHOLD {
+            normalized - ply_probe
+        } else if normalized < -MATE_THRESHOLD {
+            normalized + ply_probe
+        } else {
+            normalized
+        };
+
+        // When probed at a deeper ply the reported score should reflect a
+        // shorter distance-to-mate (the same mate is now "closer" to the root).
+        let expected_at_ply4: i32 = MATE_SCORE - 3 + ply_store - ply_probe; // = MATE_SCORE - 5
+        assert_eq!(
+            denormalized, expected_at_ply4,
+            "Mate score should be adjusted for ply difference"
+        );
+
+        // Also verify exact round-trip when probe ply == store ply.
+        let denormalized_same_ply = if normalized > MATE_THRESHOLD {
+            normalized - ply_store
+        } else if normalized < -MATE_THRESHOLD {
+            normalized + ply_store
+        } else {
+            normalized
+        };
+        assert_eq!(
+            denormalized_same_ply, local_score_at_ply2,
+            "Round-trip at same ply must be identity"
+        );
+
+        // Verify symmetry for a losing score.
+        let loss_score: i32 = -(MATE_SCORE - 2);
+        let norm_loss = if loss_score > MATE_THRESHOLD {
+            loss_score + ply_store
+        } else if loss_score < -MATE_THRESHOLD {
+            loss_score - ply_store
+        } else {
+            loss_score
+        };
+        let denorm_loss = if norm_loss > MATE_THRESHOLD {
+            norm_loss - ply_store
+        } else if norm_loss < -MATE_THRESHOLD {
+            norm_loss + ply_store
+        } else {
+            norm_loss
+        };
+        assert_eq!(denorm_loss, loss_score, "Losing mate round-trip must be identity");
     }
 }

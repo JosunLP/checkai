@@ -41,7 +41,7 @@ use uuid::Uuid;
 
 use crate::game::Game;
 use crate::opening_book::{BookMoveInfo, OpeningBook};
-use crate::search::{SearchEngine, SearchPosition};
+use crate::search::{SearchEngine, SearchPosition, MAX_DEPTH};
 use crate::storage;
 use crate::tablebase::{SyzygyTablebase, TablebaseInfo, WDL};
 use crate::types::*;
@@ -798,7 +798,10 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
     Ok(AnalysisResult {
         annotations,
         summary,
-        depth: *depth,
+        // Report the effective depth: clamp to i32::MAX (for cast safety) and to
+        // MAX_DEPTH (as enforced by SearchEngine::search) so API consumers
+        // see the depth that was actually used, not a potentially unclamped request.
+        depth: (*depth).min(i32::MAX as u32).min(MAX_DEPTH as u32),
         book_available: *has_book,
         tablebase_available: *has_tablebase,
     })

@@ -63,6 +63,7 @@ pub struct AnalysisJobListResponse {
     request_body = AnalyzeGameRequest,
     responses(
         (status = 202, description = "Analysis job submitted", body = SubmitAnalysisResponse),
+        (status = 400, description = "Invalid game ID or game has no moves", body = AnalysisErrorResponse),
         (status = 404, description = "Game not found", body = AnalysisErrorResponse),
     )
 )]
