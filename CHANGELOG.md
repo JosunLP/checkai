@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-03-02
+
+### Added
+
+- **VitePress documentation site** — Complete project documentation built with VitePress and deployed to GitHub Pages
+  - Guide section: Getting Started, CLI Commands, Docker, Configuration, Web UI, Analysis Engine, Opening Book, Tablebases, Architecture, Internationalization
+  - API Reference: REST API, WebSocket API, Analysis API with full endpoint docs, request/response examples, and code samples (JavaScript, Python)
+  - Agent Protocol: Overview, Game State schema, Move Output schema, Chess Rules (FIDE 2023), Special Actions, worked examples
+  - Changelog page mirroring CHANGELOG.md
+  - Local search, edit-on-GitHub links, dark mode support
+- **GitHub Actions workflow** (`docs.yml`) — Automatically builds and deploys documentation to GitHub Pages on every release (`release: published`) with manual trigger support
+
 ## [0.3.0] - 2026-03-02
 
 ### Added
@@ -121,7 +133,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Game archiving with zstd compression
 - Web UI for browser-based game viewing
 
-[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/JosunLP/checkai/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/JosunLP/checkai/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/JosunLP/checkai/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/JosunLP/checkai/compare/v0.2.0...v0.2.1
