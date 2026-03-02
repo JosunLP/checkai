@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-02
+
+### Added
+
+- **Deep game analysis engine** — Asynchronous analysis of complete games with a minimum search depth of 30 plies
+  - Alpha-beta search with PVS/Negascout, transposition table (configurable, default 64 MB), null-move pruning, late move reductions, killer/history heuristics, quiescence search
+  - PeSTO-style position evaluation with midgame/endgame piece-square tables, pawn structure analysis, bishop pair bonus
+  - Move quality classification: Best, Excellent (≤10 cp), Good (≤25 cp), Inaccuracy (≤50 cp), Mistake (≤100 cp), Blunder (>100 cp)
+  - Per-move centipawn loss, principal variation, accuracy percentages per side
+  - Zobrist hashing with compile-time key generation
+- **Opening book support** — Polyglot `.bin` format reader with binary search lookups
+- **Endgame tablebase support** — Syzygy tablebase interface with analytical probing for common endgames (KvK, KRvK, KQvK, etc.) and infrastructure for full .rtbw/.rtbz files
+- **Analysis REST API** at `/api/analysis/*` — Architecturally isolated from player-facing endpoints
+  - `POST /api/analysis/game/{id}` — Submit game for async analysis
+  - `GET /api/analysis/jobs` — List all analysis jobs
+  - `GET /api/analysis/jobs/{id}` — Get job status and results
+  - `DELETE /api/analysis/jobs/{id}` — Cancel or delete a job
+- **Docker support** — Multi-stage Dockerfile, docker-compose.yml with volume mounts for data/books/tablebases, .dockerignore
+- **Docker image CI** — Release workflow now builds and pushes Docker images to GHCR with semver tags
+- CLI flags for analysis configuration: `--book-path`, `--tablebase-path`, `--analysis-depth`, `--tt-size-mb`
+- Analysis locale strings for English and German
+- New source modules: `zobrist.rs`, `eval.rs`, `search.rs`, `opening_book.rs`, `tablebase.rs`, `analysis.rs`, `analysis_api.rs`
+
 ## [0.2.2] - 2026-03-01
 
 ### Fixed
@@ -98,7 +121,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Game archiving with zstd compression
 - Web UI for browser-based game viewing
 
-[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/JosunLP/checkai/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/JosunLP/checkai/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/JosunLP/checkai/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/JosunLP/checkai/compare/v0.1.0...v0.2.0

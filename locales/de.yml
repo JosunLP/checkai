@@ -167,3 +167,22 @@ ws.missing_action_type: 'Fehlendes Feld: action_type'
 ws.subscribed: 'Spiel %{id} abonniert'
 ws.unsubscribed: 'Spiel %{id} abbestellt'
 ws.binary_not_supported: 'Binärnachrichten werden nicht unterstützt. Bitte sende JSON-Text.'
+
+# ---------------------------------------------------------------------------
+# Analyse
+# ---------------------------------------------------------------------------
+analysis.job_submitted: 'Analyseauftrag für Spiel %{id} eingereicht (%{moves} Züge)'
+analysis.job_not_found: 'Analyseauftrag nicht gefunden: %{id}'
+analysis.game_no_moves: 'Spiel hat keine Züge zum Analysieren'
+analysis.quality.best: 'Bester'
+analysis.quality.excellent: 'Ausgezeichnet'
+analysis.quality.good: 'Gut'
+analysis.quality.inaccuracy: 'Ungenauigkeit'
+analysis.quality.mistake: 'Fehler'
+analysis.quality.blunder: 'Patzer'
+analysis.quality.book: 'Buch'
+analysis.book_loaded: 'Eröffnungsbuch geladen: %{count} Einträge'
+analysis.book_failed: 'Eröffnungsbuch konnte nicht geladen werden: %{error}'
+analysis.tablebase_loaded: 'Syzygy-Endspieldatenbank geladen: max. %{pieces} Figuren'
+analysis.tablebase_failed: 'Syzygy-Endspieldatenbank konnte nicht geladen werden: %{error}'
+analysis.engine_config: 'Analyse-Engine: Tiefe=%{depth}, TT=%{tt}MB'
