@@ -963,18 +963,18 @@ mod tests {
     /// Verify that mate scores stored at one ply are correctly adjusted when
     /// probed at a different ply (i.e. the TT normalization round-trips).
     ///
-    /// Engine convention: a forced mate in M moves from a node at ply P scores
+    /// Engine convention: a forced mate in M plies from a node at ply P scores
     /// as `MATE_SCORE - (P + M)`.  This is because checkmate at ply P+M returns
     /// `-MATE_SCORE + (P+M)`, and each negamax level inverts the sign.
-    /// Correspondingly a forced loss in M is `-MATE_SCORE + (P + M)`.
+    /// Correspondingly a forced loss in M plies is `-MATE_SCORE + (P + M)`.
     #[test]
     fn test_tt_mate_score_normalization() {
-        let mate_in: i32 = 3; // moves until forced checkmate from the store node
+        let mate_in_plies: i32 = 3; // plies until forced checkmate from the store node
         let ply_store: i32 = 2;
         let ply_probe: i32 = 4;
 
-        // Score at ply_store for "mate in mate_in from ply_store".
-        let local_score_at_ply_store: i32 = MATE_SCORE - (ply_store + mate_in);
+        // Score at ply_store for "mate in mate_in_plies from ply_store".
+        let local_score_at_ply_store: i32 = MATE_SCORE - (ply_store + mate_in_plies);
 
         // Normalize (as done in alpha_beta store path).
         let normalized = if local_score_at_ply_store > MATE_THRESHOLD {
@@ -986,7 +986,7 @@ mod tests {
         };
 
         // The normalized value is the ply-independent distance-to-mate.
-        assert_eq!(normalized, MATE_SCORE - mate_in);
+        assert_eq!(normalized, MATE_SCORE - mate_in_plies);
 
         // Denormalize at probe ply (as done in alpha_beta probe path).
         let denormalized = if normalized > MATE_THRESHOLD {
@@ -997,11 +997,11 @@ mod tests {
             normalized
         };
 
-        // At ply_probe the score should equal "mate in mate_in from ply_probe".
-        let expected_at_ply_probe: i32 = MATE_SCORE - (ply_probe + mate_in);
+        // At ply_probe the score should equal "mate in mate_in_plies from ply_probe".
+        let expected_at_ply_probe: i32 = MATE_SCORE - (ply_probe + mate_in_plies);
         assert_eq!(
             denormalized, expected_at_ply_probe,
-            "Mate score at probe ply should equal MATE_SCORE - (ply_probe + mate_in)"
+            "Mate score at probe ply should equal MATE_SCORE - (ply_probe + mate_in_plies)"
         );
 
         // Round-trip when probe ply == store ply must be exact identity.
@@ -1017,8 +1017,8 @@ mod tests {
             "Round-trip at same ply must be identity"
         );
 
-        // Verify symmetry for a losing score (opponent has mate in mate_in from ply_store).
-        let loss_score: i32 = -MATE_SCORE + (ply_store + mate_in);
+        // Verify symmetry for a losing score (opponent has mate in mate_in_plies from ply_store).
+        let loss_score: i32 = -MATE_SCORE + (ply_store + mate_in_plies);
         let norm_loss = if loss_score > MATE_THRESHOLD {
             loss_score + ply_store
         } else if loss_score < -MATE_THRESHOLD {
@@ -1027,7 +1027,7 @@ mod tests {
             loss_score
         };
         // Normalized losing score is the ply-independent distance-to-loss.
-        assert_eq!(norm_loss, -MATE_SCORE + mate_in);
+        assert_eq!(norm_loss, -MATE_SCORE + mate_in_plies);
         let denorm_loss = if norm_loss > MATE_THRESHOLD {
             norm_loss - ply_store
         } else if norm_loss < -MATE_THRESHOLD {
