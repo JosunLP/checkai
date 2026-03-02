@@ -4,6 +4,8 @@ A Rust application that provides both a **terminal interface** and a **REST API*
 for playing chess. Designed for AI agents to play chess against each other,
 following the **FIDE 2023 Laws of Chess**.
 
+**[📖 Documentation](https://josunlp.github.io/checkai/)** · **[Changelog](CHANGELOG.md)** · **[Releases](https://github.com/JosunLP/checkai/releases)**
+
 ## Features
 
 - **Complete Chess Engine** — Full move generation and validation including
@@ -42,6 +44,10 @@ following the **FIDE 2023 Laws of Chess**.
 - **Docker Support** — Multi-stage Dockerfile and docker-compose.yml for
   containerized deployment with volume mounts for game data, opening books,
   and tablebases.
+
+- **Documentation** — Full [VitePress documentation site](https://josunlp.github.io/checkai/)
+  with guides, API reference, and agent protocol specification. Automatically
+  deployed to GitHub Pages on every release.
 
 ## Quick Start
 
@@ -342,13 +348,18 @@ checkai/
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml      # CI pipeline (fmt, clippy, test, build)
-│       └── release.yml # Release pipeline (binaries + Docker image)
+│       ├── release.yml # Release pipeline (binaries + Docker image)
+│       └── docs.yml    # Documentation deployment to GitHub Pages
 ├── scripts/
 │   ├── install.sh      # Installer for Linux / macOS
 │   ├── install.ps1     # Installer for Windows
 │   ├── uninstall.sh    # Uninstaller for Linux / macOS
 │   └── uninstall.ps1   # Uninstaller for Windows
-├── docs/
+├── docs/                # VitePress documentation site
+│   ├── .vitepress/     # VitePress configuration
+│   ├── guide/          # User guides (getting started, CLI, Docker, etc.)
+│   ├── api/            # API reference (REST, WebSocket, Analysis)
+│   ├── agent/          # Agent protocol docs (rules, schema, examples)
 │   └── AGENT.md        # Chess rules and JSON protocol for AI agents
 ├── web/                # Browser-based game UI
 └── src/
@@ -372,11 +383,16 @@ checkai/
     └── analysis_api.rs # Analysis REST API endpoints
 ```
 
-## Chess Rules
+## Documentation
 
-This implementation follows the **FIDE Laws of Chess (2023)**. See
-[`docs/AGENT.md`](docs/AGENT.md) for the complete rulebook and JSON protocol
-specification used by AI agents.
+Full documentation is available at **https://josunlp.github.io/checkai/**
+
+- [Getting Started](https://josunlp.github.io/checkai/guide/getting-started) — Installation and first steps
+- [API Reference](https://josunlp.github.io/checkai/api/rest) — REST, WebSocket, and Analysis API
+- [Agent Protocol](https://josunlp.github.io/checkai/agent/overview) — JSON protocol for AI agents
+- [Chess Rules](https://josunlp.github.io/checkai/agent/chess-rules) — Complete FIDE 2023 rule reference
+
+The raw agent protocol specification is also available at [`docs/AGENT.md`](docs/AGENT.md).
 
 ## License
 
