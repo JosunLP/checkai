@@ -54,16 +54,23 @@
 //! | GET    | `/ws`                         | WebSocket endpoint             |
 //! | GET    | `/swagger-ui/`               | Swagger UI documentation       |
 
+pub mod analysis;
+pub mod analysis_api;
 pub mod api;
+pub mod eval;
 pub mod export;
 pub mod game;
 pub mod i18n;
 pub mod movegen;
+pub mod opening_book;
+pub mod search;
 pub mod storage;
+pub mod tablebase;
 pub mod terminal;
 pub mod types;
 pub mod update;
 pub mod ws;
+pub mod zobrist;
 
 #[macro_use]
 extern crate rust_i18n;
@@ -82,6 +89,7 @@ use std::sync::Mutex;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
+use crate::analysis::{AnalysisConfig, AnalysisManager};
 use crate::api::{ApiDoc, AppState};
 use crate::game::GameManager;
 use crate::ws::GameBroadcaster;
@@ -149,6 +157,22 @@ enum Commands {
         /// Directory for game storage (active + archive).
         #[arg(long, default_value = "data")]
         data_dir: String,
+
+        /// Path to a Polyglot opening book (.bin) for analysis.
+        #[arg(long)]
+        book_path: Option<String>,
+
+        /// Path to a Syzygy tablebase directory for analysis.
+        #[arg(long)]
+        tablebase_path: Option<String>,
+
+        /// Minimum search depth for analysis (≥ 30).
+        #[arg(long, default_value_t = 30)]
+        analysis_depth: u32,
+
+        /// Transposition table size in MB for analysis.
+        #[arg(long, default_value_t = 64)]
+        tt_size_mb: usize,
     },
 
     /// Play a chess game in the terminal (two-player).
@@ -210,10 +234,23 @@ async fn main() -> std::io::Result<()> {
             port,
             host,
             data_dir,
+            book_path,
+            tablebase_path,
+            analysis_depth,
+            tt_size_mb,
         } => {
             // Check for updates in the background before starting the server
             update::check_for_updates().await;
-            run_server(&host, port, &data_dir).await
+            run_server(
+                &host,
+                port,
+                &data_dir,
+                book_path,
+                tablebase_path,
+                analysis_depth,
+                tt_size_mb,
+            )
+            .await
         }
         Commands::Play => {
             update::check_for_updates().await;
@@ -255,7 +292,15 @@ async fn main() -> std::io::Result<()> {
 }
 
 /// Starts the HTTP + WebSocket server with all API routes and Swagger UI.
-async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()> {
+async fn run_server(
+    host: &str,
+    port: u16,
+    data_dir: &str,
+    book_path: Option<String>,
+    tablebase_path: Option<String>,
+    analysis_depth: u32,
+    tt_size_mb: usize,
+) -> std::io::Result<()> {
     let openapi = ApiDoc::openapi();
 
     let game_manager = web::Data::new(AppState {
@@ -265,6 +310,15 @@ async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()
     // Start the central WebSocket event broadcaster actor
     let broadcaster = GameBroadcaster::new().start();
     let broadcaster_data = web::Data::new(broadcaster);
+
+    // Initialize the analysis manager
+    let analysis_config = AnalysisConfig {
+        min_depth: analysis_depth.max(30),
+        book_path: book_path.map(std::path::PathBuf::from),
+        tablebase_path: tablebase_path.map(std::path::PathBuf::from),
+        tt_size_mb,
+    };
+    let analysis_manager = web::Data::new(AnalysisManager::new(analysis_config));
 
     log::info!("Starting CheckAI server on {}:{}", host, port);
     log::info!("Game storage directory: {}", data_dir);
@@ -276,6 +330,11 @@ async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()
     );
     log::info!("API base URL: http://{}:{}/api", host, port);
     log::info!("WebSocket endpoint: ws://{}:{}/ws", host, port);
+    log::info!(
+        "Analysis engine: depth={}, TT={}MB",
+        analysis_depth.max(30),
+        tt_size_mb
+    );
 
     HttpServer::new(move || {
         // Configure CORS to allow all origins (for development/agent access)
@@ -290,7 +349,9 @@ async fn run_server(host: &str, port: u16, data_dir: &str) -> std::io::Result<()
             .wrap(middleware::Logger::default())
             .app_data(game_manager.clone())
             .app_data(broadcaster_data.clone())
+            .app_data(analysis_manager.clone())
             .configure(api::configure_routes)
+            .configure(analysis_api::configure_analysis_routes)
             .route("/ws", web::get().to(ws::ws_connect))
             .service(
                 SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", openapi.clone()),

@@ -1,0 +1,30 @@
+# Build artifacts
+target/
+debug/
+
+# Version control
+.git/
+.gitignore
+
+# IDE / editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Docker files (prevent recursive build)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Documentation not needed at runtime
+docs/
+*.md
+!README.md
+
+# Scripts not needed in container
+scripts/
+
+# CI configuration
+.github/

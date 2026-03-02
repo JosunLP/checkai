@@ -167,3 +167,22 @@ ws.missing_action_type: 'Missing field: action_type'
 ws.subscribed: 'Subscribed to game %{id}'
 ws.unsubscribed: 'Unsubscribed from game %{id}'
 ws.binary_not_supported: 'Binary messages are not supported. Please send JSON text.'
+
+# ---------------------------------------------------------------------------
+# Analysis
+# ---------------------------------------------------------------------------
+analysis.job_submitted: 'Analysis job submitted for game %{id} (%{moves} moves)'
+analysis.job_not_found: 'Analysis job not found: %{id}'
+analysis.game_no_moves: 'Game has no moves to analyze'
+analysis.quality.best: 'Best'
+analysis.quality.excellent: 'Excellent'
+analysis.quality.good: 'Good'
+analysis.quality.inaccuracy: 'Inaccuracy'
+analysis.quality.mistake: 'Mistake'
+analysis.quality.blunder: 'Blunder'
+analysis.quality.book: 'Book'
+analysis.book_loaded: 'Opening book loaded: %{count} entries'
+analysis.book_failed: 'Failed to load opening book: %{error}'
+analysis.tablebase_loaded: 'Syzygy tablebase loaded: max %{pieces} pieces'
+analysis.tablebase_failed: 'Failed to load Syzygy tablebase: %{error}'
+analysis.engine_config: 'Analysis engine: depth=%{depth}, TT=%{tt}MB'
