@@ -4,7 +4,9 @@
 //! seeded with a fixed constant. Keys are used for:
 //!
 //! - Transposition table lookups during search
-//! - Three-fold repetition detection
+//!
+//! **Note:** Three-fold repetition detection uses FEN string comparison
+//! in `Game.position_history`, not Zobrist hashes.
 //!
 //! **Note:** These keys are intentionally separate from the standard
 //! Polyglot Random64 table. Opening book lookups use the canonical

@@ -346,7 +346,12 @@ pub struct SearchResult {
 
 /// MVV-LVA (Most Valuable Victim – Least Valuable Attacker) score.
 fn mvv_lva_score(board: &Board, mv: &ChessMove) -> i32 {
-    let victim_value = board.get(mv.to).map(|p| piece_value(p.kind)).unwrap_or(0);
+    let victim_value = if mv.is_en_passant {
+        // En passant captures a pawn on a different square than mv.to
+        piece_value(PieceKind::Pawn)
+    } else {
+        board.get(mv.to).map(|p| piece_value(p.kind)).unwrap_or(0)
+    };
     let attacker_value = board.get(mv.from).map(|p| piece_value(p.kind)).unwrap_or(0);
     victim_value * 10 - attacker_value
 }

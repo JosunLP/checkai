@@ -48,7 +48,7 @@ pub struct BookMoveInfo {
     /// Weight of the played move (0 if not a book move).
     pub weight: u16,
     /// Total weight of all book moves for this position.
-    pub total_weight: u16,
+    pub total_weight: u32,
     /// All book moves available in this position.
     pub book_moves: Vec<BookMoveEntry>,
     /// Name of the opening line (if known).
@@ -191,7 +191,7 @@ impl OpeningBook {
             };
         }
 
-        let total_weight: u16 = entries.iter().map(|e| e.weight).sum();
+        let total_weight: u32 = entries.iter().map(|e| e.weight as u32).sum();
         let mut is_book_move = false;
         let mut played_weight = 0u16;
 
