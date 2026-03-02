@@ -41,7 +41,7 @@ use uuid::Uuid;
 
 use crate::game::Game;
 use crate::opening_book::{BookMoveInfo, OpeningBook};
-use crate::search::{SearchEngine, SearchPosition, MAX_DEPTH};
+use crate::search::{MAX_DEPTH, SearchEngine, SearchPosition};
 use crate::storage;
 use crate::tablebase::{SyzygyTablebase, TablebaseInfo, WDL};
 use crate::types::*;
