@@ -968,10 +968,10 @@ mod tests {
 
     #[test]
     fn test_polyglot_keys_unique() {
-        for i in 0..POLYGLOT_KEYS.len() {
-            for j in (i + 1)..POLYGLOT_KEYS.len() {
+        for (i, key_i) in POLYGLOT_KEYS.iter().enumerate() {
+            for (j, key_j) in POLYGLOT_KEYS.iter().enumerate().skip(i + 1) {
                 assert_ne!(
-                    POLYGLOT_KEYS[i], POLYGLOT_KEYS[j],
+                    key_i, key_j,
                     "Collision at indices {} and {}",
                     i, j
                 );
