@@ -262,9 +262,9 @@ impl SyzygyTablebase {
         })
     }
 
-    /// Returns `true` if any tablebase files are available.
+    /// Returns `true` if any tablebase files are available (WDL or DTZ).
     pub fn is_available(&self) -> bool {
-        !self.wdl_tables.is_empty()
+        !self.wdl_tables.is_empty() || !self.dtz_tables.is_empty()
     }
 
     /// Returns `true` if the position's piece count falls within

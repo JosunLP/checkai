@@ -126,8 +126,12 @@ impl TranspositionTable {
     pub fn new(size_mb: usize) -> Self {
         let entry_size = std::mem::size_of::<Option<TTEntry>>();
         let num_entries = (size_mb * 1024 * 1024) / entry_size;
-        // Round down to power of 2 for efficient indexing
-        let num_entries = num_entries.next_power_of_two() / 2;
+        // Round down to the largest power of 2 that is <= num_entries
+        let num_entries = if num_entries.is_power_of_two() {
+            num_entries
+        } else {
+            num_entries.next_power_of_two() / 2
+        };
         let num_entries = num_entries.max(1024);
 
         Self {
@@ -580,21 +584,30 @@ impl SearchEngine {
             tt_move = entry.best_move.map(|em| em.to_chess_move());
 
             if !is_pv && entry.depth >= depth {
+                // Denormalize mate scores: stored as distance from root,
+                // adjust back to distance from the current ply.
+                let tt_score = if entry.score > MATE_THRESHOLD {
+                    entry.score - ply
+                } else if entry.score < -MATE_THRESHOLD {
+                    entry.score + ply
+                } else {
+                    entry.score
+                };
                 match entry.flag {
                     TTFlag::Exact => {
                         self.stats.tt_cutoffs += 1;
-                        return entry.score;
+                        return tt_score;
                     }
                     TTFlag::Beta => {
-                        if entry.score >= beta {
+                        if tt_score >= beta {
                             self.stats.tt_cutoffs += 1;
-                            return entry.score;
+                            return tt_score;
                         }
                     }
                     TTFlag::Alpha => {
-                        if entry.score <= alpha {
+                        if tt_score <= alpha {
                             self.stats.tt_cutoffs += 1;
-                            return entry.score;
+                            return tt_score;
                         }
                     }
                 }
@@ -733,9 +746,17 @@ impl SearchEngine {
             }
         }
 
-        // Store in TT
+        // Store in TT — normalize mate scores to be ply-independent
+        // (relative to the node being stored, not the root).
+        let tt_score = if best_score > MATE_THRESHOLD {
+            best_score + ply
+        } else if best_score < -MATE_THRESHOLD {
+            best_score - ply
+        } else {
+            best_score
+        };
         self.tt
-            .store(pos.hash, depth, best_score, flag, best_move.as_ref());
+            .store(pos.hash, depth, tt_score, flag, best_move.as_ref());
 
         best_score
     }

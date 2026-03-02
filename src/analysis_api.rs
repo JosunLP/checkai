@@ -22,15 +22,6 @@ pub struct AnalyzeGameRequest {
     pub depth: Option<u32>,
 }
 
-/// Request to analyze a specific FEN position.
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct AnalyzePositionRequest {
-    /// FEN string of the position to analyze.
-    pub fen: String,
-    /// Search depth (minimum 30, default: configured value).
-    pub depth: Option<u32>,
-}
-
 /// Generic error body.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct AnalysisErrorResponse {
@@ -86,7 +77,7 @@ pub async fn analyze_game(
         Ok(id) => id,
         Err(_) => {
             return HttpResponse::BadRequest().json(AnalysisErrorResponse {
-                error: format!("Invalid game ID: {}", game_id_str),
+                error: t!("api.invalid_game_id", id = &game_id_str).to_string(),
             });
         }
     };
@@ -119,13 +110,13 @@ pub async fn analyze_game(
 
     let Some(snapshot) = game_snapshot else {
         return HttpResponse::NotFound().json(AnalysisErrorResponse {
-            error: format!("Game not found: {}", game_id_str),
+            error: t!("api.game_not_found", id = &game_id_str).to_string(),
         });
     };
 
     if snapshot.move_history.is_empty() {
         return HttpResponse::BadRequest().json(AnalysisErrorResponse {
-            error: "Game has no moves to analyze".to_string(),
+            error: t!("analysis.game_no_moves").to_string(),
         });
     }
 
@@ -168,7 +159,7 @@ pub async fn list_analysis_jobs(analysis: web::Data<AnalysisManager>) -> impl Re
     path = "/api/analysis/jobs/{job_id}",
     tag = "analysis",
     responses(
-        (status = 200, description = "Analysis job details", body = AnalysisJob),
+        (status = 200, description = "Analysis job details", body = crate::analysis::AnalysisJob),
         (status = 404, description = "Job not found", body = AnalysisErrorResponse),
     )
 )]
@@ -180,7 +171,7 @@ pub async fn get_analysis_job(
     match analysis.get_job(&job_id).await {
         Some(job) => HttpResponse::Ok().json(job),
         None => HttpResponse::NotFound().json(AnalysisErrorResponse {
-            error: format!("Analysis job not found: {}", job_id),
+            error: t!("analysis.job_not_found", id = &job_id).to_string(),
         }),
     }
 }
@@ -209,7 +200,7 @@ pub async fn delete_analysis_job(
         }))
     } else {
         HttpResponse::NotFound().json(AnalysisErrorResponse {
-            error: format!("Analysis job not found: {}", job_id),
+            error: t!("analysis.job_not_found", id = &job_id).to_string(),
         })
     }
 }
