@@ -41,7 +41,7 @@ use uuid::Uuid;
 
 use crate::game::Game;
 use crate::opening_book::{BookMoveInfo, OpeningBook};
-use crate::search::{SearchEngine, SearchPosition};
+use crate::search::{MAX_DEPTH, SearchEngine, SearchPosition};
 use crate::storage;
 use crate::tablebase::{SyzygyTablebase, TablebaseInfo, WDL};
 use crate::types::*;
@@ -725,14 +725,15 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
                 principal_variation: Vec::new(),
             }
         } else {
-            // Deep search
-            let search_result = engine.search(&pos, *depth as i32);
+            // Deep search — clamp depth to i32::MAX before casting to avoid wrap-around
+            let depth_i32 = (*depth).min(i32::MAX as u32) as i32;
+            let search_result = engine.search(&pos, depth_i32);
 
             let best_move = search_result.best_move.unwrap_or(played);
 
             // Evaluate the played move: search from the position after the played move
             let played_pos = pos.make_move(&played);
-            let played_eval_result = engine.search(&played_pos, (*depth as i32 - 2).max(1));
+            let played_eval_result = engine.search(&played_pos, (depth_i32 - 2).max(1));
             let played_score = -played_eval_result.score; // Negate because it's from the other side
 
             let best_score = search_result.score;
@@ -797,7 +798,10 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
     Ok(AnalysisResult {
         annotations,
         summary,
-        depth: *depth,
+        // Report the effective depth: clamp to i32::MAX (for cast safety) and to
+        // MAX_DEPTH (as enforced by SearchEngine::search) so API consumers
+        // see the depth that was actually used, not a potentially unclamped request.
+        depth: (*depth).min(i32::MAX as u32).min(MAX_DEPTH as u32),
         book_available: *has_book,
         tablebase_available: *has_tablebase,
     })
