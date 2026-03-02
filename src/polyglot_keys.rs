@@ -970,11 +970,7 @@ mod tests {
     fn test_polyglot_keys_unique() {
         for (i, key_i) in POLYGLOT_KEYS.iter().enumerate() {
             for (j, key_j) in POLYGLOT_KEYS.iter().enumerate().skip(i + 1) {
-                assert_ne!(
-                    key_i, key_j,
-                    "Collision at indices {} and {}",
-                    i, j
-                );
+                assert_ne!(key_i, key_j, "Collision at indices {} and {}", i, j);
             }
         }
     }
