@@ -1035,6 +1035,9 @@ mod tests {
         } else {
             norm_loss
         };
-        assert_eq!(denorm_loss, loss_score, "Losing mate round-trip must be identity");
+        assert_eq!(
+            denorm_loss, loss_score,
+            "Losing mate round-trip must be identity"
+        );
     }
 }
