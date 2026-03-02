@@ -63,6 +63,7 @@ pub mod game;
 pub mod i18n;
 pub mod movegen;
 pub mod opening_book;
+pub mod polyglot_keys;
 pub mod search;
 pub mod storage;
 pub mod tablebase;

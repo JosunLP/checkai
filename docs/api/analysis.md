@@ -33,7 +33,7 @@ Submits a completed game for asynchronous deep analysis.
 | ------- | ------ | ------- | --------------------------- |
 | `depth` | number | 30      | Minimum search depth (≥ 30) |
 
-**Response** `200 OK`:
+**Response** `202 Accepted`:
 
 ```json
 {
@@ -55,23 +55,36 @@ Returns all analysis jobs with their current status.
 **Response** `200 OK`:
 
 ```json
-[
-  {
-    "job_id": "a1b2c3d4-...",
-    "game_id": "550e8400-...",
-    "status": "completed",
-    "progress": 100,
-    "total_moves": 42
-  },
-  {
-    "job_id": "b2c3d4e5-...",
-    "game_id": "661f9511-...",
-    "status": "in_progress",
-    "progress": 60,
-    "total_moves": 30
-  }
-]
+{
+  "jobs": [
+    {
+      "id": "a1b2c3d4-...",
+      "game_id": "550e8400-...",
+      "status": "Completed",
+      "created_at": 1709337600,
+      "completed_at": 1709337660
+    },
+    {
+      "id": "b2c3d4e5-...",
+      "game_id": "661f9511-...",
+      "status": { "InProgress": { "moves_analyzed": 18, "total_moves": 30 } },
+      "created_at": 1709337650,
+      "completed_at": null
+    }
+  ],
+  "count": 2
+}
 ```
+
+**Job status variants**:
+
+| Status       | JSON representation                                           |
+| ------------ | ------------------------------------------------------------- |
+| `Queued`     | `"Queued"`                                                    |
+| `InProgress` | `{ "InProgress": { "moves_analyzed": N, "total_moves": M } }` |
+| `Completed`  | `"Completed"`                                                 |
+| `Failed`     | `{ "Failed": { "error": "..." } }`                            |
+| `Cancelled`  | `"Cancelled"`                                                 |
 
 ---
 
@@ -81,62 +94,67 @@ Returns all analysis jobs with their current status.
 GET /api/analysis/jobs/{job_id}
 ```
 
-Returns detailed analysis results when the job is completed.
+Returns the full analysis job, including results when the job is completed.
 
 **Response** `200 OK` (completed):
 
 ```json
 {
-  "job_id": "a1b2c3d4-...",
+  "id": "a1b2c3d4-...",
   "game_id": "550e8400-...",
-  "status": "completed",
-  "depth": 30,
-  "results": {
-    "moves": [
+  "status": "Completed",
+  "result": {
+    "annotations": [
       {
         "move_number": 1,
         "side": "white",
-        "move": "e2e4",
-        "classification": "Best",
+        "played_move": { "from": "e2", "to": "e4" },
+        "best_move": { "from": "e2", "to": "e4" },
+        "played_eval": 20,
+        "best_eval": 20,
         "centipawn_loss": 0,
-        "eval_before": 20,
-        "eval_after": 20,
-        "best_move": "e2e4",
+        "quality": "Best",
+        "is_book_move": false,
+        "is_tablebase_position": false,
+        "search_depth": 30,
         "principal_variation": ["e2e4", "e7e5", "g1f3"]
       },
       {
         "move_number": 1,
         "side": "black",
-        "move": "e7e5",
-        "classification": "Best",
+        "played_move": { "from": "e7", "to": "e5" },
+        "best_move": { "from": "e7", "to": "e5" },
+        "played_eval": -20,
+        "best_eval": -20,
         "centipawn_loss": 0,
-        "eval_before": -20,
-        "eval_after": -20,
-        "best_move": "e7e5",
+        "quality": "Best",
+        "is_book_move": false,
+        "is_tablebase_position": false,
+        "search_depth": 30,
         "principal_variation": ["e7e5", "g1f3", "b8c6"]
       }
     ],
-    "white_accuracy": 85.5,
-    "black_accuracy": 78.2,
     "summary": {
-      "white": {
-        "best": 12,
-        "excellent": 5,
-        "good": 3,
-        "inaccuracy": 1,
-        "mistake": 0,
-        "blunder": 0
-      },
-      "black": {
-        "best": 10,
-        "excellent": 4,
-        "good": 4,
-        "inaccuracy": 2,
-        "mistake": 1,
-        "blunder": 0
-      }
-    }
-  }
+      "total_moves": 42,
+      "best_moves": 12,
+      "excellent_moves": 5,
+      "good_moves": 3,
+      "inaccuracies": 1,
+      "mistakes": 0,
+      "blunders": 0,
+      "book_moves": 0,
+      "average_centipawn_loss": 8.4,
+      "white_accuracy": 85.5,
+      "black_accuracy": 78.2,
+      "white_avg_cp_loss": 6.2,
+      "black_avg_cp_loss": 10.6
+    },
+    "depth": 30,
+    "book_available": false,
+    "tablebase_available": false
+  },
+  "created_at": 1709337600,
+  "completed_at": 1709337660
 }
 ```
 
@@ -154,7 +172,7 @@ Cancels an in-progress job or deletes a completed one.
 
 ```json
 {
-  "message": "Analysis job deleted."
+  "message": "Job a1b2c3d4-... deleted"
 }
 ```
 
@@ -164,10 +182,11 @@ Cancels an in-progress job or deletes a completed one.
 | -------------- | -------------- | ------ |
 | Best           | 0 cp           | !!     |
 | Excellent      | ≤ 10 cp        | !      |
-| Good           | ≤ 25 cp        | —      |
-| Inaccuracy     | ≤ 50 cp        | ?!     |
-| Mistake        | ≤ 100 cp       | ?      |
+| Good           | 11–25 cp       | —      |
+| Inaccuracy     | 26–50 cp       | ?!     |
+| Mistake        | 51–100 cp      | ?      |
 | Blunder        | > 100 cp       | ??     |
+| Book           | n/a            | 📖      |
 
 ## Workflow
 

@@ -8,7 +8,7 @@ use actix_web::{HttpResponse, Responder, web};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::analysis::{AnalysisJobSummary, AnalysisManager};
+use crate::analysis::{AnalysisJob, AnalysisJobSummary, AnalysisManager};
 use crate::api::AppState;
 
 // ---------------------------------------------------------------------------
@@ -91,20 +91,30 @@ pub async fn analyze_game(
         }
     };
 
-    // Obtain a read-only snapshot of the game
-    let game_snapshot = {
+    // Obtain a read-only snapshot of the game.
+    // We minimise the time spent holding the game_manager lock: only
+    // clone the active game (cheap) or the storage handle (three PathBufs).
+    // Expensive disk IO + zstd decompression happens *after* the lock is
+    // released so other requests are not blocked.
+    let (active_snapshot, storage_clone) = {
         let manager = data.game_manager.lock().unwrap();
-        // Check active games first
         if let Some(game) = manager.games.get(&game_id) {
-            Some(game.clone())
+            (Some(game.clone()), None)
         } else {
-            // Try archived games
-            manager
-                .storage
-                .load_archive(&game_id)
-                .ok()
-                .and_then(|archive| archive.replay(archive.move_count()).ok())
+            (None, Some(manager.storage.clone()))
         }
+    };
+
+    let game_snapshot = if let Some(snap) = active_snapshot {
+        Some(snap)
+    } else if let Some(storage) = storage_clone {
+        // Disk IO + zstd decompression happens outside the mutex
+        storage
+            .load_archive(&game_id)
+            .ok()
+            .and_then(|archive| archive.replay(archive.move_count()).ok())
+    } else {
+        None
     };
 
     let Some(snapshot) = game_snapshot else {

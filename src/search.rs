@@ -437,6 +437,7 @@ impl SearchEngine {
     ///
     /// Returns the best move and evaluation at the target depth.
     pub fn search(&mut self, pos: &SearchPosition, max_depth: i32) -> SearchResult {
+        let max_depth = max_depth.clamp(1, MAX_DEPTH);
         let start = Instant::now();
         self.stats = SearchStats::default();
         self.abort.store(false, Ordering::Relaxed);
@@ -556,6 +557,11 @@ impl SearchEngine {
         }
 
         self.stats.nodes += 1;
+
+        // Hard ply ceiling to prevent out-of-bounds access on killers table
+        if ply >= MAX_DEPTH {
+            return eval::evaluate(&pos.board, pos.turn);
+        }
 
         // Depth exhausted → quiescence search
         if depth <= 0 {

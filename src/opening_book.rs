@@ -10,16 +10,18 @@
 //!
 //! The file is sorted by hash key, allowing binary search lookups.
 //!
-//! Zobrist keys must match the book's key generation. This module uses
-//! the same keys as `zobrist.rs`, so books must be generated with
-//! matching keys. For maximum compatibility, the key table is
-//! deterministic and reproducible.
+//! Position hashing uses the **standard Polyglot Random64 keys** from
+//! `polyglot_keys.rs`, so any community-sourced `.bin` book that
+//! conforms to the Polyglot specification will work.
+//!
+//! Castling moves are decoded correctly (king-to-rook-square is
+//! remapped to the standard king destination).
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::polyglot_keys;
 use crate::types::*;
-use crate::zobrist;
 
 // ---------------------------------------------------------------------------
 // Book entry
@@ -139,7 +141,7 @@ impl OpeningBook {
         castling: &CastlingRights,
         en_passant: Option<Square>,
     ) -> Vec<BookEntry> {
-        let key = zobrist::hash_position(board, turn, castling, en_passant);
+        let key = polyglot_keys::polyglot_hash(board, turn, castling, en_passant);
         self.lookup_by_key(key)
     }
 
@@ -270,25 +272,59 @@ fn decode_polyglot_move(raw: u16) -> Option<ChessMove> {
         _ => return None,
     };
 
-    // Castling in Polyglot: king moves to the rook's square
-    // We need to adjust to standard king destination (g1/c1/g8/c8)
-    let is_castling = false; // Will be set during move validation
+    // Polyglot encodes castling as king-to-rook-square.
+    // Detect this and remap to the standard king destination.
+    let (adjusted_to, is_castling) = adjust_castling_move(from, to);
     let is_en_passant = false;
 
     Some(ChessMove {
         from,
-        to,
+        to: adjusted_to,
         promotion,
         is_castling,
         is_en_passant,
     })
 }
 
+/// Adjusts a Polyglot castling move (king-to-rook) to the standard
+/// king destination (e.g. e1h1 → e1g1 for white kingside castling).
+///
+/// Returns `(adjusted_to, is_castling)`.
+fn adjust_castling_move(from: Square, to: Square) -> (Square, bool) {
+    // White kingside: e1 → h1 (rook) → g1 (king destination)
+    if from.file == 4 && from.rank == 0 && to.file == 7 && to.rank == 0 {
+        return (Square::new(6, 0), true);
+    }
+    // White queenside: e1 → a1 (rook) → c1
+    if from.file == 4 && from.rank == 0 && to.file == 0 && to.rank == 0 {
+        return (Square::new(2, 0), true);
+    }
+    // Black kingside: e8 → h8 (rook) → g8
+    if from.file == 4 && from.rank == 7 && to.file == 7 && to.rank == 7 {
+        return (Square::new(6, 7), true);
+    }
+    // Black queenside: e8 → a8 (rook) → c8
+    if from.file == 4 && from.rank == 7 && to.file == 0 && to.rank == 7 {
+        return (Square::new(2, 7), true);
+    }
+    (to, false)
+}
+
 /// Encodes a `ChessMove` into the Polyglot raw move format.
+///
+/// Castling moves are mapped back to king-to-rook-square encoding
+/// (the inverse of the adjustment performed during decoding).
 pub fn encode_polyglot_move(mv: &ChessMove) -> u16 {
+    // For castling moves, Polyglot expects king → rook square.
+    let to = if mv.is_castling {
+        unadjust_castling_move(mv.from, mv.to)
+    } else {
+        mv.to
+    };
+
     let mut raw: u16 = 0;
-    raw |= mv.to.file as u16;
-    raw |= (mv.to.rank as u16) << 3;
+    raw |= to.file as u16;
+    raw |= (to.rank as u16) << 3;
     raw |= (mv.from.file as u16) << 6;
     raw |= (mv.from.rank as u16) << 9;
 
@@ -303,6 +339,28 @@ pub fn encode_polyglot_move(mv: &ChessMove) -> u16 {
     raw |= promo << 12;
 
     raw
+}
+
+/// Maps a standard castling king destination back to the rook square
+/// for Polyglot encoding (inverse of `adjust_castling_move`).
+fn unadjust_castling_move(from: Square, to: Square) -> Square {
+    // White kingside: e1→g1 back to e1→h1
+    if from.file == 4 && from.rank == 0 && to.file == 6 && to.rank == 0 {
+        return Square::new(7, 0);
+    }
+    // White queenside: e1→c1 back to e1→a1
+    if from.file == 4 && from.rank == 0 && to.file == 2 && to.rank == 0 {
+        return Square::new(0, 0);
+    }
+    // Black kingside: e8→g8 back to e8→h8
+    if from.file == 4 && from.rank == 7 && to.file == 6 && to.rank == 7 {
+        return Square::new(7, 7);
+    }
+    // Black queenside: e8→c8 back to e8→a8
+    if from.file == 4 && from.rank == 7 && to.file == 2 && to.rank == 7 {
+        return Square::new(0, 7);
+    }
+    to
 }
 
 // ---------------------------------------------------------------------------
@@ -337,6 +395,70 @@ mod tests {
         assert_eq!(decoded.from, mv.from);
         assert_eq!(decoded.to, mv.to);
         assert_eq!(decoded.promotion, Some(PieceKind::Queen));
+    }
+
+    #[test]
+    fn test_encode_decode_castling_white_kingside() {
+        let mv = ChessMove {
+            from: Square::new(4, 0), // e1
+            to: Square::new(6, 0),   // g1 (standard king destination)
+            promotion: None,
+            is_castling: true,
+            is_en_passant: false,
+        };
+        let encoded = encode_polyglot_move(&mv);
+        let decoded = decode_polyglot_move(encoded).unwrap();
+        assert_eq!(decoded.from, mv.from);
+        assert_eq!(decoded.to, mv.to);
+        assert!(decoded.is_castling);
+    }
+
+    #[test]
+    fn test_encode_decode_castling_white_queenside() {
+        let mv = ChessMove {
+            from: Square::new(4, 0), // e1
+            to: Square::new(2, 0),   // c1
+            promotion: None,
+            is_castling: true,
+            is_en_passant: false,
+        };
+        let encoded = encode_polyglot_move(&mv);
+        let decoded = decode_polyglot_move(encoded).unwrap();
+        assert_eq!(decoded.from, mv.from);
+        assert_eq!(decoded.to, mv.to);
+        assert!(decoded.is_castling);
+    }
+
+    #[test]
+    fn test_encode_decode_castling_black_kingside() {
+        let mv = ChessMove {
+            from: Square::new(4, 7), // e8
+            to: Square::new(6, 7),   // g8
+            promotion: None,
+            is_castling: true,
+            is_en_passant: false,
+        };
+        let encoded = encode_polyglot_move(&mv);
+        let decoded = decode_polyglot_move(encoded).unwrap();
+        assert_eq!(decoded.from, mv.from);
+        assert_eq!(decoded.to, mv.to);
+        assert!(decoded.is_castling);
+    }
+
+    #[test]
+    fn test_encode_decode_castling_black_queenside() {
+        let mv = ChessMove {
+            from: Square::new(4, 7), // e8
+            to: Square::new(2, 7),   // c8
+            promotion: None,
+            is_castling: true,
+            is_en_passant: false,
+        };
+        let encoded = encode_polyglot_move(&mv);
+        let decoded = decode_polyglot_move(encoded).unwrap();
+        assert_eq!(decoded.from, mv.from);
+        assert_eq!(decoded.to, mv.to);
+        assert!(decoded.is_castling);
     }
 
     #[test]

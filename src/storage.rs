@@ -377,6 +377,7 @@ impl GameArchive {
 ///   active/           # Currently in-progress games (.cai)
 ///   archive/          # Completed, zstd-compressed games (.cai.zst)
 /// ```
+#[derive(Clone)]
 pub struct GameStorage {
     /// Base directory for all game files.
     base_dir: PathBuf,

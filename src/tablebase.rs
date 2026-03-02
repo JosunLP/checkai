@@ -109,6 +109,8 @@ impl PieceConfig {
                         PieceKind::Rook => 'R',
                         PieceKind::Bishop => 'B',
                         PieceKind::Knight => 'N',
+                        // Syzygy filenames use lowercase 'p' for black pawns
+                        PieceKind::Pawn if piece.color == Color::Black => 'p',
                         PieceKind::Pawn => 'P',
                     };
                     match piece.color {
@@ -126,7 +128,7 @@ impl PieceConfig {
             'R' => 2,
             'B' => 3,
             'N' => 4,
-            'P' => 5,
+            'P' | 'p' => 5,
             _ => 6,
         };
         white.sort_by_key(|c| sort_key(c));

@@ -34,6 +34,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -285,6 +286,8 @@ pub struct AnalysisManager {
     tablebase: Option<SyzygyTablebase>,
     /// Job store (thread-safe).
     jobs: Arc<RwLock<HashMap<String, AnalysisJob>>>,
+    /// Cancellation flags for in-progress jobs.
+    cancel_tokens: Arc<RwLock<HashMap<String, Arc<AtomicBool>>>>,
 }
 
 impl AnalysisManager {
@@ -334,6 +337,7 @@ impl AnalysisManager {
             book,
             tablebase,
             jobs: Arc::new(RwLock::new(HashMap::new())),
+            cancel_tokens: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -361,9 +365,17 @@ impl AnalysisManager {
             jobs.insert(job_id.clone(), job);
         }
 
+        // Create cancellation token for this job
+        let cancel_token = Arc::new(AtomicBool::new(false));
+        {
+            let mut tokens = self.cancel_tokens.write().await;
+            tokens.insert(job_id.clone(), cancel_token.clone());
+        }
+
         // Create read-only snapshot
         let snapshot = game.clone();
         let jobs = self.jobs.clone();
+        let cancel_tokens = self.cancel_tokens.clone();
         let tt_size = self.config.tt_size_mb;
 
         // Determine book/tablebase availability flags
@@ -402,25 +414,37 @@ impl AnalysisManager {
                     tablebase_results: &tablebase_results,
                     jobs: &jobs,
                     job_id: &jid,
+                    cancel_token: &cancel_token,
                 })
                 .await;
 
                 // Store result
-                let mut jobs_lock = jobs.write().await;
-                if let Some(job) = jobs_lock.get_mut(&jid) {
-                    match result {
-                        Ok(analysis) => {
-                            job.status = AnalysisStatus::Completed;
-                            job.result = Some(analysis);
-                            job.completed_at = Some(storage::unix_timestamp());
-                        }
-                        Err(e) => {
-                            job.status = AnalysisStatus::Failed {
-                                error: e.to_string(),
-                            };
-                            job.completed_at = Some(storage::unix_timestamp());
+                {
+                    let mut jobs_lock = jobs.write().await;
+                    if let Some(job) = jobs_lock.get_mut(&jid) {
+                        match result {
+                            Ok(analysis) => {
+                                job.status = AnalysisStatus::Completed;
+                                job.result = Some(analysis);
+                                job.completed_at = Some(storage::unix_timestamp());
+                            }
+                            Err(e) => {
+                                // If cancelled via delete_job, status is already Cancelled
+                                if !matches!(job.status, AnalysisStatus::Cancelled) {
+                                    job.status = AnalysisStatus::Failed {
+                                        error: e.to_string(),
+                                    };
+                                }
+                                job.completed_at = Some(storage::unix_timestamp());
+                            }
                         }
                     }
+                }
+
+                // Clean up the cancellation token
+                {
+                    let mut tokens = cancel_tokens.write().await;
+                    tokens.remove(&jid);
                 }
             });
         });
@@ -443,6 +467,18 @@ impl AnalysisManager {
             let chess_move = legal.iter().find(|m| {
                 m.from.to_algebraic() == record.move_json.from
                     && m.to.to_algebraic() == record.move_json.to
+                    && m.promotion
+                        == record
+                            .move_json
+                            .promotion
+                            .as_ref()
+                            .and_then(|p| match p.as_str() {
+                                "Q" => Some(PieceKind::Queen),
+                                "R" => Some(PieceKind::Rook),
+                                "B" => Some(PieceKind::Bishop),
+                                "N" => Some(PieceKind::Knight),
+                                _ => None,
+                            })
             });
 
             if let Some(cm) = chess_move {
@@ -513,10 +549,42 @@ impl AnalysisManager {
             .collect()
     }
 
-    /// Cancels or deletes an analysis job.
+    /// Cancels an in-progress / queued job or removes a finished job.
+    ///
+    /// For jobs that are still running (Queued / InProgress) this sets the
+    /// cancellation flag so the analysis loop stops at the next iteration
+    /// and marks the status as `Cancelled`.  Completed / Failed / Cancelled
+    /// jobs are removed from the store entirely.
     pub async fn delete_job(&self, job_id: &str) -> bool {
         let mut jobs = self.jobs.write().await;
-        jobs.remove(job_id).is_some()
+        let Some(job) = jobs.get_mut(job_id) else {
+            return false;
+        };
+
+        match &job.status {
+            AnalysisStatus::Queued | AnalysisStatus::InProgress { .. } => {
+                // Signal the background task to stop
+                {
+                    let tokens = self.cancel_tokens.read().await;
+                    if let Some(token) = tokens.get(job_id) {
+                        token.store(true, Ordering::Relaxed);
+                    }
+                }
+                job.status = AnalysisStatus::Cancelled;
+                job.completed_at = Some(storage::unix_timestamp());
+                true
+            }
+            // Already finished — safe to remove completely
+            AnalysisStatus::Completed
+            | AnalysisStatus::Failed { .. }
+            | AnalysisStatus::Cancelled => {
+                jobs.remove(job_id);
+                // Also clean up any lingering token
+                let mut tokens = self.cancel_tokens.write().await;
+                tokens.remove(job_id);
+                true
+            }
+        }
     }
 }
 
@@ -535,6 +603,7 @@ struct RunAnalysisParams<'a> {
     tablebase_results: &'a [Option<TablebaseInfo>],
     jobs: &'a Arc<RwLock<HashMap<String, AnalysisJob>>>,
     job_id: &'a str,
+    cancel_token: &'a AtomicBool,
 }
 
 /// Runs the analysis for a game snapshot.
@@ -549,6 +618,7 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
         tablebase_results,
         jobs,
         job_id,
+        cancel_token,
     } = params;
     let mut engine = SearchEngine::new(*tt_size_mb);
     let mut annotations = Vec::new();
@@ -559,6 +629,10 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
     let mut still_in_book = true;
 
     for (idx, record) in game.move_history.iter().enumerate() {
+        // Check cancellation flag before expensive work
+        if cancel_token.load(Ordering::Relaxed) {
+            return Err("Analysis cancelled".to_string());
+        }
         // Create search position BEFORE the move
         let pos = SearchPosition::new(
             replay.board.clone(),
@@ -702,21 +776,17 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
         // Replay the move to advance the position
         let _ = replay.make_move(&record.move_json);
 
-        // Update progress
+        // Update progress (skip lock if already cancelled)
+        if cancel_token.load(Ordering::Relaxed) {
+            return Err("Analysis cancelled".to_string());
+        }
         {
             let mut jobs_lock = jobs.write().await;
             if let Some(job) = jobs_lock.get_mut(*job_id) {
-                match &job.status {
-                    AnalysisStatus::Cancelled => {
-                        return Err("Analysis cancelled".to_string());
-                    }
-                    _ => {
-                        job.status = AnalysisStatus::InProgress {
-                            moves_analyzed: idx + 1,
-                            total_moves,
-                        };
-                    }
-                }
+                job.status = AnalysisStatus::InProgress {
+                    moves_analyzed: idx + 1,
+                    total_moves,
+                };
             }
         }
     }

@@ -355,6 +355,10 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
     let mut white_pawns_per_file = [0u8; 8];
     let mut black_pawns_per_file = [0u8; 8];
 
+    // Track the most-advanced rank per file for passed-pawn evaluation
+    let mut white_pawn_max_rank = [0u8; 8];
+    let mut black_pawn_min_rank = [7u8; 8];
+
     // Collect rook files
     let mut white_rook_files: Vec<u8> = Vec::new();
     let mut black_rook_files: Vec<u8> = Vec::new();
@@ -378,6 +382,9 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
                         }
                         if piece.kind == PieceKind::Pawn {
                             white_pawns_per_file[file as usize] += 1;
+                            if rank > white_pawn_max_rank[file as usize] {
+                                white_pawn_max_rank[file as usize] = rank;
+                            }
                         }
                         if piece.kind == PieceKind::Rook {
                             white_rook_files.push(file);
@@ -391,6 +398,9 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
                         }
                         if piece.kind == PieceKind::Pawn {
                             black_pawns_per_file[file as usize] += 1;
+                            if rank < black_pawn_min_rank[file as usize] {
+                                black_pawn_min_rank[file as usize] = rank;
+                            }
                         }
                         if piece.kind == PieceKind::Rook {
                             black_rook_files.push(file);
@@ -415,9 +425,9 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
 
     // Pawn structure
     let (w_pawn_mg, w_pawn_eg) =
-        pawn_structure_score(&white_pawns_per_file, &black_pawns_per_file, Color::White);
+        pawn_structure_score(&white_pawns_per_file, &black_pawns_per_file, Color::White, &white_pawn_max_rank);
     let (b_pawn_mg, b_pawn_eg) =
-        pawn_structure_score(&black_pawns_per_file, &white_pawns_per_file, Color::Black);
+        pawn_structure_score(&black_pawns_per_file, &white_pawns_per_file, Color::Black, &black_pawn_min_rank);
     mg_white += w_pawn_mg;
     eg_white += w_pawn_eg;
     mg_black += b_pawn_mg;
@@ -449,7 +459,7 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
 }
 
 /// Evaluates pawn structure bonuses and penalties.
-fn pawn_structure_score(own_pawns: &[u8; 8], opponent_pawns: &[u8; 8], color: Color) -> (i32, i32) {
+fn pawn_structure_score(own_pawns: &[u8; 8], opponent_pawns: &[u8; 8], color: Color, most_advanced_rank: &[u8; 8]) -> (i32, i32) {
     let mut mg = 0i32;
     let mut eg = 0i32;
 
@@ -480,10 +490,10 @@ fn pawn_structure_score(own_pawns: &[u8; 8], opponent_pawns: &[u8; 8], color: Co
             || opponent_pawns[file] > 0
             || (file < 7 && opponent_pawns[file + 1] > 0);
         if !blocked {
-            // Rough rank estimate: use the most advanced pawn on this file
+            // Use the actual most-advanced rank for this file
             let rank_bonus = match color {
-                Color::White => file.min(6), // approximate
-                Color::Black => file.min(6),
+                Color::White => most_advanced_rank[file] as usize,
+                Color::Black => (7 - most_advanced_rank[file]) as usize,
             };
             eg += PASSED_PAWN_BONUS_EG[rank_bonus.min(7)];
         }

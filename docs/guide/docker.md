@@ -93,7 +93,7 @@ Pre-built images are published to GitHub Container Registry on every release:
 docker pull ghcr.io/josunlp/checkai:latest
 
 # Specific version
-docker pull ghcr.io/josunlp/checkai:0.3.0
+docker pull ghcr.io/josunlp/checkai:0.3.1
 
 # Run directly
 docker run -p 8080:8080 ghcr.io/josunlp/checkai:latest serve

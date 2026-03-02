@@ -1,17 +1,22 @@
-//! Zobrist hashing for the CheckAI chess engine.
+//! Internal Zobrist hashing for the CheckAI chess engine.
 //!
 //! Generates deterministic 64-bit Zobrist keys using the SplitMix64 PRNG
 //! seeded with a fixed constant. Keys are used for:
 //!
 //! - Transposition table lookups during search
-//! - Opening book position identification
-//! - Three-fold repetition optimization
+//! - Three-fold repetition detection
+//!
+//! **Note:** These keys are intentionally separate from the standard
+//! Polyglot Random64 table. Opening book lookups use the canonical
+//! Polyglot keys from `polyglot_keys.rs` so that community-sourced
+//! `.bin` books work out of the box.
 //!
 //! The key table contains 781 entries:
 //! - `[0..767]`   — piece keys (`piece_index * 64 + square_index`)
 //! - `[768..771]`  — castling rights keys (WK, WQ, BK, BQ)
-//! - `[772..779]`  — en passant file keys (files a–h)
-//! - `[780]`       — side-to-move key
+//! - `[772..779]`  — en passant file keys (files a–h, only hashed
+//!                  when a pawn can actually capture)
+//! - `[780]`       — side-to-move key (XORed when Black to move)
 
 use crate::types::*;
 
@@ -54,7 +59,10 @@ const ZOBRIST_KEYS: [u64; 781] = generate_zobrist_keys();
 
 /// Returns the Zobrist piece index (0–11) for a given piece.
 ///
-/// Encoding (Polyglot-compatible ordering):
+/// The ordering mirrors the Polyglot convention for consistency,
+/// but the actual key values are **not** the standard Polyglot
+/// Random64 constants. For Polyglot book lookups see
+/// `polyglot_keys.rs`.
 ///
 /// | Index | Piece         |
 /// |-------|---------------|
@@ -84,6 +92,48 @@ fn piece_zobrist_index(piece: &Piece) -> usize {
         Color::White => 1,
     };
     kind_base + color_offset
+}
+
+// ---------------------------------------------------------------------------
+// En passant legality helper
+// ---------------------------------------------------------------------------
+
+/// Returns `true` if the side to move has a pawn adjacent to the en-passant
+/// target square that could (geometrically) perform the capture.
+///
+/// Only the presence of an own pawn on an adjacent file on the correct rank
+/// is checked — full move legality is not verified.
+fn has_ep_capture_candidate(board: &Board, turn: Color, ep_sq: Square) -> bool {
+    // The capturing pawn sits on the rank behind the EP target.
+    let pawn_rank = match turn {
+        Color::White => {
+            if ep_sq.rank == 0 {
+                return false;
+            }
+            ep_sq.rank - 1
+        }
+        Color::Black => {
+            if ep_sq.rank >= 7 {
+                return false;
+            }
+            ep_sq.rank + 1
+        }
+    };
+
+    // Check left and right adjacent files.
+    for df in [-1i8, 1i8] {
+        let f = ep_sq.file as i8 + df;
+        if (0..8).contains(&f) {
+            let candidate_sq = Square::new(f as u8, pawn_rank);
+            if let Some(piece) = board.get(candidate_sq) {
+                if piece.kind == PieceKind::Pawn && piece.color == turn {
+                    return true;
+                }
+            }
+        }
+    }
+
+    false
 }
 
 // ---------------------------------------------------------------------------
@@ -124,13 +174,15 @@ pub fn hash_position(
         hash ^= ZOBRIST_KEYS[771];
     }
 
-    // En passant file
+    // En passant file — only if a pawn can actually capture
     if let Some(ep_sq) = en_passant {
-        hash ^= ZOBRIST_KEYS[772 + ep_sq.file as usize];
+        if has_ep_capture_candidate(board, turn, ep_sq) {
+            hash ^= ZOBRIST_KEYS[772 + ep_sq.file as usize];
+        }
     }
 
-    // Side to move (hash when White to move)
-    if turn == Color::White {
+    // Side to move (hash when Black to move)
+    if turn == Color::Black {
         hash ^= ZOBRIST_KEYS[780];
     }
 
@@ -204,5 +256,20 @@ mod tests {
                 assert_ne!(keys[i], keys[j], "Collision at indices {} and {}", i, j);
             }
         }
+    }
+
+    #[test]
+    fn test_ep_ignored_when_no_capture_possible() {
+        // On the starting position no pawn can capture en passant, so
+        // providing an EP square should not change the hash.
+        let board = Board::starting_position();
+        let castling = CastlingRights::default();
+        let ep_sq = Square::new(4, 5); // e6 — no white pawn on d5/f5
+        let h_no_ep = hash_position(&board, Color::White, &castling, None);
+        let h_ep = hash_position(&board, Color::White, &castling, Some(ep_sq));
+        assert_eq!(
+            h_no_ep, h_ep,
+            "EP key should not be included when no pawn can capture"
+        );
     }
 }
