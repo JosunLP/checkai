@@ -8,7 +8,7 @@ use actix_web::{HttpResponse, Responder, web};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::analysis::{AnalysisJob, AnalysisJobSummary, AnalysisManager};
+use crate::analysis::{AnalysisJobSummary, AnalysisManager};
 use crate::api::AppState;
 
 // ---------------------------------------------------------------------------

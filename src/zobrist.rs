@@ -15,7 +15,7 @@
 //! - `[0..767]`   — piece keys (`piece_index * 64 + square_index`)
 //! - `[768..771]`  — castling rights keys (WK, WQ, BK, BQ)
 //! - `[772..779]`  — en passant file keys (files a–h, only hashed
-//!                  when a pawn can actually capture)
+//!   when a pawn can actually capture)
 //! - `[780]`       — side-to-move key (XORed when Black to move)
 
 use crate::types::*;
@@ -125,10 +125,11 @@ fn has_ep_capture_candidate(board: &Board, turn: Color, ep_sq: Square) -> bool {
         let f = ep_sq.file as i8 + df;
         if (0..8).contains(&f) {
             let candidate_sq = Square::new(f as u8, pawn_rank);
-            if let Some(piece) = board.get(candidate_sq) {
-                if piece.kind == PieceKind::Pawn && piece.color == turn {
-                    return true;
-                }
+            if let Some(piece) = board.get(candidate_sq)
+                && piece.kind == PieceKind::Pawn
+                && piece.color == turn
+            {
+                return true;
             }
         }
     }
@@ -175,10 +176,10 @@ pub fn hash_position(
     }
 
     // En passant file — only if a pawn can actually capture
-    if let Some(ep_sq) = en_passant {
-        if has_ep_capture_candidate(board, turn, ep_sq) {
-            hash ^= ZOBRIST_KEYS[772 + ep_sq.file as usize];
-        }
+    if let Some(ep_sq) = en_passant
+        && has_ep_capture_candidate(board, turn, ep_sq)
+    {
+        hash ^= ZOBRIST_KEYS[772 + ep_sq.file as usize];
     }
 
     // Side to move (hash when Black to move)

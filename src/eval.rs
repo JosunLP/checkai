@@ -424,10 +424,18 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
     }
 
     // Pawn structure
-    let (w_pawn_mg, w_pawn_eg) =
-        pawn_structure_score(&white_pawns_per_file, &black_pawns_per_file, Color::White, &white_pawn_max_rank);
-    let (b_pawn_mg, b_pawn_eg) =
-        pawn_structure_score(&black_pawns_per_file, &white_pawns_per_file, Color::Black, &black_pawn_min_rank);
+    let (w_pawn_mg, w_pawn_eg) = pawn_structure_score(
+        &white_pawns_per_file,
+        &black_pawns_per_file,
+        Color::White,
+        &white_pawn_max_rank,
+    );
+    let (b_pawn_mg, b_pawn_eg) = pawn_structure_score(
+        &black_pawns_per_file,
+        &white_pawns_per_file,
+        Color::Black,
+        &black_pawn_min_rank,
+    );
     mg_white += w_pawn_mg;
     eg_white += w_pawn_eg;
     mg_black += b_pawn_mg;
@@ -459,7 +467,12 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
 }
 
 /// Evaluates pawn structure bonuses and penalties.
-fn pawn_structure_score(own_pawns: &[u8; 8], opponent_pawns: &[u8; 8], color: Color, most_advanced_rank: &[u8; 8]) -> (i32, i32) {
+fn pawn_structure_score(
+    own_pawns: &[u8; 8],
+    opponent_pawns: &[u8; 8],
+    color: Color,
+    most_advanced_rank: &[u8; 8],
+) -> (i32, i32) {
     let mut mg = 0i32;
     let mut eg = 0i32;
 
