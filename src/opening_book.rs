@@ -478,8 +478,18 @@ mod tests {
 
         let book = OpeningBook {
             entries: vec![
-                RawBookEntry { key, raw_move: e2e4, weight: 40_000, learn: 0 },
-                RawBookEntry { key, raw_move: d2d4, weight: 40_000, learn: 0 },
+                RawBookEntry {
+                    key,
+                    raw_move: e2e4,
+                    weight: 40_000,
+                    learn: 0,
+                },
+                RawBookEntry {
+                    key,
+                    raw_move: d2d4,
+                    weight: 40_000,
+                    learn: 0,
+                },
             ],
             path: PathBuf::from("test.bin"),
         };
@@ -487,7 +497,10 @@ mod tests {
         let played = ChessMove::simple(Square::new(4, 1), Square::new(4, 3)); // e2e4
         let info = book.probe_move(&board, Color::White, &castling, None, &played);
 
-        assert_eq!(info.total_weight, 80_000u32, "total_weight must not overflow u16");
+        assert_eq!(
+            info.total_weight, 80_000u32,
+            "total_weight must not overflow u16"
+        );
         assert!(info.is_book_move);
     }
 
