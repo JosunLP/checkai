@@ -6,9 +6,9 @@ CheckAI supports **Syzygy endgame tablebases** for perfect endgame play in the a
 
 Syzygy tablebases contain precomputed optimal play for all positions with a small number of pieces (typically up to 6 or 7). When a position matches a tablebase entry, the engine knows the exact game-theoretic result (win/draw/loss) and the optimal move.
 
-## Built-in Analytical Probing
+## Analytical Probing
 
-Even without external tablebase files, CheckAI includes built-in analytical probing for common endgames:
+CheckAI includes built-in analytical probing for common endgames. This is automatically applied when a tablebase is configured (via `--tablebase-path`) for positions where analytical results are provably correct, even if no corresponding `.rtbw`/`.rtbz` file is present:
 
 | Endgame | Result                |
 | ------- | --------------------- |
@@ -16,7 +16,7 @@ Even without external tablebase files, CheckAI includes built-in analytical prob
 | KR vs K | Win for stronger side |
 | KQ vs K | Win for stronger side |
 
-These are detected automatically and do not require any configuration.
+To enable tablebase (and analytical) probing, configure a tablebase path as described below.
 
 ## Setup with External Files
 

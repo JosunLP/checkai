@@ -125,11 +125,12 @@ pub async fn analyze_game(
 
     HttpResponse::Accepted().json(SubmitAnalysisResponse {
         job_id,
-        message: format!(
-            "Analysis submitted for game {} ({} moves)",
-            game_id_str,
-            snapshot.move_history.len()
-        ),
+        message: t!(
+            "analysis.job_submitted",
+            id = &game_id_str,
+            moves = snapshot.move_history.len()
+        )
+        .to_string(),
     })
 }
 

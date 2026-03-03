@@ -382,9 +382,9 @@ impl AnalysisManager {
         let has_book = self.book.is_some();
         let has_tablebase = self.tablebase.is_some();
 
-        // For book/tablebase probing we need to pass the data
-        // Since OpeningBook and SyzygyTablebase are not Send, we do the
-        // probing on the main thread and pass the results.
+        // For book/tablebase probing we pre-probe on the calling thread so
+        // the results can be moved into the spawned task without requiring
+        // `&self` to be `'static`.
         let book_results = self.pre_probe_book(&snapshot);
         let tablebase_results = self.pre_probe_tablebase(&snapshot);
 
