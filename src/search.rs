@@ -1188,7 +1188,7 @@ mod tests {
             movegen::apply_move_to_board(&mut board, mv, *col);
         }
         // f1 and g1 are already clear after the Bc4 and Nf3 moves above.
-        let castling = CastlingRights::default(); // White can castle kingside
+        let castling = CastlingRights::default(); // All castling rights enabled by default
         let pos = SearchPosition::new(board, Color::White, castling, None, 0);
 
         for mv in pos.legal_moves() {
