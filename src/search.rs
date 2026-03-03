@@ -1161,11 +1161,12 @@ mod tests {
     }
 
     /// Verify incremental hash is correct in a position where castling and
-    /// en passant are both available.
+    /// en passant may become available in child positions.
     #[test]
     fn test_incremental_hash_castling_and_ep() {
-        // Set up a position after 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. O-O (before O-O)
-        // White can castle kingside; en passant after a pawn double-push
+        // Set up a position after 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5
+        // White can castle kingside; en passant may become available in child
+        // positions after a pawn double-push (not present in the initial pos).
         let mut board = Board::starting_position();
         let moves = [
             ChessMove::simple(Square::new(4, 1), Square::new(4, 3)), // e4
@@ -1186,10 +1187,7 @@ mod tests {
         for (mv, col) in moves.iter().zip(colors.iter()) {
             movegen::apply_move_to_board(&mut board, mv, *col);
         }
-        // Clear squares for kingside castling
-        board.set(Square::new(5, 0), None); // f1 — clear for castling path
-        board.set(Square::new(6, 0), None); // g1 — knight moved, so both f1,g1 are clear
-
+        // f1 and g1 are already clear after the Bc4 and Nf3 moves above.
         let castling = CastlingRights::default(); // White can castle kingside
         let pos = SearchPosition::new(board, Color::White, castling, None, 0);
 
@@ -1207,6 +1205,65 @@ mod tests {
                 mv
             );
         }
+    }
+
+    /// Verify that the incremental hash is correct for an en-passant capture.
+    #[test]
+    fn test_incremental_hash_en_passant_capture() {
+        // Position: white pawn on e5, black pawn just double-pushed to d5.
+        // En passant target is d6 (Square::new(3, 5)).
+        let mut board = Board::default();
+        board.set(
+            Square::new(4, 4), // e5
+            Some(Piece::new(PieceKind::Pawn, Color::White)),
+        );
+        board.set(
+            Square::new(3, 4), // d5
+            Some(Piece::new(PieceKind::Pawn, Color::Black)),
+        );
+        // Add kings so that the position is minimally legal
+        board.set(
+            Square::new(4, 0), // e1
+            Some(Piece::new(PieceKind::King, Color::White)),
+        );
+        board.set(
+            Square::new(4, 7), // e8
+            Some(Piece::new(PieceKind::King, Color::Black)),
+        );
+
+        let ep_square = Square::new(3, 5); // d6
+        let pos = SearchPosition::new(
+            board,
+            Color::White,
+            CastlingRights::default(),
+            Some(ep_square),
+            0,
+        );
+
+        // Find the en-passant capture in the legal moves
+        let ep_move = pos
+            .legal_moves()
+            .into_iter()
+            .find(|m| m.is_en_passant)
+            .expect("en-passant capture must be legal in this position");
+
+        let child = pos.make_move(&ep_move);
+        let expected = zobrist::hash_position(
+            &child.board,
+            child.turn,
+            &child.castling,
+            child.en_passant,
+        );
+        assert_eq!(
+            child.hash, expected,
+            "Incremental hash mismatch after en-passant capture {:?}",
+            ep_move
+        );
+        // The captured black pawn should be gone
+        assert!(
+            child.board.get(Square::new(3, 4)).is_none(),
+            "Captured en-passant pawn should be removed from d5"
+        );
     }
 
     /// Verify that `make_null_move` produces the correct incremental hash.
