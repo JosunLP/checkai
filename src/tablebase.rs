@@ -76,8 +76,8 @@ pub struct TablebaseInfo {
     pub dtz: Option<i32>,
     /// The piece configuration string (e.g. "KRvK").
     pub configuration: String,
-    /// Source of the result: `"tablebase"`, `"analytical"`, `"heuristic"`,
-    /// `"out_of_range"`, or `"unavailable"`.
+    /// Source of the result: `"analytical"`, `"heuristic"`, `"out_of_range"`,
+    /// or `"unavailable"`.
     pub source: String,
 }
 
