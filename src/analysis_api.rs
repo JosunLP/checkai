@@ -128,7 +128,7 @@ pub async fn analyze_game(
         message: t!(
             "analysis.job_submitted",
             id = &game_id_str,
-            moves = snapshot.move_history.len().to_string()
+            moves = snapshot.move_history.len()
         )
         .to_string(),
     })
