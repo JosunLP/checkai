@@ -223,16 +223,16 @@ pub fn side_key() -> u64 {
 pub fn castling_hash(castling: &CastlingRights) -> u64 {
     let mut hash = 0u64;
     if castling.white.kingside {
-        hash ^= ZOBRIST_KEYS[768];
+        hash ^= castling_key(0);
     }
     if castling.white.queenside {
-        hash ^= ZOBRIST_KEYS[769];
+        hash ^= castling_key(1);
     }
     if castling.black.kingside {
-        hash ^= ZOBRIST_KEYS[770];
+        hash ^= castling_key(2);
     }
     if castling.black.queenside {
-        hash ^= ZOBRIST_KEYS[771];
+        hash ^= castling_key(3);
     }
     hash
 }
