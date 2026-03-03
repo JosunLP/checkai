@@ -1045,4 +1045,28 @@ mod tests {
             "Losing mate round-trip must be identity"
         );
     }
+
+    #[test]
+    fn test_mvv_lva_en_passant_scores_pawn_capture() {
+        // Set up a board with a white pawn at e5 and a black pawn at d5.
+        // The en passant capture (e5xd6) targets the empty d6 square, so
+        // without the fix board.get(mv.to) returns None (victim = 0).
+        // With the fix, mvv_lva_score returns pawn×10 - pawn = 9.
+        let mut board = Board::default();
+        board.set(Square::new(4, 4), Some(Piece::new(PieceKind::Pawn, Color::White))); // e5
+        board.set(Square::new(3, 4), Some(Piece::new(PieceKind::Pawn, Color::Black))); // d5
+
+        let ep_move = ChessMove {
+            from: Square::new(4, 4), // e5
+            to: Square::new(3, 5),   // d6 (empty en passant target)
+            promotion: None,
+            is_castling: false,
+            is_en_passant: true,
+        };
+
+        let score = mvv_lva_score(&board, &ep_move);
+        // victim (pawn=1) * 10 - attacker (pawn=1) = 9
+        assert_eq!(score, 9, "en passant must be scored as a pawn capture (victim non-zero)");
+        assert!(score > 0, "mvv_lva_score for en passant must be positive");
+    }
 }

@@ -48,6 +48,9 @@ pub struct BookMoveInfo {
     /// Weight of the played move (0 if not a book move).
     pub weight: u16,
     /// Total weight of all book moves for this position.
+    ///
+    /// **Breaking change (v0.3.1):** widened from `u16` to `u32` to prevent
+    /// wraparound when multiple high-weight entries are present.
     pub total_weight: u32,
     /// All book moves available in this position.
     pub book_moves: Vec<BookMoveEntry>,
@@ -459,6 +462,33 @@ mod tests {
         assert_eq!(decoded.from, mv.from);
         assert_eq!(decoded.to, mv.to);
         assert!(decoded.is_castling);
+    }
+
+    #[test]
+    fn test_total_weight_no_overflow() {
+        // Creates two entries for the starting position, each with weight 40_000.
+        // Their sum (80_000) exceeds u16::MAX (65_535); the u32 field must
+        // hold the full value without wrapping.
+        let board = Board::starting_position();
+        let castling = CastlingRights::default();
+        let key = polyglot_keys::polyglot_hash(&board, Color::White, &castling, None);
+
+        let e2e4 = encode_polyglot_move(&ChessMove::simple(Square::new(4, 1), Square::new(4, 3)));
+        let d2d4 = encode_polyglot_move(&ChessMove::simple(Square::new(3, 1), Square::new(3, 3)));
+
+        let book = OpeningBook {
+            entries: vec![
+                RawBookEntry { key, raw_move: e2e4, weight: 40_000, learn: 0 },
+                RawBookEntry { key, raw_move: d2d4, weight: 40_000, learn: 0 },
+            ],
+            path: PathBuf::from("test.bin"),
+        };
+
+        let played = ChessMove::simple(Square::new(4, 1), Square::new(4, 3)); // e2e4
+        let info = book.probe_move(&board, Color::White, &castling, None, &played);
+
+        assert_eq!(info.total_weight, 80_000u32, "total_weight must not overflow u16");
+        assert!(info.is_book_move);
     }
 
     #[test]
