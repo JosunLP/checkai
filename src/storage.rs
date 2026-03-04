@@ -46,6 +46,7 @@
 
 use crate::game::Game;
 use crate::types::*;
+use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -369,6 +370,34 @@ impl GameArchive {
 // GameStorage — file-based persistence manager
 // ---------------------------------------------------------------------------
 
+/// Error type returned by [`GameStorage::load_archive`].
+///
+/// Distinguishes a missing archive (→ HTTP 404) from a genuine I/O,
+/// decompression, or deserialization failure (→ HTTP 500).
+#[derive(Debug)]
+pub enum ArchiveLoadError {
+    /// The archive file does not exist.
+    NotFound,
+    /// The file exists but could not be read, decompressed, or parsed.
+    Other(String),
+}
+
+impl fmt::Display for ArchiveLoadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotFound => write!(f, "Archive not found"),
+            Self::Other(msg) => write!(f, "{msg}"),
+        }
+    }
+}
+
+/// Allows existing `?` propagations into `Result<_, String>` to keep working.
+impl From<ArchiveLoadError> for String {
+    fn from(e: ArchiveLoadError) -> Self {
+        e.to_string()
+    }
+}
+
 /// Manages persistent game storage on disk.
 ///
 /// Directory layout:
@@ -495,15 +524,20 @@ impl GameStorage {
     }
 
     /// Loads an archived (compressed) game from disk.
-    pub fn load_archive(&self, game_id: &Uuid) -> Result<GameArchive, String> {
+    pub fn load_archive(&self, game_id: &Uuid) -> Result<GameArchive, ArchiveLoadError> {
         let path = self.archive_path(game_id);
-        let compressed =
-            fs::read(&path).map_err(|e| format!("Failed to read archive {}: {}", game_id, e))?;
+        let compressed = fs::read(&path).map_err(|e| {
+            if e.kind() == io::ErrorKind::NotFound {
+                ArchiveLoadError::NotFound
+            } else {
+                ArchiveLoadError::Other(format!("Failed to read archive {}: {}", game_id, e))
+            }
+        })?;
 
         let decompressed = zstd::decode_all(compressed.as_slice())
-            .map_err(|e| format!("zstd decompression failed: {}", e))?;
+            .map_err(|e| ArchiveLoadError::Other(format!("zstd decompression failed: {}", e)))?;
 
-        deserialize_game(&decompressed)
+        deserialize_game(&decompressed).map_err(ArchiveLoadError::Other)
     }
 
     /// Loads a game from either active or archive storage.

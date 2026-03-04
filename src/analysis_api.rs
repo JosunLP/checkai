@@ -10,6 +10,7 @@ use utoipa::ToSchema;
 
 use crate::analysis::{AnalysisJobSummary, AnalysisManager};
 use crate::api::AppState;
+use crate::storage::ArchiveLoadError;
 
 // ---------------------------------------------------------------------------
 // Request / response types
@@ -102,7 +103,7 @@ pub async fn analyze_game(
         Some(snap)
     } else if let Some(storage) = storage_clone {
         // Disk IO + zstd decompression happens outside the mutex.
-        // Any load failure is a server-side problem → 500; absence → 404.
+        // NotFound → fall through to 404; all other failures → 500.
         match storage.load_archive(&game_id) {
             Ok(archive) => match archive.replay(archive.move_count()) {
                 Ok(game) => Some(game),
@@ -113,9 +114,8 @@ pub async fn analyze_game(
                     });
                 }
             },
-            Err(e) => {
-                // Return 500 for all load errors to avoid accidentally mapping
-                // permission-denied or decompression failures to 404.
+            Err(ArchiveLoadError::NotFound) => None,
+            Err(ArchiveLoadError::Other(e)) => {
                 log::error!("Failed to load archived game {game_id}: {e}");
                 return HttpResponse::InternalServerError().json(AnalysisErrorResponse {
                     error: t!("analysis.archive_load_failed").to_string(),
