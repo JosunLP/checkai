@@ -149,7 +149,7 @@ jobs:
   # Build and push Docker image to GHCR
   docker:
     name: Docker image
-    needs: create-release
+    needs: [create-release, checksums]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
