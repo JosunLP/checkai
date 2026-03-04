@@ -495,7 +495,9 @@ impl AnalysisManager {
             }
 
             // Replay the move to advance the position
-            let _ = replay.make_move(&record.move_json);
+            if replay.make_move(&record.move_json).is_err() {
+                break;
+            }
         }
 
         results
@@ -512,7 +514,10 @@ impl AnalysisManager {
 
         for record in &game.move_history {
             // Probe the tablebase AFTER the move
-            let _ = replay.make_move(&record.move_json);
+            if replay.make_move(&record.move_json).is_err() {
+                results.push(None);
+                break;
+            }
             let info = tb.probe(
                 &replay.board,
                 replay.turn,
@@ -699,12 +704,21 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
                 principal_variation: Vec::new(),
             }
         } else if is_tablebase {
-            // Tablebase position — evaluate using tablebase results
+            // Tablebase position — evaluate using tablebase results.
+            // `pre_probe_tablebase` probes AFTER applying the move, so `tb.wdl`
+            // is from the *opponent-to-move* perspective. Invert the mapping so
+            // quality/cp_loss reflect the player who played this move.
             let tb = tb_info.clone().unwrap();
             let (quality, cp_loss) = match tb.wdl {
-                Some(WDL::Win) | Some(WDL::CursedWin) => (MoveQuality::Best, 0),
+                // Opponent wins → we played a losing move
+                Some(WDL::Win) => (MoveQuality::Blunder, 200),
+                // Opponent nearly wins (50-move draw) → effectively a draw for us
+                Some(WDL::CursedWin) => (MoveQuality::Good, 0),
                 Some(WDL::Draw) => (MoveQuality::Good, 0),
-                Some(WDL::Loss) | Some(WDL::BlessedLoss) => (MoveQuality::Blunder, 200),
+                // Opponent nearly loses (50-move draw) → effectively a draw for us
+                Some(WDL::BlessedLoss) => (MoveQuality::Excellent, 0),
+                // Opponent loses → we played the best/winning move
+                Some(WDL::Loss) => (MoveQuality::Best, 0),
                 None => (MoveQuality::Good, 0),
             };
 
@@ -775,7 +789,12 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
         annotations.push(annotation);
 
         // Replay the move to advance the position
-        let _ = replay.make_move(&record.move_json);
+        if replay.make_move(&record.move_json).is_err() {
+            return Err(format!(
+                "Failed to replay move at index {idx}: {} to {}",
+                record.move_json.from, record.move_json.to
+            ));
+        }
 
         // Update progress (skip lock if already cancelled)
         if cancel_token.load(Ordering::Relaxed) {

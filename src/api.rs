@@ -60,6 +60,10 @@ pub struct AppState {
         get_archived_game,
         replay_archived_game,
         get_storage_stats,
+        crate::analysis_api::analyze_game,
+        crate::analysis_api::list_analysis_jobs,
+        crate::analysis_api::get_analysis_job,
+        crate::analysis_api::delete_analysis_job,
     ),
     components(schemas(
         CreateGameResponse,
@@ -85,12 +89,24 @@ pub struct AppState {
         ArchiveSummary,
         ReplayResponse,
         StorageStats,
+        crate::analysis_api::AnalyzeGameRequest,
+        crate::analysis_api::AnalysisErrorResponse,
+        crate::analysis_api::SubmitAnalysisResponse,
+        crate::analysis_api::AnalysisJobListResponse,
+        crate::analysis::MoveQuality,
+        crate::analysis::MoveAnnotation,
+        crate::analysis::AnalysisSummary,
+        crate::analysis::AnalysisResult,
+        crate::analysis::AnalysisStatus,
+        crate::analysis::AnalysisJob,
+        crate::analysis::AnalysisJobSummary,
     )),
     tags(
         (name = "games", description = "Game management endpoints"),
         (name = "moves", description = "Move submission and legal move queries"),
         (name = "display", description = "Board display and visualization"),
         (name = "archive", description = "Game archive and replay for analysis"),
+        (name = "analysis", description = "Asynchronous game analysis endpoints"),
     )
 )]
 pub struct ApiDoc;

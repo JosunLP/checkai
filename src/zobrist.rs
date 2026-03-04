@@ -105,7 +105,7 @@ fn piece_zobrist_index(piece: &Piece) -> usize {
 ///
 /// Only the presence of an own pawn on an adjacent file on the correct rank
 /// is checked — full move legality is not verified.
-fn has_ep_capture_candidate(board: &Board, turn: Color, ep_sq: Square) -> bool {
+pub fn has_ep_capture_candidate(board: &Board, turn: Color, ep_sq: Square) -> bool {
     // The capturing pawn sits on the rank behind the EP target.
     let pawn_rank = match turn {
         Color::White => {
@@ -215,6 +215,26 @@ pub fn en_passant_key(file: u8) -> u64 {
 /// Returns the side-to-move Zobrist key.
 pub fn side_key() -> u64 {
     ZOBRIST_KEYS[780]
+}
+
+/// Returns the combined Zobrist hash contribution for a set of castling rights.
+///
+/// XORs the individual castling keys for each right that is currently set.
+pub fn castling_hash(castling: &CastlingRights) -> u64 {
+    let mut hash = 0u64;
+    if castling.white.kingside {
+        hash ^= castling_key(0);
+    }
+    if castling.white.queenside {
+        hash ^= castling_key(1);
+    }
+    if castling.black.kingside {
+        hash ^= castling_key(2);
+    }
+    if castling.black.queenside {
+        hash ^= castling_key(3);
+    }
+    hash
 }
 
 // ---------------------------------------------------------------------------

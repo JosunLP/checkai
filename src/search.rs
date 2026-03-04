@@ -226,6 +226,9 @@ impl SearchPosition {
         let is_pawn_move = moving_piece.kind == PieceKind::Pawn;
         let is_capture = new_board.get(mv.to).is_some() || mv.is_en_passant;
 
+        // Capture piece before applying move (needed for incremental hash)
+        let captured_piece = new_board.get(mv.to);
+
         movegen::apply_move_to_board(&mut new_board, mv, self.turn);
 
         // Update castling rights
@@ -261,7 +264,62 @@ impl SearchPosition {
         };
 
         let new_turn = self.turn.opponent();
-        let new_hash = zobrist::hash_position(&new_board, new_turn, &new_castling, new_ep);
+
+        // Incremental Zobrist hash update (avoids full board scan)
+        let mut new_hash = self.hash;
+        // Toggle side-to-move
+        new_hash ^= zobrist::side_key();
+        // Remove old castling contribution
+        new_hash ^= zobrist::castling_hash(&self.castling);
+        // Remove old en passant contribution (if any, only when capture was possible)
+        if let Some(ep_sq) = self.en_passant
+            && zobrist::has_ep_capture_candidate(&self.board, self.turn, ep_sq)
+        {
+            new_hash ^= zobrist::en_passant_key(ep_sq.file);
+        }
+        // Remove moving piece from source square
+        new_hash ^= zobrist::piece_square_key(&moving_piece, mv.from);
+        // Remove captured piece (normal capture)
+        if let Some(cap) = captured_piece {
+            new_hash ^= zobrist::piece_square_key(&cap, mv.to);
+        }
+        // Remove en-passant captured pawn
+        if mv.is_en_passant {
+            let ep_captured_rank = match self.turn {
+                Color::White => mv.to.rank - 1,
+                Color::Black => mv.to.rank + 1,
+            };
+            let ep_pawn = Piece::new(PieceKind::Pawn, new_turn);
+            new_hash ^=
+                zobrist::piece_square_key(&ep_pawn, Square::new(mv.to.file, ep_captured_rank));
+        }
+        // Add piece at destination (possibly promoted)
+        let dest_piece = if let Some(promo_kind) = mv.promotion {
+            Piece::new(promo_kind, self.turn)
+        } else {
+            moving_piece
+        };
+        new_hash ^= zobrist::piece_square_key(&dest_piece, mv.to);
+        // Castling: update rook positions
+        if mv.is_castling {
+            let rank = mv.from.rank;
+            let rook = Piece::new(PieceKind::Rook, self.turn);
+            let (rook_from, rook_to) = if mv.to.file == 6 {
+                (7u8, 5u8)
+            } else {
+                (0u8, 3u8)
+            };
+            new_hash ^= zobrist::piece_square_key(&rook, Square::new(rook_from, rank));
+            new_hash ^= zobrist::piece_square_key(&rook, Square::new(rook_to, rank));
+        }
+        // Add new castling contribution
+        new_hash ^= zobrist::castling_hash(&new_castling);
+        // Add new en passant contribution (only when capture is possible)
+        if let Some(ep_sq) = new_ep
+            && zobrist::has_ep_capture_candidate(&new_board, new_turn, ep_sq)
+        {
+            new_hash ^= zobrist::en_passant_key(ep_sq.file);
+        }
 
         Self {
             board: new_board,
@@ -276,7 +334,14 @@ impl SearchPosition {
     /// Makes a null move (pass — switches turn without moving).
     pub fn make_null_move(&self) -> Self {
         let new_turn = self.turn.opponent();
-        let new_hash = zobrist::hash_position(&self.board, new_turn, &self.castling, None);
+        // Incremental hash: toggle side-to-move and remove old EP contribution
+        let mut new_hash = self.hash;
+        new_hash ^= zobrist::side_key();
+        if let Some(ep_sq) = self.en_passant
+            && zobrist::has_ep_capture_candidate(&self.board, self.turn, ep_sq)
+        {
+            new_hash ^= zobrist::en_passant_key(ep_sq.file);
+        }
         Self {
             board: self.board.clone(),
             turn: new_turn,
@@ -774,7 +839,6 @@ impl SearchEngine {
         }
 
         self.stats.quiescence_nodes += 1;
-        self.stats.nodes += 1;
 
         // Stand pat: static evaluation
         let stand_pat = eval::evaluate(&pos.board, pos.turn);
@@ -1077,5 +1141,130 @@ mod tests {
             "en passant must be scored as a pawn capture (victim non-zero)"
         );
         assert!(score > 0, "mvv_lva_score for en passant must be positive");
+    }
+
+    /// Verify that the incremental Zobrist hash in `make_move` always matches
+    /// the full `hash_position` recomputation.
+    #[test]
+    fn test_incremental_hash_matches_full_hash() {
+        let pos = starting_pos();
+        for mv in pos.legal_moves() {
+            let child = pos.make_move(&mv);
+            let expected =
+                zobrist::hash_position(&child.board, child.turn, &child.castling, child.en_passant);
+            assert_eq!(
+                child.hash, expected,
+                "Incremental hash mismatch after move {:?}",
+                mv
+            );
+        }
+    }
+
+    /// Verify incremental hash is correct in a position where castling and
+    /// en passant may become available in child positions.
+    #[test]
+    fn test_incremental_hash_castling_and_ep() {
+        // Set up a position after 1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5
+        // White can castle kingside; en passant may become available in child
+        // positions after a pawn double-push (not present in the initial pos).
+        let mut board = Board::starting_position();
+        let moves = [
+            ChessMove::simple(Square::new(4, 1), Square::new(4, 3)), // e4
+            ChessMove::simple(Square::new(4, 6), Square::new(4, 4)), // e5
+            ChessMove::simple(Square::new(6, 0), Square::new(5, 2)), // Nf3
+            ChessMove::simple(Square::new(1, 7), Square::new(2, 5)), // Nc6
+            ChessMove::simple(Square::new(5, 0), Square::new(2, 3)), // Bc4
+            ChessMove::simple(Square::new(5, 7), Square::new(2, 4)), // Bc5
+        ];
+        let colors = [
+            Color::White,
+            Color::Black,
+            Color::White,
+            Color::Black,
+            Color::White,
+            Color::Black,
+        ];
+        for (mv, col) in moves.iter().zip(colors.iter()) {
+            movegen::apply_move_to_board(&mut board, mv, *col);
+        }
+        // f1 and g1 are already clear after the Bc4 and Nf3 moves above.
+        let castling = CastlingRights::default(); // All castling rights enabled by default
+        let pos = SearchPosition::new(board, Color::White, castling, None, 0);
+
+        for mv in pos.legal_moves() {
+            let child = pos.make_move(&mv);
+            let expected =
+                zobrist::hash_position(&child.board, child.turn, &child.castling, child.en_passant);
+            assert_eq!(
+                child.hash, expected,
+                "Incremental hash mismatch after move {:?}",
+                mv
+            );
+        }
+    }
+
+    /// Verify that the incremental hash is correct for an en-passant capture.
+    #[test]
+    fn test_incremental_hash_en_passant_capture() {
+        // Position: white pawn on e5, black pawn just double-pushed to d5.
+        // En passant target is d6 (Square::new(3, 5)).
+        let mut board = Board::default();
+        board.set(
+            Square::new(4, 4), // e5
+            Some(Piece::new(PieceKind::Pawn, Color::White)),
+        );
+        board.set(
+            Square::new(3, 4), // d5
+            Some(Piece::new(PieceKind::Pawn, Color::Black)),
+        );
+        // Add kings so that the position is minimally legal
+        board.set(
+            Square::new(4, 0), // e1
+            Some(Piece::new(PieceKind::King, Color::White)),
+        );
+        board.set(
+            Square::new(4, 7), // e8
+            Some(Piece::new(PieceKind::King, Color::Black)),
+        );
+
+        let ep_square = Square::new(3, 5); // d6
+        let pos = SearchPosition::new(
+            board,
+            Color::White,
+            CastlingRights::default(),
+            Some(ep_square),
+            0,
+        );
+
+        // Find the en-passant capture in the legal moves
+        let ep_move = pos
+            .legal_moves()
+            .into_iter()
+            .find(|m| m.is_en_passant)
+            .expect("en-passant capture must be legal in this position");
+
+        let child = pos.make_move(&ep_move);
+        let expected =
+            zobrist::hash_position(&child.board, child.turn, &child.castling, child.en_passant);
+        assert_eq!(
+            child.hash, expected,
+            "Incremental hash mismatch after en-passant capture {:?}",
+            ep_move
+        );
+        // The captured black pawn should be gone
+        assert!(
+            child.board.get(Square::new(3, 4)).is_none(),
+            "Captured en-passant pawn should be removed from d5"
+        );
+    }
+
+    /// Verify that `make_null_move` produces the correct incremental hash.
+    #[test]
+    fn test_null_move_incremental_hash() {
+        let pos = starting_pos();
+        let null = pos.make_null_move();
+        let expected =
+            zobrist::hash_position(&null.board, null.turn, &null.castling, null.en_passant);
+        assert_eq!(null.hash, expected, "Null move incremental hash mismatch");
     }
 }

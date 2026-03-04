@@ -198,7 +198,7 @@ pub async fn delete_analysis_job(
     let job_id = path.into_inner();
     if analysis.delete_job(&job_id).await {
         HttpResponse::Ok().json(serde_json::json!({
-            "message": format!("Job {} deleted", job_id)
+            "message": t!("analysis.job_deleted", id = &job_id).to_string()
         }))
     } else {
         HttpResponse::NotFound().json(AnalysisErrorResponse {
