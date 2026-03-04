@@ -969,10 +969,22 @@ mod tests {
         use crate::types::MoveJson;
         let mut game = Game::new();
         let moves = [
-            ("e2", "e4"), ("e7", "e5"), ("g1", "f3"), ("b8", "c6"),
-            ("f1", "c4"), ("g8", "f6"), ("d2", "d3"), ("f8", "c5"),
-            ("c2", "c3"), ("d7", "d6"), ("b2", "b4"), ("c5", "b6"),
-            ("a2", "a4"), ("a7", "a6"), ("b1", "d2"), ("e8", "g8"),
+            ("e2", "e4"),
+            ("e7", "e5"),
+            ("g1", "f3"),
+            ("b8", "c6"),
+            ("f1", "c4"),
+            ("g8", "f6"),
+            ("d2", "d3"),
+            ("f8", "c5"),
+            ("c2", "c3"),
+            ("d7", "d6"),
+            ("b2", "b4"),
+            ("c5", "b6"),
+            ("a2", "a4"),
+            ("a7", "a6"),
+            ("b1", "d2"),
+            ("e8", "g8"),
         ];
         for (from, to) in moves {
             let _ = game.make_move(&MoveJson {
@@ -1002,7 +1014,10 @@ mod tests {
 
         // The job must still exist in the store with Cancelled status.
         let jobs = mgr.list_jobs().await;
-        let job = jobs.iter().find(|j| j.id == job_id).expect("job must still be in store");
+        let job = jobs
+            .iter()
+            .find(|j| j.id == job_id)
+            .expect("job must still be in store");
         assert!(matches!(job.status, AnalysisStatus::Cancelled));
     }
 
