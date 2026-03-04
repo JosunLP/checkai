@@ -167,18 +167,82 @@ pub fn print_game_result(game: &Game) {
     }
 }
 
-/// Prints available commands in the terminal.
+/// Prints available commands in the terminal, grouped by category.
 pub fn print_help() {
     println!("{}", t!("terminal.cmd_header").to_string().yellow().bold());
-    println!("  {}      - {}", "e2e4".green(), t!("terminal.cmd_move"));
-    println!("  {}     - {}", "moves".green(), t!("terminal.cmd_moves"));
-    println!("  {}      - {}", "board".green(), t!("terminal.cmd_board"));
-    println!("  {}    - {}", "resign".green(), t!("terminal.cmd_resign"));
-    println!("  {}      - {}", "draw".green(), t!("terminal.cmd_draw"));
-    println!("  {}   - {}", "history".green(), t!("terminal.cmd_history"));
-    println!("  {}       - {}", "json".green(), t!("terminal.cmd_json"));
-    println!("  {}      - {}", "help".green(), t!("terminal.cmd_help"));
-    println!("  {}      - {}", "quit".green(), t!("terminal.cmd_quit"));
+    println!();
+    println!(
+        "  {}",
+        t!("terminal.cmd_section_game").to_string().cyan().bold()
+    );
+    println!(
+        "    {}            {}",
+        "e2e4".green(),
+        t!("terminal.cmd_move")
+    );
+    println!(
+        "    {} {}    {}",
+        "moves".green(),
+        "[m]".dimmed(),
+        t!("terminal.cmd_moves")
+    );
+    println!(
+        "    {} {}  {}",
+        "resign".green(),
+        "[r]".dimmed(),
+        t!("terminal.cmd_resign")
+    );
+    println!(
+        "    {}   {}    {}",
+        "draw".green(),
+        "[d]".dimmed(),
+        t!("terminal.cmd_draw")
+    );
+    println!();
+    println!(
+        "  {}",
+        t!("terminal.cmd_section_display").to_string().cyan().bold()
+    );
+    println!(
+        "    {}  {}    {}",
+        "board".green(),
+        "[b]".dimmed(),
+        t!("terminal.cmd_board")
+    );
+    println!(
+        "    {}            {}",
+        "history".green(),
+        t!("terminal.cmd_history")
+    );
+    println!(
+        "    {}    {}    {}",
+        "fen".green(),
+        "[f]".dimmed(),
+        t!("terminal.cmd_fen")
+    );
+    println!(
+        "    {}   {}    {}",
+        "json".green(),
+        "[j]".dimmed(),
+        t!("terminal.cmd_json")
+    );
+    println!();
+    println!(
+        "  {}",
+        t!("terminal.cmd_section_system").to_string().cyan().bold()
+    );
+    println!(
+        "    {} {}  {}",
+        "help".green(),
+        "[h/?]".dimmed(),
+        t!("terminal.cmd_help")
+    );
+    println!(
+        "    {}   {}    {}",
+        "quit".green(),
+        "[q]".dimmed(),
+        t!("terminal.cmd_quit")
+    );
     println!();
 }
 
@@ -211,21 +275,25 @@ pub fn print_history(game: &Game) {
 /// Two players alternate entering moves via the terminal.
 /// The game continues until checkmate, stalemate, draw, or resignation.
 pub fn run_terminal_game() {
+    let version = crate::update::version();
+
+    let border = "═══════════════════════════════════════";
+    let inner_width = border.chars().count();
+
+    let title = t!("terminal.banner_title").to_string();
+    let subtitle_content = format!("     {}    v{}", t!("terminal.banner_subtitle"), version);
+
     println!();
-    println!("{}", "╔═══════════════════════════════════════╗".cyan());
+    println!("{}", format!("\u{2554}{}\u{2557}", border).cyan());
     println!(
         "{}",
-        format!("\u{2551}     {}     \u{2551}", t!("terminal.banner_title")).cyan()
+        format!("\u{2551}{:^inner_width$}\u{2551}", title).cyan()
     );
     println!(
         "{}",
-        format!(
-            "\u{2551}     {}                   \u{2551}",
-            t!("terminal.banner_subtitle")
-        )
-        .cyan()
+        format!("\u{2551}{:<inner_width$}\u{2551}", subtitle_content).cyan()
     );
-    println!("{}", "╚═══════════════════════════════════════╝".cyan());
+    println!("{}", format!("\u{255A}{}\u{255D}", border).cyan());
     println!();
 
     let mut game = Game::new();
@@ -372,6 +440,14 @@ pub fn run_terminal_game() {
             "json" | "j" => {
                 let state = game.to_game_state_json();
                 println!("{}", serde_json::to_string_pretty(&state).unwrap());
+                println!();
+            }
+            "fen" | "f" => {
+                let fen = game
+                    .board
+                    .to_position_fen(game.turn, &game.castling, game.en_passant);
+                let full_fen = format!("{} {} {}", fen, game.halfmove_clock, game.fullmove_number);
+                println!("  {}", full_fen.green());
                 println!();
             }
             _ => {

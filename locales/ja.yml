@@ -31,6 +31,26 @@ terminal.no_draw_available: '引き分け申請不可。ハーフムーブ：%{c
 terminal.illegal_move: '不正な手'
 terminal.unknown_cmd: '不明なコマンド'
 terminal.unknown_cmd_hint: "'%{cmd}'。%{help} でヘルプを表示。"
+terminal.cmd_section_game: '対局'
+terminal.cmd_section_display: '表示'
+terminal.cmd_section_system: 'システム'
+terminal.cmd_fen: '現在のFEN文字列を表示'
+
+# ---------------------------------------------------------------------------
+# CLI ウェルカム画面
+# ---------------------------------------------------------------------------
+cli.welcome_header: 'CheckAI — AI用チェスサーバー'
+cli.commands_header: '利用可能なコマンド：'
+cli.quickstart_header: 'クイックスタート：'
+cli.cmd_serve_desc: 'REST API + WebSocketサーバーを起動'
+cli.cmd_play_desc: 'ターミナルでチェス対局'
+cli.cmd_export_desc: 'アーカイブされた対局をエクスポート（テキスト、PGN、JSON）'
+cli.cmd_update_desc: '最新バージョンに更新'
+cli.cmd_version_desc: 'バージョン情報を表示'
+cli.quickstart_serve: 'デフォルトポートでサーバーを起動'
+cli.quickstart_play: 'ローカル対局を開始'
+cli.quickstart_help: '各コマンドの詳細ヘルプ'
+cli.run_help_hint: '詳細は %{cmd} を実行してください。'
 
 # ---------------------------------------------------------------------------
 # アップデート / バージョンチェック
@@ -167,3 +187,28 @@ ws.missing_action_type: 'フィールド不足：action_type'
 ws.subscribed: 'ゲーム %{id} を購読しました'
 ws.unsubscribed: 'ゲーム %{id} の購読を解除しました'
 ws.binary_not_supported: 'バイナリメッセージはサポートされていません。JSONテキストを送信してください。'
+
+# ---------------------------------------------------------------------------
+# 分析
+# ---------------------------------------------------------------------------
+analysis.job_submitted: 'ゲーム %{id} の分析ジョブを送信しました（%{moves} 手）'
+analysis.job_not_found: '分析ジョブが見つかりません：%{id}'
+analysis.job_deleted: '分析ジョブ %{id} を削除しました'
+analysis.job_cancelled: '分析ジョブ %{id} がキャンセルされました'
+analysis.job_limit_exceeded: '分析容量を超えました：アクティブ=%{active}（最大 %{max_active}）、保存済み=%{stored}'
+analysis.job_store_limit_exceeded: '分析ジョブ保存領域が満杯です：保存済み=%{stored}（最大 %{max_stored}）'
+analysis.game_no_moves: '分析する手がありません'
+analysis.quality.best: '最善'
+analysis.quality.excellent: '優秀'
+analysis.quality.good: '良手'
+analysis.quality.inaccuracy: '不正確'
+analysis.quality.mistake: 'ミス'
+analysis.quality.blunder: '大悪手'
+analysis.quality.book: '定跡'
+analysis.book_loaded: '定跡ブックを読み込みました：%{count} エントリ'
+analysis.book_failed: '定跡ブックの読み込みに失敗：%{error}'
+analysis.tablebase_loaded: 'Syzygy テーブルベースを読み込みました：最大 %{pieces} 駒'
+analysis.tablebase_failed: 'Syzygy テーブルベースの読み込みに失敗：%{error}'
+analysis.engine_config: '分析エンジン：深さ=%{depth}、TT=%{tt}MB'
+analysis.archive_load_failed: 'アーカイブ済みゲームの読み込みに失敗'
+analysis.archive_replay_failed: 'アーカイブ済みゲームのリプレイに失敗'

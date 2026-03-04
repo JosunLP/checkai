@@ -31,6 +31,26 @@ terminal.no_draw_available: 'Kein Remis möglich. Halbzuguhr: %{clock}, Wiederho
 terminal.illegal_move: 'Ungültiger Zug'
 terminal.unknown_cmd: 'Unbekannter Befehl'
 terminal.unknown_cmd_hint: "'%{cmd}'. Tippe %{help} für Hilfe."
+terminal.cmd_section_game: 'Spiel'
+terminal.cmd_section_display: 'Anzeige'
+terminal.cmd_section_system: 'System'
+terminal.cmd_fen: 'Aktuelle FEN-Zeichenkette anzeigen'
+
+# ---------------------------------------------------------------------------
+# CLI-Willkommensbildschirm
+# ---------------------------------------------------------------------------
+cli.welcome_header: 'CheckAI — Schachserver für KI'
+cli.commands_header: 'Verfügbare Befehle:'
+cli.quickstart_header: 'Schnellstart:'
+cli.cmd_serve_desc: 'REST-API + WebSocket-Server starten'
+cli.cmd_play_desc: 'Schachpartie im Terminal spielen'
+cli.cmd_export_desc: 'Archivierte Spiele exportieren (Text, PGN, JSON)'
+cli.cmd_update_desc: 'Auf neueste Version aktualisieren'
+cli.cmd_version_desc: 'Versionsinformation anzeigen'
+cli.quickstart_serve: 'Server auf Standardport starten'
+cli.quickstart_play: 'Lokales Spiel starten'
+cli.quickstart_help: 'Vollständige Hilfe für jeden Befehl'
+cli.run_help_hint: 'Führe %{cmd} aus für detaillierte Nutzung.'
 
 # ---------------------------------------------------------------------------
 # Update / Versionsüberprüfung
@@ -167,3 +187,28 @@ ws.missing_action_type: 'Fehlendes Feld: action_type'
 ws.subscribed: 'Spiel %{id} abonniert'
 ws.unsubscribed: 'Spiel %{id} abbestellt'
 ws.binary_not_supported: 'Binärnachrichten werden nicht unterstützt. Bitte sende JSON-Text.'
+
+# ---------------------------------------------------------------------------
+# Analyse
+# ---------------------------------------------------------------------------
+analysis.job_submitted: 'Analyseauftrag für Spiel %{id} eingereicht (%{moves} Züge)'
+analysis.job_not_found: 'Analyseauftrag nicht gefunden: %{id}'
+analysis.job_deleted: 'Analyseauftrag %{id} gelöscht'
+analysis.job_cancelled: 'Analyseauftrag %{id} abgebrochen'
+analysis.job_limit_exceeded: 'Analysekapazität überschritten: aktiv=%{active} (max %{max_active}), gespeichert=%{stored}'
+analysis.job_store_limit_exceeded: 'Analyse-Jobspeicher ist voll: gespeichert=%{stored} (max %{max_stored})'
+analysis.game_no_moves: 'Spiel hat keine Züge zum Analysieren'
+analysis.quality.best: 'Bester'
+analysis.quality.excellent: 'Ausgezeichnet'
+analysis.quality.good: 'Gut'
+analysis.quality.inaccuracy: 'Ungenauigkeit'
+analysis.quality.mistake: 'Fehler'
+analysis.quality.blunder: 'Patzer'
+analysis.quality.book: 'Buch'
+analysis.book_loaded: 'Eröffnungsbuch geladen: %{count} Einträge'
+analysis.book_failed: 'Eröffnungsbuch konnte nicht geladen werden: %{error}'
+analysis.tablebase_loaded: 'Syzygy-Endspieldatenbank geladen: max. %{pieces} Figuren'
+analysis.tablebase_failed: 'Syzygy-Endspieldatenbank konnte nicht geladen werden: %{error}'
+analysis.engine_config: 'Analyse-Engine: Tiefe=%{depth}, TT=%{tt}MB'
+analysis.archive_load_failed: 'Archiviertes Spiel konnte nicht geladen werden'
+analysis.archive_replay_failed: 'Archiviertes Spiel konnte nicht wiedergegeben werden'

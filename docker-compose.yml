@@ -1,0 +1,55 @@
+# =============================================================================
+# CheckAI — Docker Compose
+# =============================================================================
+# Usage:
+#   docker compose up -d          # Start the server
+#   docker compose logs -f        # Follow logs
+#   docker compose down           # Stop and remove container
+#
+# With opening book + tablebase:
+#   Place your Polyglot book in ./books/book.bin
+#   Place Syzygy files in ./tablebase/
+#   Uncomment the --book-path and --tablebase-path args below
+# =============================================================================
+
+services:
+  checkai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: checkai
+    ports:
+      - "${CHECKAI_PORT:-8080}:8080"
+    volumes:
+      # Persist game data across container restarts
+      - checkai-data:/home/checkai/data
+      # Mount local books and tablebase directories (read-only)
+      - ./books:/home/checkai/books:ro
+      - ./tablebase:/home/checkai/tablebase:ro
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+    command:
+      - serve
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+      - --data-dir
+      - data
+      # Uncomment the following lines if you have an opening book:
+      # - --book-path
+      # - books/book.bin
+      # Uncomment the following lines if you have Syzygy tablebases:
+      # - --tablebase-path
+      # - tablebase
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/games"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  checkai-data:
+    driver: local

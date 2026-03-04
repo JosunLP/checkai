@@ -1,0 +1,25 @@
+# Build artifacts
+target/
+debug/
+
+# Version control
+.git/
+.gitignore
+
+# IDE / editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Documentation not needed at runtime
+docs/
+*.md
+!README.md
+
+# Scripts not needed in container
+scripts/
+
+# CI configuration
+.github/

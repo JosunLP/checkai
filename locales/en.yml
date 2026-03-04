@@ -31,6 +31,26 @@ terminal.no_draw_available: 'No draw claim available. Halfmove clock: %{clock}, 
 terminal.illegal_move: 'Illegal move'
 terminal.unknown_cmd: 'Unknown command'
 terminal.unknown_cmd_hint: "'%{cmd}'. Type %{help} for help."
+terminal.cmd_section_game: 'Game'
+terminal.cmd_section_display: 'Display'
+terminal.cmd_section_system: 'System'
+terminal.cmd_fen: 'Show the current FEN string'
+
+# ---------------------------------------------------------------------------
+# CLI welcome screen
+# ---------------------------------------------------------------------------
+cli.welcome_header: 'CheckAI — Chess Server for AI'
+cli.commands_header: 'Available Commands:'
+cli.quickstart_header: 'Quick Start:'
+cli.cmd_serve_desc: 'Start the REST API + WebSocket server'
+cli.cmd_play_desc: 'Play a chess game in the terminal'
+cli.cmd_export_desc: 'Export archived games (text, PGN, JSON)'
+cli.cmd_update_desc: 'Update to the latest release'
+cli.cmd_version_desc: 'Print version information'
+cli.quickstart_serve: 'Start server on default port'
+cli.quickstart_play: 'Play a local game'
+cli.quickstart_help: 'Full help for any command'
+cli.run_help_hint: 'Run %{cmd} for detailed usage.'
 
 # ---------------------------------------------------------------------------
 # Update / version check
@@ -167,3 +187,28 @@ ws.missing_action_type: 'Missing field: action_type'
 ws.subscribed: 'Subscribed to game %{id}'
 ws.unsubscribed: 'Unsubscribed from game %{id}'
 ws.binary_not_supported: 'Binary messages are not supported. Please send JSON text.'
+
+# ---------------------------------------------------------------------------
+# Analysis
+# ---------------------------------------------------------------------------
+analysis.job_submitted: 'Analysis job submitted for game %{id} (%{moves} moves)'
+analysis.job_not_found: 'Analysis job not found: %{id}'
+analysis.job_deleted: 'Analysis job %{id} deleted'
+analysis.job_cancelled: 'Analysis job %{id} cancelled'
+analysis.job_limit_exceeded: 'Analysis capacity exceeded: active=%{active} (max %{max_active}), stored=%{stored}'
+analysis.job_store_limit_exceeded: 'Analysis job store is full: stored=%{stored} (max %{max_stored})'
+analysis.game_no_moves: 'Game has no moves to analyze'
+analysis.quality.best: 'Best'
+analysis.quality.excellent: 'Excellent'
+analysis.quality.good: 'Good'
+analysis.quality.inaccuracy: 'Inaccuracy'
+analysis.quality.mistake: 'Mistake'
+analysis.quality.blunder: 'Blunder'
+analysis.quality.book: 'Book'
+analysis.book_loaded: 'Opening book loaded: %{count} entries'
+analysis.book_failed: 'Failed to load opening book: %{error}'
+analysis.tablebase_loaded: 'Syzygy tablebase loaded: max %{pieces} pieces'
+analysis.tablebase_failed: 'Failed to load Syzygy tablebase: %{error}'
+analysis.engine_config: 'Analysis engine: depth=%{depth}, TT=%{tt}MB'
+analysis.archive_load_failed: 'Failed to load archived game'
+analysis.archive_replay_failed: 'Failed to replay archived game'

@@ -4,6 +4,8 @@ A Rust application that provides both a **terminal interface** and a **REST API*
 for playing chess. Designed for AI agents to play chess against each other,
 following the **FIDE 2023 Laws of Chess**.
 
+**[📖 Documentation](https://josunlp.github.io/checkai/)** · **[Changelog](CHANGELOG.md)** · **[Releases](https://github.com/JosunLP/checkai/releases)**
+
 ## Features
 
 - **Complete Chess Engine** — Full move generation and validation including
@@ -11,9 +13,22 @@ following the **FIDE 2023 Laws of Chess**.
   and all draw conditions (50-move rule, threefold repetition, insufficient
   material).
 
+- **Deep Game Analysis** — Asynchronous analysis engine with a minimum search
+  depth of 30 plies. Classifies every move as Best / Excellent / Good /
+  Inaccuracy / Mistake / Blunder with centipawn loss and principal variation.
+  Includes PeSTO evaluation, alpha-beta search with PVS, transposition table,
+  null-move pruning, LMR, killer/history heuristics, and quiescence search.
+
+- **Opening Book & Endgame Tablebases** — Polyglot `.bin` opening book support
+  and Syzygy endgame tablebase detection with limited analytical evaluation
+  (no full tablebase probing / perfect endgame play yet).
 - **REST API** — JSON-based API for AI agents to create games, query state,
   submit moves, and handle special actions (draw claims, resignation).
   Follows the protocol defined in [`docs/AGENT.md`](docs/AGENT.md).
+
+- **Analysis API** — Separate `/api/analysis/*` endpoints for submitting games
+  for deep analysis with real-time progress tracking. Architecturally isolated
+  from the player-facing game endpoints.
 
 - **WebSocket API** — Full WebSocket support at `/ws` mirroring every REST
   endpoint, with real-time event broadcasting. Clients can subscribe to
@@ -25,6 +40,14 @@ following the **FIDE 2023 Laws of Chess**.
 
 - **Terminal Interface** — Colored board display with interactive move input
   for local two-player games.
+
+- **Docker Support** — Multi-stage Dockerfile and docker-compose.yml for
+  containerized deployment with volume mounts for game data, opening books,
+  and tablebases.
+
+- **Documentation** — Full [VitePress documentation site](https://josunlp.github.io/checkai/)
+  with guides, API reference, and agent protocol specification. Automatically
+  deployed to GitHub Pages on every release.
 
 ## Quick Start
 
@@ -70,9 +93,27 @@ cargo run -- serve
 
 # Custom port
 cargo run -- serve --port 3000
+
+# With opening book and tablebase
+cargo run -- serve --book-path books/book.bin --tablebase-path tablebase/ --analysis-depth 30
 ```
 
 Swagger UI will be available at `http://localhost:8080/swagger-ui/`.
+
+### Run with Docker
+
+```bash
+# Build and start
+docker compose up -d
+
+# Follow logs
+docker compose logs -f
+
+# Stop
+docker compose down
+```
+
+See `docker-compose.yml` to configure opening book and tablebase volume mounts.
 
 ### Play in Terminal
 
@@ -81,6 +122,8 @@ cargo run -- play
 ```
 
 ## API Endpoints
+
+### Game API
 
 | Method   | Path                     | Description             |
 | -------- | ------------------------ | ----------------------- |
@@ -93,6 +136,15 @@ cargo run -- play
 | `GET`    | `/api/games/{id}/moves`  | Get all legal moves     |
 | `GET`    | `/api/games/{id}/board`  | Get ASCII board display |
 | `GET`    | `/ws`                    | WebSocket endpoint      |
+
+### Analysis API
+
+| Method   | Path                      | Description                |
+| -------- | ------------------------- | -------------------------- |
+| `POST`   | `/api/analysis/game/{id}` | Submit a game for analysis |
+| `GET`    | `/api/analysis/jobs`      | List all analysis jobs     |
+| `GET`    | `/api/analysis/jobs/{id}` | Get job status and results |
+| `DELETE` | `/api/analysis/jobs/{id}` | Cancel or delete a job     |
 
 ## API Usage Example
 
@@ -145,6 +197,29 @@ curl -X POST http://localhost:8080/api/games/{game_id}/action \
 curl -X POST http://localhost:8080/api/games/{game_id}/action \
   -H "Content-Type: application/json" \
   -d '{"action": "claim_draw", "reason": "threefold_repetition"}'
+```
+
+### 7. Submit Game for Analysis
+
+```bash
+curl -X POST http://localhost:8080/api/analysis/game/{game_id} \
+  -H "Content-Type: application/json" \
+  -d '{"depth": 30}'
+```
+
+Response:
+
+```json
+{
+  "job_id": "a1b2c3d4-...",
+  "message": "Analysis submitted for game ... (42 moves)"
+}
+```
+
+### 8. Get Analysis Results
+
+```bash
+curl http://localhost:8080/api/analysis/jobs/{job_id}
 ```
 
 ## WebSocket API
@@ -267,16 +342,24 @@ checkai/
 ├── Cargo.toml          # Dependencies and project metadata
 ├── CHANGELOG.md        # Version history (Keep a Changelog)
 ├── README.md           # This file
+├── Dockerfile          # Multi-stage Docker build
+├── docker-compose.yml  # Container orchestration
+├── .dockerignore       # Docker build exclusions
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml      # CI pipeline (fmt, clippy, test, build)
-│       └── release.yml # Release pipeline (cross-platform binaries)
+│       ├── release.yml # Release pipeline (binaries + Docker image)
+│       └── docs.yml    # Documentation deployment to GitHub Pages
 ├── scripts/
 │   ├── install.sh      # Installer for Linux / macOS
 │   ├── install.ps1     # Installer for Windows
 │   ├── uninstall.sh    # Uninstaller for Linux / macOS
 │   └── uninstall.ps1   # Uninstaller for Windows
-├── docs/
+├── docs/                # VitePress documentation site
+│   ├── .vitepress/     # VitePress configuration
+│   ├── guide/          # User guides (getting started, CLI, Docker, etc.)
+│   ├── api/            # API reference (REST, WebSocket, Analysis)
+│   ├── agent/          # Agent protocol docs (rules, schema, examples)
 │   └── AGENT.md        # Chess rules and JSON protocol for AI agents
 ├── web/                # Browser-based game UI
 └── src/
@@ -289,14 +372,27 @@ checkai/
     ├── storage.rs      # Persistent binary game storage with zstd compression
     ├── export.rs       # Game export in text, PGN, and JSON formats
     ├── update.rs       # Self-update and version check against GitHub
-    └── terminal.rs     # Terminal interface with colored output
+    ├── terminal.rs     # Terminal interface with colored output
+    ├── i18n.rs         # Internationalization helpers
+    ├── zobrist.rs      # Zobrist hashing (compile-time key generation)
+    ├── eval.rs         # PeSTO position evaluation (midgame + endgame)
+    ├── search.rs       # Alpha-beta search engine (PVS, TT, LMR, NMP)
+    ├── opening_book.rs # Polyglot opening book reader
+    ├── tablebase.rs    # Syzygy endgame tablebase interface
+    ├── analysis.rs     # Analysis orchestrator (async job queue, pipeline)
+    └── analysis_api.rs # Analysis REST API endpoints
 ```
 
-## Chess Rules
+## Documentation
 
-This implementation follows the **FIDE Laws of Chess (2023)**. See
-[`docs/AGENT.md`](docs/AGENT.md) for the complete rulebook and JSON protocol
-specification used by AI agents.
+Full documentation is available at **https://josunlp.github.io/checkai/**
+
+- [Getting Started](https://josunlp.github.io/checkai/guide/getting-started) — Installation and first steps
+- [API Reference](https://josunlp.github.io/checkai/api/rest) — REST, WebSocket, and Analysis API
+- [Agent Protocol](https://josunlp.github.io/checkai/agent/overview) — JSON protocol for AI agents
+- [Chess Rules](https://josunlp.github.io/checkai/agent/chess-rules) — Complete FIDE 2023 rule reference
+
+The raw agent protocol specification is also available at [`docs/AGENT.md`](docs/AGENT.md).
 
 ## License
 

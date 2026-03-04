@@ -31,6 +31,26 @@ terminal.no_draw_available: 'Nenhuma reivindicação de empate disponível. Rel�
 terminal.illegal_move: 'Lance ilegal'
 terminal.unknown_cmd: 'Comando desconhecido'
 terminal.unknown_cmd_hint: "'%{cmd}'. Digite %{help} para ajuda."
+terminal.cmd_section_game: 'Jogo'
+terminal.cmd_section_display: 'Exibição'
+terminal.cmd_section_system: 'Sistema'
+terminal.cmd_fen: 'Mostrar a string FEN atual'
+
+# ---------------------------------------------------------------------------
+# Tela de boas-vindas CLI
+# ---------------------------------------------------------------------------
+cli.welcome_header: 'CheckAI — Servidor de xadrez para IA'
+cli.commands_header: 'Comandos disponíveis:'
+cli.quickstart_header: 'Início rápido:'
+cli.cmd_serve_desc: 'Iniciar o servidor API REST + WebSocket'
+cli.cmd_play_desc: 'Jogar uma partida de xadrez no terminal'
+cli.cmd_export_desc: 'Exportar partidas arquivadas (texto, PGN, JSON)'
+cli.cmd_update_desc: 'Atualizar para a versão mais recente'
+cli.cmd_version_desc: 'Mostrar informações de versão'
+cli.quickstart_serve: 'Iniciar servidor na porta padrão'
+cli.quickstart_play: 'Jogar uma partida local'
+cli.quickstart_help: 'Ajuda completa para qualquer comando'
+cli.run_help_hint: 'Execute %{cmd} para mais detalhes.'
 
 # ---------------------------------------------------------------------------
 # Atualização / verificação de versão
@@ -167,3 +187,28 @@ ws.missing_action_type: 'Campo ausente: action_type'
 ws.subscribed: 'Inscrito na partida %{id}'
 ws.unsubscribed: 'Desinscrito da partida %{id}'
 ws.binary_not_supported: 'Mensagens binárias não são suportadas. Por favor envie texto JSON.'
+
+# ---------------------------------------------------------------------------
+# Análise
+# ---------------------------------------------------------------------------
+analysis.job_submitted: 'Trabalho de análise enviado para a partida %{id} (%{moves} lances)'
+analysis.job_not_found: 'Trabalho de análise não encontrado: %{id}'
+analysis.job_deleted: 'Trabalho de análise %{id} excluído'
+analysis.job_cancelled: 'Trabalho de análise %{id} cancelado'
+analysis.job_limit_exceeded: 'Capacidade de análise excedida: ativos=%{active} (máx %{max_active}), armazenados=%{stored}'
+analysis.job_store_limit_exceeded: 'Armazenamento de trabalhos de análise está cheio: armazenados=%{stored} (máx %{max_stored})'
+analysis.game_no_moves: 'A partida não tem lances para analisar'
+analysis.quality.best: 'Melhor'
+analysis.quality.excellent: 'Excelente'
+analysis.quality.good: 'Bom'
+analysis.quality.inaccuracy: 'Imprecisão'
+analysis.quality.mistake: 'Erro'
+analysis.quality.blunder: 'Erro grave'
+analysis.quality.book: 'Livro'
+analysis.book_loaded: 'Livro de aberturas carregado: %{count} entradas'
+analysis.book_failed: 'Falha ao carregar livro de aberturas: %{error}'
+analysis.tablebase_loaded: 'Tablebase Syzygy carregada: máximo de %{pieces} peças'
+analysis.tablebase_failed: 'Falha ao carregar tablebase Syzygy: %{error}'
+analysis.engine_config: 'Motor de análise: profundidade=%{depth}, TT=%{tt}MB'
+analysis.archive_load_failed: 'Falha ao carregar partida arquivada'
+analysis.archive_replay_failed: 'Falha ao reproduzir partida arquivada'

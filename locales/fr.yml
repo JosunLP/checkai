@@ -31,6 +31,26 @@ terminal.no_draw_available: 'Aucune réclamation de nulle disponible. Compteur d
 terminal.illegal_move: 'Coup illégal'
 terminal.unknown_cmd: 'Commande inconnue'
 terminal.unknown_cmd_hint: "'%{cmd}'. Tapez %{help} pour l'aide."
+terminal.cmd_section_game: 'Jeu'
+terminal.cmd_section_display: 'Affichage'
+terminal.cmd_section_system: 'Système'
+terminal.cmd_fen: 'Afficher la chaîne FEN actuelle'
+
+# ---------------------------------------------------------------------------
+# Écran d'accueil CLI
+# ---------------------------------------------------------------------------
+cli.welcome_header: "CheckAI — Serveur d'échecs pour IA"
+cli.commands_header: 'Commandes disponibles :'
+cli.quickstart_header: 'Démarrage rapide :'
+cli.cmd_serve_desc: 'Démarrer le serveur API REST + WebSocket'
+cli.cmd_play_desc: "Jouer une partie d'échecs dans le terminal"
+cli.cmd_export_desc: 'Exporter les parties archivées (texte, PGN, JSON)'
+cli.cmd_update_desc: 'Mettre à jour vers la dernière version'
+cli.cmd_version_desc: 'Afficher les informations de version'
+cli.quickstart_serve: 'Démarrer le serveur sur le port par défaut'
+cli.quickstart_play: 'Jouer une partie locale'
+cli.quickstart_help: "Aide complète pour n'importe quelle commande"
+cli.run_help_hint: 'Exécutez %{cmd} pour plus de détails.'
 
 # ---------------------------------------------------------------------------
 # Mise à jour / vérification de version
@@ -167,3 +187,28 @@ ws.missing_action_type: 'Champ manquant : action_type'
 ws.subscribed: 'Abonné à la partie %{id}'
 ws.unsubscribed: 'Désabonné de la partie %{id}'
 ws.binary_not_supported: 'Les messages binaires ne sont pas supportés. Veuillez envoyer du texte JSON.'
+
+# ---------------------------------------------------------------------------
+# Analyse
+# ---------------------------------------------------------------------------
+analysis.job_submitted: "Travail d'analyse soumis pour la partie %{id} (%{moves} coups)"
+analysis.job_not_found: "Travail d'analyse introuvable : %{id}"
+analysis.job_deleted: "Travail d'analyse %{id} supprimé"
+analysis.job_cancelled: "Travail d'analyse %{id} annulé"
+analysis.job_limit_exceeded: "Capacité d'analyse dépassée : actifs=%{active} (max %{max_active}), stockés=%{stored}"
+analysis.job_store_limit_exceeded: "Le stockage des travaux d'analyse est plein : stockés=%{stored} (max %{max_stored})"
+analysis.game_no_moves: "La partie n'a aucun coup à analyser"
+analysis.quality.best: 'Meilleur'
+analysis.quality.excellent: 'Excellent'
+analysis.quality.good: 'Bon'
+analysis.quality.inaccuracy: 'Imprécision'
+analysis.quality.mistake: 'Erreur'
+analysis.quality.blunder: 'Gaffe'
+analysis.quality.book: 'Livre'
+analysis.book_loaded: "Livre d'ouvertures chargé : %{count} entrées"
+analysis.book_failed: "Échec du chargement du livre d'ouvertures : %{error}"
+analysis.tablebase_loaded: 'Tablebase Syzygy chargée : maximum %{pieces} pièces'
+analysis.tablebase_failed: 'Échec du chargement de la tablebase Syzygy : %{error}'
+analysis.engine_config: "Moteur d'analyse : profondeur=%{depth}, TT=%{tt}MB"
+analysis.archive_load_failed: 'Impossible de charger la partie archivée'
+analysis.archive_replay_failed: 'Impossible de rejouer la partie archivée'
