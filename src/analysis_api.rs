@@ -55,7 +55,7 @@ pub struct AnalysisJobListResponse {
 ///
 /// Creates an asynchronous analysis job that processes every move in the
 /// game with a minimum search depth of 30 plies. The game state is
-/// snapshot-ed (cloned) at the time of submission; the analysis operates
+/// snapshotted (cloned) at the time of submission; the analysis operates
 /// on the snapshot exclusively.
 #[utoipa::path(
     post,

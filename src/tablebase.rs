@@ -218,7 +218,15 @@ impl SyzygyTablebase {
         for entry in entries {
             let entry = match entry {
                 Ok(e) => e,
-                Err(_) => continue,
+                Err(e) => {
+                    let msg = format!(
+                        "Failed to read an entry in tablebase directory {}: {}",
+                        path.display(),
+                        e
+                    );
+                    log::warn!("{}", msg);
+                    return Err(msg);
+                }
             };
             let file_path = entry.path();
             let file_name = match file_path.file_stem().and_then(|s| s.to_str()) {

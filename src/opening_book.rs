@@ -23,6 +23,15 @@ use std::path::{Path, PathBuf};
 use crate::polyglot_keys;
 use crate::types::*;
 
+/// Hard upper bound for opening book file size.
+///
+/// Prevents very large `.bin` files from causing startup latency and memory spikes,
+/// because `OpeningBook::load` currently parses entries into an in-memory vector.
+const MAX_OPENING_BOOK_FILE_SIZE_BYTES: u64 = 256 * 1024 * 1024; // 256 MiB
+
+/// Size at which we emit a warning about potentially slow loading.
+const LARGE_OPENING_BOOK_WARN_SIZE_BYTES: u64 = 128 * 1024 * 1024; // 128 MiB
+
 // ---------------------------------------------------------------------------
 // Book entry
 // ---------------------------------------------------------------------------
@@ -95,6 +104,27 @@ impl OpeningBook {
     ///
     /// Returns `Err` if the file cannot be read or has an invalid format.
     pub fn load(path: &Path) -> Result<Self, String> {
+        let metadata =
+            fs::metadata(path).map_err(|e| format!("Failed to read book metadata: {}", e))?;
+        let file_size = metadata.len();
+
+        if file_size > MAX_OPENING_BOOK_FILE_SIZE_BYTES {
+            return Err(format!(
+                "Opening book too large: {} bytes (limit: {} bytes / {} MiB). \
+                 Use a smaller Polyglot book or split/filter the book file.",
+                file_size,
+                MAX_OPENING_BOOK_FILE_SIZE_BYTES,
+                MAX_OPENING_BOOK_FILE_SIZE_BYTES / (1024 * 1024)
+            ));
+        }
+
+        if file_size >= LARGE_OPENING_BOOK_WARN_SIZE_BYTES {
+            log::warn!(
+                "Opening book is large ({} MiB): loading may be slow and memory-intensive",
+                file_size / (1024 * 1024)
+            );
+        }
+
         let data = fs::read(path).map_err(|e| format!("Failed to read book file: {}", e))?;
 
         if data.len() % 16 != 0 {
@@ -373,6 +403,15 @@ fn unadjust_castling_move(from: Square, to: Square) -> Square {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_temp_path(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("checkai_{}_{}.bin", name, nanos))
+    }
 
     #[test]
     fn test_encode_decode_roundtrip() {
@@ -514,5 +553,44 @@ mod tests {
         let board = Board::starting_position();
         let entries = book.lookup(&board, Color::White, &CastlingRights::default(), None);
         assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn test_load_rejects_oversized_book() {
+        let path = unique_temp_path("oversized_book");
+
+        // Create a sparse file slightly above the configured limit.
+        let file = fs::File::create(&path).unwrap();
+        file.set_len(MAX_OPENING_BOOK_FILE_SIZE_BYTES + 16).unwrap();
+
+        let err = match OpeningBook::load(&path) {
+            Err(err) => err,
+            Ok(_) => panic!("expected oversized opening book to fail"),
+        };
+        assert!(
+            err.contains("Opening book too large"),
+            "unexpected error: {}",
+            err
+        );
+
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_load_rejects_invalid_entry_size() {
+        let path = unique_temp_path("invalid_size_book");
+        fs::write(&path, [1u8, 2, 3]).unwrap();
+
+        let err = match OpeningBook::load(&path) {
+            Err(err) => err,
+            Ok(_) => panic!("expected invalid book size to fail"),
+        };
+        assert!(
+            err.contains("must be a multiple of 16"),
+            "unexpected error: {}",
+            err
+        );
+
+        let _ = fs::remove_file(&path);
     }
 }
