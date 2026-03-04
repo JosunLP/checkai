@@ -31,6 +31,26 @@ terminal.no_draw_available: 'Aucune réclamation de nulle disponible. Compteur d
 terminal.illegal_move: 'Coup illégal'
 terminal.unknown_cmd: 'Commande inconnue'
 terminal.unknown_cmd_hint: "'%{cmd}'. Tapez %{help} pour l'aide."
+terminal.cmd_section_game: 'Jeu'
+terminal.cmd_section_display: 'Affichage'
+terminal.cmd_section_system: 'Système'
+terminal.cmd_fen: 'Afficher la chaîne FEN actuelle'
+
+# ---------------------------------------------------------------------------
+# Écran d'accueil CLI
+# ---------------------------------------------------------------------------
+cli.welcome_header: "CheckAI — Serveur d'échecs pour IA"
+cli.commands_header: 'Commandes disponibles :'
+cli.quickstart_header: 'Démarrage rapide :'
+cli.cmd_serve_desc: 'Démarrer le serveur API REST + WebSocket'
+cli.cmd_play_desc: "Jouer une partie d'échecs dans le terminal"
+cli.cmd_export_desc: 'Exporter les parties archivées (texte, PGN, JSON)'
+cli.cmd_update_desc: 'Mettre à jour vers la dernière version'
+cli.cmd_version_desc: 'Afficher les informations de version'
+cli.quickstart_serve: 'Démarrer le serveur sur le port par défaut'
+cli.quickstart_play: 'Jouer une partie locale'
+cli.quickstart_help: "Aide complète pour n'importe quelle commande"
+cli.run_help_hint: 'Exécutez %{cmd} pour plus de détails.'
 
 # ---------------------------------------------------------------------------
 # Mise à jour / vérification de version

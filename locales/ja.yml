@@ -31,6 +31,26 @@ terminal.no_draw_available: '引き分け申請不可。ハーフムーブ：%{c
 terminal.illegal_move: '不正な手'
 terminal.unknown_cmd: '不明なコマンド'
 terminal.unknown_cmd_hint: "'%{cmd}'。%{help} でヘルプを表示。"
+terminal.cmd_section_game: '対局'
+terminal.cmd_section_display: '表示'
+terminal.cmd_section_system: 'システム'
+terminal.cmd_fen: '現在のFEN文字列を表示'
+
+# ---------------------------------------------------------------------------
+# CLI ウェルカム画面
+# ---------------------------------------------------------------------------
+cli.welcome_header: 'CheckAI — AI用チェスサーバー'
+cli.commands_header: '利用可能なコマンド：'
+cli.quickstart_header: 'クイックスタート：'
+cli.cmd_serve_desc: 'REST API + WebSocketサーバーを起動'
+cli.cmd_play_desc: 'ターミナルでチェス対局'
+cli.cmd_export_desc: 'アーカイブされた対局をエクスポート（テキスト、PGN、JSON）'
+cli.cmd_update_desc: '最新バージョンに更新'
+cli.cmd_version_desc: 'バージョン情報を表示'
+cli.quickstart_serve: 'デフォルトポートでサーバーを起動'
+cli.quickstart_play: 'ローカル対局を開始'
+cli.quickstart_help: '各コマンドの詳細ヘルプ'
+cli.run_help_hint: '詳細は %{cmd} を実行してください。'
 
 # ---------------------------------------------------------------------------
 # アップデート / バージョンチェック

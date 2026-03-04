@@ -31,6 +31,26 @@ terminal.no_draw_available: 'Nenhuma reivindicação de empate disponível. Rel�
 terminal.illegal_move: 'Lance ilegal'
 terminal.unknown_cmd: 'Comando desconhecido'
 terminal.unknown_cmd_hint: "'%{cmd}'. Digite %{help} para ajuda."
+terminal.cmd_section_game: 'Jogo'
+terminal.cmd_section_display: 'Exibição'
+terminal.cmd_section_system: 'Sistema'
+terminal.cmd_fen: 'Mostrar a string FEN atual'
+
+# ---------------------------------------------------------------------------
+# Tela de boas-vindas CLI
+# ---------------------------------------------------------------------------
+cli.welcome_header: 'CheckAI — Servidor de xadrez para IA'
+cli.commands_header: 'Comandos disponíveis:'
+cli.quickstart_header: 'Início rápido:'
+cli.cmd_serve_desc: 'Iniciar o servidor API REST + WebSocket'
+cli.cmd_play_desc: 'Jogar uma partida de xadrez no terminal'
+cli.cmd_export_desc: 'Exportar partidas arquivadas (texto, PGN, JSON)'
+cli.cmd_update_desc: 'Atualizar para a versão mais recente'
+cli.cmd_version_desc: 'Mostrar informações de versão'
+cli.quickstart_serve: 'Iniciar servidor na porta padrão'
+cli.quickstart_play: 'Jogar uma partida local'
+cli.quickstart_help: 'Ajuda completa para qualquer comando'
+cli.run_help_hint: 'Execute %{cmd} para mais detalhes.'
 
 # ---------------------------------------------------------------------------
 # Atualização / verificação de versão

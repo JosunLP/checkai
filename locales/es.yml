@@ -31,6 +31,26 @@ terminal.no_draw_available: 'No hay reclamación de tablas disponible. Reloj: %{
 terminal.illegal_move: 'Jugada ilegal'
 terminal.unknown_cmd: 'Comando desconocido'
 terminal.unknown_cmd_hint: "'%{cmd}'. Escribe %{help} para ayuda."
+terminal.cmd_section_game: 'Juego'
+terminal.cmd_section_display: 'Visualización'
+terminal.cmd_section_system: 'Sistema'
+terminal.cmd_fen: 'Mostrar la cadena FEN actual'
+
+# ---------------------------------------------------------------------------
+# Pantalla de bienvenida CLI
+# ---------------------------------------------------------------------------
+cli.welcome_header: 'CheckAI — Servidor de ajedrez para IA'
+cli.commands_header: 'Comandos disponibles:'
+cli.quickstart_header: 'Inicio rápido:'
+cli.cmd_serve_desc: 'Iniciar el servidor API REST + WebSocket'
+cli.cmd_play_desc: 'Jugar una partida de ajedrez en la terminal'
+cli.cmd_export_desc: 'Exportar partidas archivadas (texto, PGN, JSON)'
+cli.cmd_update_desc: 'Actualizar a la última versión'
+cli.cmd_version_desc: 'Mostrar información de versión'
+cli.quickstart_serve: 'Iniciar servidor en puerto predeterminado'
+cli.quickstart_play: 'Jugar una partida local'
+cli.quickstart_help: 'Ayuda completa para cualquier comando'
+cli.run_help_hint: 'Ejecuta %{cmd} para más detalles.'
 
 # ---------------------------------------------------------------------------
 # Actualización / verificación de versión

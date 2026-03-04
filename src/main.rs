@@ -83,7 +83,9 @@ rust_i18n::i18n!("locales", fallback = "en");
 use actix::Actor;
 use actix_cors::Cors;
 use actix_web::{App, HttpResponse, HttpServer, middleware, web};
+use clap::builder::styling::{AnsiColor, Effects, Styles};
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 use rust_embed::RustEmbed;
 use std::str::FromStr;
 use std::sync::Mutex;
@@ -125,73 +127,128 @@ async fn serve_web_asset(path: web::Path<String>) -> HttpResponse {
     }
 }
 
+/// CLI help styles for colored output.
+const CLI_STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Yellow.on_default().effects(Effects::BOLD))
+    .usage(AnsiColor::Yellow.on_default().effects(Effects::BOLD))
+    .literal(AnsiColor::Green.on_default().effects(Effects::BOLD))
+    .placeholder(AnsiColor::Cyan.on_default());
+
 /// CheckAI — A chess server and CLI for AI agents.
 ///
 /// Provides a REST API with Swagger documentation and a terminal
 /// interface for playing chess following FIDE 2023 rules.
 #[derive(Parser, Debug)]
 #[command(name = "checkai")]
-#[command(about = "Chess server for AI agents — FIDE 2023 rules")]
+#[command(about = "Chess server for AI agents \u{2014} FIDE 2023 rules")]
+#[command(long_about = "\
+CheckAI is a chess server and CLI designed for AI agents.\n\
+\n\
+It provides a REST API with Swagger documentation, WebSocket support\n\
+for real-time game events, and a terminal interface for local play.\n\
+All chess rules follow the FIDE 2023 Laws of Chess.\n\
+\n\
+Features:\n\
+  \u{2022} REST + WebSocket API for AI agent integration\n\
+  \u{2022} Swagger UI for interactive API exploration\n\
+  \u{2022} Terminal interface for local two-player games\n\
+  \u{2022} Game archival and export (text, PGN, JSON)\n\
+  \u{2022} Built-in engine analysis with opening book & tablebase support\n\
+  \u{2022} Internationalization (8 languages)")]
 #[command(version)]
+#[command(styles = CLI_STYLES)]
+#[command(after_help = "\
+Examples:\n\
+  checkai serve              Start the API server on port 8080\n\
+  checkai serve --port 3000  Start on a custom port\n\
+  checkai play               Play a local terminal game\n\
+  checkai export --list      List all archived games\n\
+  checkai export --all       Export all archived games\n\
+  checkai update             Update to the latest version\n\
+\n\
+Documentation: https://github.com/JosunLP/checkai")]
 struct Cli {
     /// Override the language / locale (e.g. "de", "fr", "zh-CN").
     #[arg(short, long, global = true)]
     lang: Option<String>,
 
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 /// Available subcommands.
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Start the REST API server with Swagger UI.
+    /// Start the REST + WebSocket API server with Swagger UI.
+    #[command(after_help = "\
+Examples:\n\
+  checkai serve                         Default: http://0.0.0.0:8080\n\
+  checkai serve --port 3000             Custom port\n\
+  checkai serve --host 127.0.0.1        Bind to localhost only\n\
+  checkai serve --book-path book.bin    Enable opening book\n\
+  checkai serve --tablebase-path tb/    Enable Syzygy tablebases")]
     Serve {
         /// Port to listen on.
         #[arg(short, long, default_value_t = 8080)]
+        #[arg(help_heading = "Server")]
         port: u16,
 
         /// Host address to bind to.
         #[arg(long, default_value = "0.0.0.0")]
+        #[arg(help_heading = "Server")]
         host: String,
 
         /// Directory for game storage (active + archive).
         #[arg(long, default_value = "data")]
+        #[arg(help_heading = "Storage")]
         data_dir: String,
 
-        /// Path to a Polyglot opening book (.bin) for analysis.
+        /// Path to a Polyglot opening book (.bin).
         #[arg(long)]
+        #[arg(help_heading = "Analysis")]
         book_path: Option<String>,
 
-        /// Path to a Syzygy tablebase directory for analysis.
+        /// Path to a Syzygy tablebase directory.
         #[arg(long)]
+        #[arg(help_heading = "Analysis")]
         tablebase_path: Option<String>,
 
-        /// Minimum search depth for analysis (≥ 30).
+        /// Minimum search depth (\u{2265} 30).
         #[arg(long, default_value_t = 30)]
+        #[arg(help_heading = "Analysis")]
         analysis_depth: u32,
 
-        /// Transposition table size in MB for analysis.
+        /// Transposition table size in MB.
         #[arg(long, default_value_t = 64)]
+        #[arg(help_heading = "Analysis")]
         tt_size_mb: usize,
 
-        /// Maximum number of analysis jobs retained in memory.
+        /// Maximum analysis jobs retained in memory.
         #[arg(long, default_value_t = 256)]
+        #[arg(help_heading = "Analysis")]
         analysis_max_jobs: usize,
 
-        /// Maximum number of concurrently active analysis jobs (queued + running).
+        /// Maximum concurrent analysis jobs (queued + running).
         #[arg(long, default_value_t = 4)]
+        #[arg(help_heading = "Analysis")]
         analysis_max_concurrent_jobs: usize,
 
-        /// TTL for finished analysis jobs in seconds (0 disables TTL-based eviction).
+        /// TTL for finished analysis jobs in seconds (0 = no TTL).
         #[arg(long, default_value_t = 3600)]
+        #[arg(help_heading = "Analysis")]
         analysis_completed_ttl_secs: u64,
     },
 
     /// Play a chess game in the terminal (two-player).
     Play,
 
-    /// Export archived games in human-readable format.
+    /// Export archived games in various formats.
+    #[command(after_help = "\
+Examples:\n\
+  checkai export --list                  List all archived games\n\
+  checkai export --game-id <UUID>        Export a specific game\n\
+  checkai export --all --format pgn      Export all as PGN\n\
+  checkai export --all -o games.pgn      Write export to a file")]
     Export {
         /// Directory for game storage.
         #[arg(long, default_value = "data")]
@@ -206,7 +263,7 @@ enum Commands {
         game_id: Option<String>,
 
         /// List all archived games (no export).
-        #[arg(short, long)]
+        #[arg(long)]
         list: bool,
 
         /// Export all archived games.
@@ -257,7 +314,11 @@ async fn main() -> std::io::Result<()> {
     update::cleanup_old_binary();
 
     match cli.command {
-        Commands::Serve {
+        None => {
+            print_welcome();
+            Ok(())
+        }
+        Some(Commands::Serve {
             port,
             host,
             data_dir,
@@ -268,7 +329,7 @@ async fn main() -> std::io::Result<()> {
             analysis_max_jobs,
             analysis_max_concurrent_jobs,
             analysis_completed_ttl_secs,
-        } => {
+        }) => {
             // Check for updates in the background before starting the server
             update::check_for_updates().await;
             run_server(ServeConfig {
@@ -285,19 +346,19 @@ async fn main() -> std::io::Result<()> {
             })
             .await
         }
-        Commands::Play => {
+        Some(Commands::Play) => {
             update::check_for_updates().await;
             terminal::run_terminal_game();
             Ok(())
         }
-        Commands::Export {
+        Some(Commands::Export {
             data_dir,
             format,
             game_id,
             list,
             all,
             output,
-        } => {
+        }) => {
             let fmt = export::ExportFormat::from_str(&format)
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?;
 
@@ -311,17 +372,111 @@ async fn main() -> std::io::Result<()> {
             )
             .map_err(std::io::Error::other)
         }
-        Commands::Update => {
+        Some(Commands::Update) => {
             update::perform_update()
                 .await
                 .map_err(|e| std::io::Error::other(e.to_string()))?;
             Ok(())
         }
-        Commands::Version => {
+        Some(Commands::Version) => {
             println!("checkai v{}", update::version());
             Ok(())
         }
     }
+}
+
+/// Prints a branded welcome screen when no subcommand is given.
+fn print_welcome() {
+    let version = update::version();
+    let locale = rust_i18n::locale().to_string();
+
+    println!();
+    println!(
+        "{}",
+        "╔═══════════════════════════════════════════════════╗".cyan()
+    );
+    println!(
+        "{}",
+        "║                                                   ║".cyan()
+    );
+    println!(
+        "{}",
+        format!(
+            "║   {} v{}{}║",
+            t!("cli.welcome_header"),
+            version,
+            " ".repeat(
+                46usize.saturating_sub(t!("cli.welcome_header").chars().count() + version.len(),),
+            )
+        )
+        .cyan()
+    );
+    println!(
+        "{}",
+        "║                                                   ║".cyan()
+    );
+    println!(
+        "{}",
+        "╚═══════════════════════════════════════════════════╝".cyan()
+    );
+    println!();
+    println!(
+        "  {} {}     {} {}",
+        "Version:".bold(),
+        version,
+        "Locale:".bold(),
+        locale
+    );
+    println!();
+    println!("{}", t!("cli.commands_header").to_string().yellow().bold());
+    println!(
+        "  {}     {}",
+        "serve".green().bold(),
+        t!("cli.cmd_serve_desc")
+    );
+    println!(
+        "  {}      {}",
+        "play".green().bold(),
+        t!("cli.cmd_play_desc")
+    );
+    println!(
+        "  {}    {}",
+        "export".green().bold(),
+        t!("cli.cmd_export_desc")
+    );
+    println!(
+        "  {}    {}",
+        "update".green().bold(),
+        t!("cli.cmd_update_desc")
+    );
+    println!(
+        "  {}   {}",
+        "version".green().bold(),
+        t!("cli.cmd_version_desc")
+    );
+    println!();
+    println!(
+        "{}",
+        t!("cli.quickstart_header").to_string().yellow().bold()
+    );
+    println!(
+        "  {}  {}",
+        "$ checkai serve".dimmed(),
+        t!("cli.quickstart_serve")
+    );
+    println!(
+        "  {}  {}",
+        "$ checkai play".dimmed(),
+        t!("cli.quickstart_play")
+    );
+    println!(
+        "  {}  {}",
+        "$ checkai <cmd> --help".dimmed(),
+        t!("cli.quickstart_help")
+    );
+    println!();
+    println!("  {}", t!("cli.run_help_hint", cmd = "--help".green()));
+    println!();
 }
 
 /// Starts the HTTP + WebSocket server with all API routes and Swagger UI.

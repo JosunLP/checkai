@@ -31,6 +31,26 @@ terminal.no_draw_available: 'No draw claim available. Halfmove clock: %{clock}, 
 terminal.illegal_move: 'Illegal move'
 terminal.unknown_cmd: 'Unknown command'
 terminal.unknown_cmd_hint: "'%{cmd}'. Type %{help} for help."
+terminal.cmd_section_game: 'Game'
+terminal.cmd_section_display: 'Display'
+terminal.cmd_section_system: 'System'
+terminal.cmd_fen: 'Show the current FEN string'
+
+# ---------------------------------------------------------------------------
+# CLI welcome screen
+# ---------------------------------------------------------------------------
+cli.welcome_header: 'CheckAI — Chess Server for AI'
+cli.commands_header: 'Available Commands:'
+cli.quickstart_header: 'Quick Start:'
+cli.cmd_serve_desc: 'Start the REST API + WebSocket server'
+cli.cmd_play_desc: 'Play a chess game in the terminal'
+cli.cmd_export_desc: 'Export archived games (text, PGN, JSON)'
+cli.cmd_update_desc: 'Update to the latest release'
+cli.cmd_version_desc: 'Print version information'
+cli.quickstart_serve: 'Start server on default port'
+cli.quickstart_play: 'Play a local game'
+cli.quickstart_help: 'Full help for any command'
+cli.run_help_hint: 'Run %{cmd} for detailed usage.'
 
 # ---------------------------------------------------------------------------
 # Update / version check

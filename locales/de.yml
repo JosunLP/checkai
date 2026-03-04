@@ -31,6 +31,26 @@ terminal.no_draw_available: 'Kein Remis möglich. Halbzuguhr: %{clock}, Wiederho
 terminal.illegal_move: 'Ungültiger Zug'
 terminal.unknown_cmd: 'Unbekannter Befehl'
 terminal.unknown_cmd_hint: "'%{cmd}'. Tippe %{help} für Hilfe."
+terminal.cmd_section_game: 'Spiel'
+terminal.cmd_section_display: 'Anzeige'
+terminal.cmd_section_system: 'System'
+terminal.cmd_fen: 'Aktuelle FEN-Zeichenkette anzeigen'
+
+# ---------------------------------------------------------------------------
+# CLI-Willkommensbildschirm
+# ---------------------------------------------------------------------------
+cli.welcome_header: 'CheckAI — Schachserver für KI'
+cli.commands_header: 'Verfügbare Befehle:'
+cli.quickstart_header: 'Schnellstart:'
+cli.cmd_serve_desc: 'REST-API + WebSocket-Server starten'
+cli.cmd_play_desc: 'Schachpartie im Terminal spielen'
+cli.cmd_export_desc: 'Archivierte Spiele exportieren (Text, PGN, JSON)'
+cli.cmd_update_desc: 'Auf neueste Version aktualisieren'
+cli.cmd_version_desc: 'Versionsinformation anzeigen'
+cli.quickstart_serve: 'Server auf Standardport starten'
+cli.quickstart_play: 'Lokales Spiel starten'
+cli.quickstart_help: 'Vollständige Hilfe für jeden Befehl'
+cli.run_help_hint: 'Führe %{cmd} aus für detaillierte Nutzung.'
 
 # ---------------------------------------------------------------------------
 # Update / Versionsüberprüfung
