@@ -407,6 +407,7 @@ impl AnalysisManager {
                 {
                     let mut jobs_lock = jobs.write().await;
                     if let Some(job) = jobs_lock.get_mut(&jid)
+                        && matches!(job.status, AnalysisStatus::Queued)
                         && !cancel_token.load(Ordering::Relaxed)
                     {
                         job.status = AnalysisStatus::InProgress {
@@ -985,11 +986,12 @@ mod tests {
             ("e8", "g8"),
         ];
         for (from, to) in moves {
-            let _ = game.make_move(&MoveJson {
+            game.make_move(&MoveJson {
                 from: from.to_string(),
                 to: to.to_string(),
                 promotion: None,
-            });
+            })
+            .expect("test setup move sequence must remain legal");
         }
         game
     }
