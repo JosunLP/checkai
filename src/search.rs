@@ -272,10 +272,10 @@ impl SearchPosition {
         // Remove old castling contribution
         new_hash ^= zobrist::castling_hash(&self.castling);
         // Remove old en passant contribution (if any, only when capture was possible)
-        if let Some(ep_sq) = self.en_passant {
-            if zobrist::has_ep_capture_candidate(&self.board, self.turn, ep_sq) {
-                new_hash ^= zobrist::en_passant_key(ep_sq.file);
-            }
+        if let Some(ep_sq) = self.en_passant
+            && zobrist::has_ep_capture_candidate(&self.board, self.turn, ep_sq)
+        {
+            new_hash ^= zobrist::en_passant_key(ep_sq.file);
         }
         // Remove moving piece from source square
         new_hash ^= zobrist::piece_square_key(&moving_piece, mv.from);
@@ -315,10 +315,10 @@ impl SearchPosition {
         // Add new castling contribution
         new_hash ^= zobrist::castling_hash(&new_castling);
         // Add new en passant contribution (only when capture is possible)
-        if let Some(ep_sq) = new_ep {
-            if zobrist::has_ep_capture_candidate(&new_board, new_turn, ep_sq) {
-                new_hash ^= zobrist::en_passant_key(ep_sq.file);
-            }
+        if let Some(ep_sq) = new_ep
+            && zobrist::has_ep_capture_candidate(&new_board, new_turn, ep_sq)
+        {
+            new_hash ^= zobrist::en_passant_key(ep_sq.file);
         }
 
         Self {
@@ -337,10 +337,10 @@ impl SearchPosition {
         // Incremental hash: toggle side-to-move and remove old EP contribution
         let mut new_hash = self.hash;
         new_hash ^= zobrist::side_key();
-        if let Some(ep_sq) = self.en_passant {
-            if zobrist::has_ep_capture_candidate(&self.board, self.turn, ep_sq) {
-                new_hash ^= zobrist::en_passant_key(ep_sq.file);
-            }
+        if let Some(ep_sq) = self.en_passant
+            && zobrist::has_ep_capture_candidate(&self.board, self.turn, ep_sq)
+        {
+            new_hash ^= zobrist::en_passant_key(ep_sq.file);
         }
         Self {
             board: self.board.clone(),
