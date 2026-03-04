@@ -197,8 +197,9 @@ pub async fn get_analysis_job(
 
 /// Cancel or delete an analysis job.
 ///
-/// If the job is in progress, it will be cancelled. If it is complete,
-/// the results are deleted.
+/// If the job is queued or in progress, it will be cancelled.
+/// A cancelled job is kept on the first delete call and removed on a
+/// subsequent delete call. Completed jobs are deleted immediately.
 #[utoipa::path(
     delete,
     path = "/api/analysis/jobs/{job_id}",
