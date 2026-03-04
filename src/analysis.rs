@@ -115,9 +115,9 @@ pub enum MoveQuality {
     Excellent,
     /// 11–25 centipawn loss — solid play.
     Good,
-    /// 25–50 centipawn loss — slight inaccuracy.
+    /// 26–50 centipawn loss — slight inaccuracy.
     Inaccuracy,
-    /// 50–100 centipawn loss — significant error.
+    /// 51–100 centipawn loss — significant error.
     Mistake,
     /// > 100 centipawn loss or misses forced mate.
     Blunder,

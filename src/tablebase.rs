@@ -222,6 +222,7 @@ impl SyzygyTablebase {
         let mut wdl_tables = HashMap::new();
         let mut dtz_tables = HashMap::new();
         let mut max_pieces = 0usize;
+        let mut skipped_entries = 0usize;
 
         let entries =
             fs::read_dir(path).map_err(|e| format!("Failed to read tablebase directory: {}", e))?;
@@ -236,7 +237,8 @@ impl SyzygyTablebase {
                         e
                     );
                     log::warn!("{}", msg);
-                    return Err(msg);
+                    skipped_entries += 1;
+                    continue;
                 }
             };
             let file_path = entry.path();
@@ -273,6 +275,15 @@ impl SyzygyTablebase {
             max_pieces,
             path.display()
         );
+
+        if skipped_entries > 0 {
+            log::warn!(
+                "Skipped {} unreadable tablebase entr{} while scanning {}",
+                skipped_entries,
+                if skipped_entries == 1 { "y" } else { "ies" },
+                path.display()
+            );
+        }
 
         Ok(Self {
             path: path.to_path_buf(),
