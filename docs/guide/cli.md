@@ -1,6 +1,6 @@
 # CLI Commands
 
-CheckAI provides three main commands: `serve`, `play`, and `export`.
+CheckAI provides four main commands: `serve`, `play`, `export`, and `update`.
 
 ## Global Options
 
