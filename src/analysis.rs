@@ -458,9 +458,13 @@ impl AnalysisManager {
         let cancel_tokens = self.cancel_tokens.clone();
         let tt_size = self.config.tt_size_mb;
 
-        // Determine book/tablebase availability flags
+        // Determine book/tablebase availability flags.
+        // For tablebase, only report true when actual Syzygy files are present.
         let has_book = self.book.is_some();
-        let has_tablebase = self.tablebase.is_some();
+        let has_tablebase = self
+            .tablebase
+            .as_ref()
+            .is_some_and(|tb| tb.is_available());
 
         // For book/tablebase probing we pre-probe on the calling thread so
         // the results can be moved into the spawned task without requiring
@@ -964,9 +968,10 @@ async fn run_analysis(params: RunAnalysisParams<'_>) -> Result<AnalysisResult, S
 
             let best_move = search_result.best_move.unwrap_or(played);
 
-            // Evaluate the played move: search from the position after the played move
+            // Evaluate the played move at the same depth as the best-move search
+            // so centipawn loss and quality thresholds are depth-consistent.
             let played_pos = pos.make_move(&played);
-            let played_eval_result = engine.search(&played_pos, (depth_i32 - 2).max(1));
+            let played_eval_result = engine.search(&played_pos, depth_i32);
             let played_score = -played_eval_result.score; // Negate because it's from the other side
 
             let best_score = search_result.score;
@@ -1375,5 +1380,55 @@ mod tests {
         let jobs = mgr.list_jobs().await;
         assert!(jobs.iter().all(|j| j.id != "old-finished"));
         assert!(jobs.iter().any(|j| j.id == "fresh-finished"));
+    }
+
+    #[tokio::test]
+    async fn test_tablebase_available_false_when_directory_has_no_syzygy_files() {
+        let unique = format!(
+            "checkai-empty-tb-{}-{}",
+            std::process::id(),
+            storage::unix_timestamp()
+        );
+        let tb_dir = std::env::temp_dir().join(unique);
+        std::fs::create_dir_all(&tb_dir).expect("temp tablebase dir should be created");
+
+        let cfg = AnalysisConfig {
+            tablebase_path: Some(tb_dir.clone()),
+            ..AnalysisConfig::default()
+        };
+        let mgr = make_manager_with_config(cfg);
+
+        // Empty directory still yields a loaded tablebase object, but it should
+        // report unavailable because no .rtbw/.rtbz files were found.
+        let has_tablebase = mgr
+            .tablebase
+            .as_ref()
+            .is_some_and(|tb| tb.is_available());
+        assert!(!has_tablebase);
+
+        // Run analysis directly (without background job machinery) and verify
+        // that API-facing availability flag mirrors actual file availability.
+        let game = Game::new();
+
+        let jobs = Arc::new(RwLock::new(std::collections::HashMap::new()));
+        let cancel_token = Arc::new(AtomicBool::new(false));
+        let analysis = run_analysis(RunAnalysisParams {
+            game: &game,
+            depth: 30,
+            tt_size_mb: 64,
+            has_book: false,
+            has_tablebase,
+            book_results: &[],
+            tablebase_results: &[],
+            jobs: &jobs,
+            job_id: "test-job-id",
+            cancel_token: &cancel_token,
+        })
+        .await
+        .expect("analysis should complete successfully");
+
+        assert!(!analysis.tablebase_available);
+
+        std::fs::remove_dir_all(&tb_dir).expect("temp tablebase dir should be removed");
     }
 }
