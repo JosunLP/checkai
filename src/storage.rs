@@ -376,8 +376,8 @@ impl GameArchive {
 /// decompression, or deserialization failure (→ HTTP 500).
 #[derive(Debug)]
 pub enum ArchiveLoadError {
-    /// The archive file does not exist.
-    NotFound,
+    /// The archive file does not exist at the given path.
+    NotFound(PathBuf),
     /// The file exists but could not be read, decompressed, or parsed.
     Other(String),
 }
@@ -385,7 +385,7 @@ pub enum ArchiveLoadError {
 impl fmt::Display for ArchiveLoadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NotFound => write!(f, "Archive not found"),
+            Self::NotFound(path) => write!(f, "Archive not found: {}", path.display()),
             Self::Other(msg) => write!(f, "{msg}"),
         }
     }
@@ -528,7 +528,7 @@ impl GameStorage {
         let path = self.archive_path(game_id);
         let compressed = fs::read(&path).map_err(|e| {
             if e.kind() == io::ErrorKind::NotFound {
-                ArchiveLoadError::NotFound
+                ArchiveLoadError::NotFound(path.clone())
             } else {
                 ArchiveLoadError::Other(format!("Failed to read archive {}: {}", game_id, e))
             }
@@ -931,6 +931,44 @@ mod tests {
         assert_eq!(archived.moves.len(), 1);
 
         // Cleanup
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_load_archive_missing_returns_not_found() {
+        let dir = std::env::temp_dir().join(format!("checkai_test_{}", Uuid::new_v4()));
+        let storage = GameStorage::new(&dir).unwrap();
+        let missing_id = Uuid::new_v4();
+
+        match storage.load_archive(&missing_id) {
+            Err(ArchiveLoadError::NotFound(path)) => {
+                // Path should point at the expected archive file for this game.
+                assert_eq!(
+                    path.file_name().unwrap(),
+                    format!("{}.cai.zst", missing_id).as_str()
+                );
+            }
+            other => panic!("Expected NotFound, got {:?}", other),
+        }
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_load_archive_corrupt_returns_other() {
+        let dir = std::env::temp_dir().join(format!("checkai_test_{}", Uuid::new_v4()));
+        let storage = GameStorage::new(&dir).unwrap();
+        let game_id = Uuid::new_v4();
+
+        // Write garbage bytes so the file exists but is invalid zstd/cai data.
+        let path = storage.archive_path(&game_id);
+        fs::write(&path, b"not valid zstd data").unwrap();
+
+        match storage.load_archive(&game_id) {
+            Err(ArchiveLoadError::Other(_)) => {}
+            other => panic!("Expected Other, got {:?}", other),
+        }
+
         let _ = fs::remove_dir_all(&dir);
     }
 }

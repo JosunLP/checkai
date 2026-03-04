@@ -114,7 +114,7 @@ pub async fn analyze_game(
                     });
                 }
             },
-            Err(ArchiveLoadError::NotFound) => None,
+            Err(ArchiveLoadError::NotFound(_)) => None,
             Err(ArchiveLoadError::Other(e)) => {
                 log::error!("Failed to load archived game {game_id}: {e}");
                 return HttpResponse::InternalServerError().json(AnalysisErrorResponse {
