@@ -25,15 +25,18 @@ Start the REST API server with WebSocket support and Swagger UI.
 checkai serve [OPTIONS]
 ```
 
-| Option                     | Default   | Description                              |
-| -------------------------- | --------- | ---------------------------------------- |
-| `-p, --port <PORT>`        | `8080`    | Port to listen on                        |
-| `--host <HOST>`            | `0.0.0.0` | Host address to bind to                  |
-| `--data-dir <DIR>`         | `data`    | Directory for game storage               |
-| `--book-path <PATH>`       | —         | Path to Polyglot opening book (`.bin`)   |
-| `--tablebase-path <PATH>`  | —         | Path to Syzygy tablebase directory       |
-| `--analysis-depth <DEPTH>` | `30`      | Minimum search depth for analysis (≥ 30) |
-| `--tt-size-mb <SIZE>`      | `64`      | Transposition table size in MB           |
+| Option                                   | Default | Description                                                                                 |
+| ---------------------------------------- | ------- | ------------------------------------------------------------------------------------------- |
+| `-p, --port <PORT>`                      | `8080`  | Port to listen on                                                                           |
+| `--host <HOST>`                          | `0.0.0.0` | Host address to bind to                                                                   |
+| `--data-dir <DIR>`                       | `data`  | Directory for game storage                                                                  |
+| `--book-path <PATH>`                     | —       | Path to Polyglot opening book (`.bin`)                                                      |
+| `--tablebase-path <PATH>`                | —       | Path to Syzygy tablebase directory                                                          |
+| `--analysis-depth <DEPTH>`               | `30`    | Minimum search depth for analysis (≥ 30)                                                    |
+| `--tt-size-mb <SIZE>`                    | `64`    | Transposition table size in MB                                                              |
+| `--analysis-max-jobs <N>`                | —       | Maximum number of analysis jobs kept in memory; if unset, a built-in default is used.      |
+| `--analysis-max-concurrent-jobs <N>`     | —       | Maximum number of analysis jobs to run in parallel; higher values can increase CPU usage.  |
+| `--analysis-completed-ttl-secs <SECS>`   | —       | Time-to-live (in seconds) for completed analysis jobs before they are evicted from memory. |
 
 ### Examples
 
