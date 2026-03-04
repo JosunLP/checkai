@@ -639,7 +639,8 @@ mod tests {
 
     #[test]
     fn test_graceful_missing_directory() {
-        let result = SyzygyTablebase::load(Path::new("/nonexistent/path"));
+        let path = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let result = SyzygyTablebase::load(&path);
         assert!(result.is_err());
     }
 }

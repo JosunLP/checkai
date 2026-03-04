@@ -277,26 +277,23 @@ pub fn print_history(game: &Game) {
 pub fn run_terminal_game() {
     let version = crate::update::version();
 
+    let border = "═══════════════════════════════════════";
+    let inner_width = border.chars().count();
+
+    let title = t!("terminal.banner_title").to_string();
+    let subtitle_content = format!("     {}    v{}", t!("terminal.banner_subtitle"), version);
+
     println!();
-    println!("{}", "╔═══════════════════════════════════════╗".cyan());
+    println!("{}", format!("\u{2554}{}\u{2557}", border).cyan());
     println!(
         "{}",
-        format!("\u{2551}     {}     \u{2551}", t!("terminal.banner_title")).cyan()
+        format!("\u{2551}{:^inner_width$}\u{2551}", title).cyan()
     );
     println!(
         "{}",
-        format!(
-            "\u{2551}     {}    v{}{}\u{2551}",
-            t!("terminal.banner_subtitle"),
-            version,
-            " ".repeat(
-                30usize
-                    .saturating_sub(t!("terminal.banner_subtitle").chars().count() + version.len())
-            )
-        )
-        .cyan()
+        format!("\u{2551}{:<inner_width$}\u{2551}", subtitle_content).cyan()
     );
-    println!("{}", "╚═══════════════════════════════════════╝".cyan());
+    println!("{}", format!("\u{255A}{}\u{255D}", border).cyan());
     println!();
 
     let mut game = Game::new();
