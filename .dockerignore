@@ -13,11 +13,6 @@ debug/
 *.swo
 *~
 
-# Docker files (prevent recursive build)
-Dockerfile
-docker-compose.yml
-.dockerignore
-
 # Documentation not needed at runtime
 docs/
 *.md
