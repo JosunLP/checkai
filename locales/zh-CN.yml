@@ -175,6 +175,8 @@ analysis.job_submitted: '已为对局 %{id} 提交分析任务（%{moves} 步）
 analysis.job_not_found: '未找到分析任务：%{id}'
 analysis.job_deleted: '分析任务 %{id} 已删除'
 analysis.job_cancelled: '分析任务 %{id} 已取消'
+analysis.job_limit_exceeded: '分析容量已超出：活跃=%{active}（最大 %{max_active}），已存储=%{stored}'
+analysis.job_store_limit_exceeded: '分析任务存储已满：已存储=%{stored}（最大 %{max_stored}）'
 analysis.game_no_moves: '对局没有可供分析的走法'
 analysis.quality.best: '最佳'
 analysis.quality.excellent: '优秀'

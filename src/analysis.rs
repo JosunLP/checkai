@@ -113,7 +113,7 @@ pub enum MoveQuality {
     Best,
     /// ≤ 10 centipawn loss — nearly optimal.
     Excellent,
-    /// 10–25 centipawn loss — solid play.
+    /// 11–25 centipawn loss — solid play.
     Good,
     /// 25–50 centipawn loss — slight inaccuracy.
     Inaccuracy,

@@ -339,7 +339,7 @@ impl SyzygyTablebase {
             let heuristic_wdl = self.heuristic_wdl(board, turn, castling, en_passant);
 
             return TablebaseInfo {
-                is_tablebase_position: true,
+                is_tablebase_position: false,
                 wdl: Some(heuristic_wdl),
                 dtz: None,
                 configuration: config_name,

@@ -175,6 +175,8 @@ analysis.job_submitted: 'ゲーム %{id} の分析ジョブを送信しました
 analysis.job_not_found: '分析ジョブが見つかりません：%{id}'
 analysis.job_deleted: '分析ジョブ %{id} を削除しました'
 analysis.job_cancelled: '分析ジョブ %{id} がキャンセルされました'
+analysis.job_limit_exceeded: '分析容量を超えました：アクティブ=%{active}（最大 %{max_active}）、保存済み=%{stored}'
+analysis.job_store_limit_exceeded: '分析ジョブ保存領域が満杯です：保存済み=%{stored}（最大 %{max_stored}）'
 analysis.game_no_moves: '分析する手がありません'
 analysis.quality.best: '最善'
 analysis.quality.excellent: '優秀'

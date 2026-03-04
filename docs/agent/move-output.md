@@ -4,7 +4,7 @@ The agent returns **exactly one** JSON object — no text before or after, no Ma
 
 ## Schema
 
-```json
+```text
 {
   "from": "<Square>",
   "to": "<Square>",
@@ -61,7 +61,7 @@ This captures the pawn on `d5` if `en_passant` was `"d6"`.
 
 ## Examples
 
-```json
+```text
 // Standard pawn move
 { "from": "e2", "to": "e4", "promotion": null }
 

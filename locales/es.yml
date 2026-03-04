@@ -175,6 +175,8 @@ analysis.job_submitted: 'Trabajo de análisis enviado para la partida %{id} (%{m
 analysis.job_not_found: 'Trabajo de análisis no encontrado: %{id}'
 analysis.job_deleted: 'Trabajo de análisis %{id} eliminado'
 analysis.job_cancelled: 'Trabajo de análisis %{id} cancelado'
+analysis.job_limit_exceeded: 'Capacidad de análisis excedida: activos=%{active} (máx %{max_active}), almacenados=%{stored}'
+analysis.job_store_limit_exceeded: 'El almacén de trabajos de análisis está lleno: almacenados=%{stored} (máx %{max_stored})'
 analysis.game_no_moves: 'La partida no tiene jugadas para analizar'
 analysis.quality.best: 'Mejor'
 analysis.quality.excellent: 'Excelente'

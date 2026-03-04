@@ -175,6 +175,8 @@ analysis.job_submitted: 'Задача анализа отправлена для
 analysis.job_not_found: 'Задача анализа не найдена: %{id}'
 analysis.job_deleted: 'Задача анализа %{id} удалена'
 analysis.job_cancelled: 'Задача анализа %{id} отменена'
+analysis.job_limit_exceeded: 'Превышена емкость анализа: активных=%{active} (макс %{max_active}), сохранено=%{stored}'
+analysis.job_store_limit_exceeded: 'Хранилище задач анализа переполнено: сохранено=%{stored} (макс %{max_stored})'
 analysis.game_no_moves: 'В партии нет ходов для анализа'
 analysis.quality.best: 'Лучший'
 analysis.quality.excellent: 'Отличный'
