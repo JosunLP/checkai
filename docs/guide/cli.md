@@ -34,9 +34,9 @@ checkai serve [OPTIONS]
 | `--tablebase-path <PATH>`                | —       | Path to Syzygy tablebase directory                                                          |
 | `--analysis-depth <DEPTH>`               | `30`    | Minimum search depth for analysis (≥ 30)                                                    |
 | `--tt-size-mb <SIZE>`                    | `64`    | Transposition table size in MB                                                              |
-| `--analysis-max-jobs <N>`                | —       | Maximum number of analysis jobs kept in memory; if unset, a built-in default is used.      |
-| `--analysis-max-concurrent-jobs <N>`     | —       | Maximum number of analysis jobs to run in parallel; higher values can increase CPU usage.  |
-| `--analysis-completed-ttl-secs <SECS>`   | —       | Time-to-live (in seconds) for completed analysis jobs before they are evicted from memory. |
+| `--analysis-max-jobs <N>`                | `256`   | Maximum number of analysis jobs kept in memory.                                             |
+| `--analysis-max-concurrent-jobs <N>`     | `4`     | Maximum number of analysis jobs to run in parallel; higher values can increase CPU usage.  |
+| `--analysis-completed-ttl-secs <SECS>`   | `3600`  | Time-to-live (in seconds) for completed analysis jobs before they are evicted from memory. |
 
 ### Examples
 
