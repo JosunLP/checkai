@@ -434,21 +434,20 @@ impl AnalysisManager {
                 {
                     let mut jobs_lock = jobs.write().await;
                     if let Some(job) = jobs_lock.get_mut(&jid) {
-                        match result {
-                            Ok(analysis) => {
-                                job.status = AnalysisStatus::Completed;
-                                job.result = Some(analysis);
-                                job.completed_at = Some(storage::unix_timestamp());
-                            }
-                            Err(e) => {
-                                // If cancelled via delete_job, status is already Cancelled
-                                if !matches!(job.status, AnalysisStatus::Cancelled) {
+                        // Never overwrite a Cancelled status set by delete_job.
+                        if !matches!(job.status, AnalysisStatus::Cancelled) {
+                            match result {
+                                Ok(analysis) => {
+                                    job.status = AnalysisStatus::Completed;
+                                    job.result = Some(analysis);
+                                }
+                                Err(e) => {
                                     job.status = AnalysisStatus::Failed {
                                         error: e.to_string(),
                                     };
                                 }
-                                job.completed_at = Some(storage::unix_timestamp());
                             }
+                            job.completed_at = Some(storage::unix_timestamp());
                         }
                     }
                 }
@@ -963,6 +962,28 @@ mod tests {
         AnalysisManager::new(AnalysisConfig::default())
     }
 
+    /// Build a game with a realistic move sequence so `analyze_game` has
+    /// non-trivial work to do and the job stays active long enough for
+    /// `delete_job` to race against it reliably.
+    fn make_game_with_moves() -> Game {
+        use crate::types::MoveJson;
+        let mut game = Game::new();
+        let moves = [
+            ("e2", "e4"), ("e7", "e5"), ("g1", "f3"), ("b8", "c6"),
+            ("f1", "c4"), ("g8", "f6"), ("d2", "d3"), ("f8", "c5"),
+            ("c2", "c3"), ("d7", "d6"), ("b2", "b4"), ("c5", "b6"),
+            ("a2", "a4"), ("a7", "a6"), ("b1", "d2"), ("e8", "g8"),
+        ];
+        for (from, to) in moves {
+            let _ = game.make_move(&MoveJson {
+                from: from.to_string(),
+                to: to.to_string(),
+                promotion: None,
+            });
+        }
+        game
+    }
+
     #[tokio::test]
     async fn test_delete_job_not_found_returns_none() {
         let mgr = make_manager();
@@ -972,7 +993,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_queued_job_returns_cancelled() {
         let mgr = make_manager();
-        let game = Game::new();
+        let game = make_game_with_moves();
         let job_id = mgr.analyze_game(&game, None).await;
 
         // The job should be Queued or InProgress; delete it immediately.
@@ -988,7 +1009,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_cancelled_job_returns_deleted() {
         let mgr = make_manager();
-        let game = Game::new();
+        let game = make_game_with_moves();
         let job_id = mgr.analyze_game(&game, None).await;
 
         // First call: cancel an active job.
