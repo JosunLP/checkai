@@ -406,7 +406,7 @@ fn print_welcome() {
             t!("cli.welcome_header"),
             version,
             " ".repeat(
-                46usize.saturating_sub(t!("cli.welcome_header").chars().count() + version.len(),),
+                46usize.saturating_sub(t!("cli.welcome_header").chars().count() + version.len()),
             )
         )
         .cyan()

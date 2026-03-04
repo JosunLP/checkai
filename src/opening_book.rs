@@ -102,7 +102,12 @@ struct RawBookEntry {
 impl OpeningBook {
     /// Loads a Polyglot opening book from the given file path.
     ///
-    /// Returns `Err` if the file cannot be read or has an invalid format.
+    /// Returns `Err` if the file cannot be read, exceeds the size limit, or
+    /// has a byte length that is not a multiple of 16.
+    ///
+    /// Individual entry contents (e.g. move encodings) are **not** validated
+    /// at load time; entries with undecodable moves are silently skipped
+    /// during [`lookup`](Self::lookup).
     pub fn load(path: &Path) -> Result<Self, String> {
         let metadata =
             fs::metadata(path).map_err(|e| format!("Failed to read book metadata: {}", e))?;
