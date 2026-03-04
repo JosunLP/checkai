@@ -406,13 +406,13 @@ impl AnalysisManager {
                 // cancelled before this task actually started running.
                 {
                     let mut jobs_lock = jobs.write().await;
-                    if let Some(job) = jobs_lock.get_mut(&jid) {
-                        if !cancel_token.load(Ordering::Relaxed) {
-                            job.status = AnalysisStatus::InProgress {
-                                moves_analyzed: 0,
-                                total_moves: snapshot.move_history.len(),
-                            };
-                        }
+                    if let Some(job) = jobs_lock.get_mut(&jid)
+                        && !cancel_token.load(Ordering::Relaxed)
+                    {
+                        job.status = AnalysisStatus::InProgress {
+                            moves_analyzed: 0,
+                            total_moves: snapshot.move_history.len(),
+                        };
                     }
                 }
 
@@ -578,9 +578,7 @@ impl AnalysisManager {
     /// removed from the store entirely.
     pub async fn delete_job(&self, job_id: &str) -> Option<DeleteJobOutcome> {
         let mut jobs = self.jobs.write().await;
-        let Some(job) = jobs.get_mut(job_id) else {
-            return None;
-        };
+        let job = jobs.get_mut(job_id)?;
 
         match &job.status {
             AnalysisStatus::Queued | AnalysisStatus::InProgress { .. } => {
