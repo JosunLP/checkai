@@ -461,10 +461,7 @@ impl AnalysisManager {
         // Determine book/tablebase availability flags.
         // For tablebase, only report true when actual Syzygy files are present.
         let has_book = self.book.is_some();
-        let has_tablebase = self
-            .tablebase
-            .as_ref()
-            .is_some_and(|tb| tb.is_available());
+        let has_tablebase = self.tablebase.as_ref().is_some_and(|tb| tb.is_available());
 
         // For book/tablebase probing we pre-probe on the calling thread so
         // the results can be moved into the spawned task without requiring
@@ -1400,10 +1397,7 @@ mod tests {
 
         // Empty directory still yields a loaded tablebase object, but it should
         // report unavailable because no .rtbw/.rtbz files were found.
-        let has_tablebase = mgr
-            .tablebase
-            .as_ref()
-            .is_some_and(|tb| tb.is_available());
+        let has_tablebase = mgr.tablebase.as_ref().is_some_and(|tb| tb.is_available());
         assert!(!has_tablebase);
 
         // Run analysis directly (without background job machinery) and verify
