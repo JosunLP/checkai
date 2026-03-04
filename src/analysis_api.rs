@@ -10,6 +10,7 @@ use utoipa::ToSchema;
 
 use crate::analysis::{AnalysisJobSummary, AnalysisManager};
 use crate::api::AppState;
+use crate::storage::ArchiveLoadError;
 
 // ---------------------------------------------------------------------------
 // Request / response types
@@ -65,6 +66,7 @@ pub struct AnalysisJobListResponse {
         (status = 202, description = "Analysis job submitted", body = SubmitAnalysisResponse),
         (status = 400, description = "Invalid game ID or game has no moves", body = AnalysisErrorResponse),
         (status = 404, description = "Game not found", body = AnalysisErrorResponse),
+        (status = 500, description = "Archive load or replay failure", body = AnalysisErrorResponse),
     )
 )]
 pub async fn analyze_game(
@@ -100,11 +102,26 @@ pub async fn analyze_game(
     let game_snapshot = if let Some(snap) = active_snapshot {
         Some(snap)
     } else if let Some(storage) = storage_clone {
-        // Disk IO + zstd decompression happens outside the mutex
-        storage
-            .load_archive(&game_id)
-            .ok()
-            .and_then(|archive| archive.replay(archive.move_count()).ok())
+        // Disk IO + zstd decompression happens outside the mutex.
+        // NotFound → fall through to 404; all other failures → 500.
+        match storage.load_archive(&game_id) {
+            Ok(archive) => match archive.replay(archive.move_count()) {
+                Ok(game) => Some(game),
+                Err(e) => {
+                    log::error!("Failed to replay archived game {game_id}: {e}");
+                    return HttpResponse::InternalServerError().json(AnalysisErrorResponse {
+                        error: t!("analysis.archive_replay_failed").to_string(),
+                    });
+                }
+            },
+            Err(ArchiveLoadError::NotFound(_)) => None,
+            Err(ArchiveLoadError::Other(e)) => {
+                log::error!("Failed to load archived game {game_id}: {e}");
+                return HttpResponse::InternalServerError().json(AnalysisErrorResponse {
+                    error: t!("analysis.archive_load_failed").to_string(),
+                });
+            }
+        }
     } else {
         None
     };
