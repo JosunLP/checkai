@@ -6,18 +6,18 @@ CheckAI can be configured through CLI flags, environment variables, and request-
 
 All server settings are passed as CLI flags to `checkai serve`:
 
-| Setting            | CLI Flag                 | Default   | Description                                   |
-| ------------------ | ------------------------ | --------- | --------------------------------------------- |
-| Port               | `--port`                 | `8080`    | HTTP server port                              |
-| Host               | `--host`                 | `0.0.0.0` | Bind address                                  |
-| Data directory     | `--data-dir`             | `data`    | Storage for active/archived games             |
-| Opening book       | `--book-path`            | —         | Polyglot `.bin` file                          |
-| Tablebase          | `--tablebase-path`       | —         | Syzygy tablebase directory                    |
-| Analysis depth     | `--analysis-depth`       | `30`      | Minimum plies for analysis engine             |
-| TT size            | `--tt-size-mb`           | `64`      | Transposition table memory in MB              |
-| Max retained jobs  | `--max-retained-jobs`    | —         | Maximum number of completed analysis jobs kept |
-| Max concurrent jobs| `--max-concurrent-jobs`  | —         | Maximum number of analysis jobs run in parallel |
-| Completed-job TTL  | `--completed-job-ttl`    | —         | Time-to-live for completed analysis jobs (e.g. `24h`) |
+| Setting            | CLI Flag                         | Default   | Description                                                   |
+| ------------------ | -------------------------------- | --------- | ------------------------------------------------------------- |
+| Port               | `--port`                         | `8080`    | HTTP server port                                              |
+| Host               | `--host`                         | `0.0.0.0` | Bind address                                                  |
+| Data directory     | `--data-dir`                     | `data`    | Storage for active/archived games                             |
+| Opening book       | `--book-path`                    | —         | Polyglot `.bin` file                                          |
+| Tablebase          | `--tablebase-path`               | —         | Syzygy tablebase directory                                    |
+| Analysis depth     | `--analysis-depth`               | `30`      | Minimum plies for analysis engine                             |
+| TT size            | `--tt-size-mb`                   | `64`      | Transposition table memory in MB                              |
+| Max retained jobs  | `--analysis-max-jobs`            | —         | Maximum number of completed analysis jobs kept                |
+| Max concurrent jobs| `--analysis-max-concurrent-jobs` | —         | Maximum number of analysis jobs run in parallel               |
+| Completed-job TTL  | `--analysis-completed-ttl-secs`  | —         | TTL for completed analysis jobs in seconds (e.g. `86400`=24h) |
 
 ## Environment Variables
 
