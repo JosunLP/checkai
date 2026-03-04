@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docker support** — Multi-stage Dockerfile, docker-compose.yml with volume mounts for data/books/tablebases, .dockerignore
 - **Docker image CI** — Release workflow now builds and pushes Docker images to GHCR with semver tags
 - CLI flags for analysis configuration: `--book-path`, `--tablebase-path`, `--analysis-depth`, `--tt-size-mb`
-- Analysis locale strings for English and German
+- Analysis locale strings for English, German, French, Spanish, Chinese (Simplified), Japanese, Portuguese, and Russian
 - New source modules: `zobrist.rs`, `eval.rs`, `search.rs`, `opening_book.rs`, `tablebase.rs`, `analysis.rs`, `analysis_api.rs`
 
 ## [0.2.2] - 2026-03-01
