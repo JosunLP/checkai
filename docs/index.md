@@ -31,7 +31,7 @@ features:
     details: Async analysis with 30+ ply depth, PVS search, transposition tables, null-move pruning, LMR, and PeSTO evaluation.
   - icon: 📖
     title: Opening Book & Tablebases
-    details: Polyglot .bin opening book support and Syzygy endgame tablebase integration for perfect endgame play.
+    details: Polyglot .bin opening book support plus Syzygy file detection and analytical evaluation for select endgames; full binary Syzygy probing is planned future work.
   - icon: 🐳
     title: Docker Ready
     details: Multi-stage Dockerfile and docker-compose.yml for containerized deployment with volume mounts for data and books.

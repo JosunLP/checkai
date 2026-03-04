@@ -1,14 +1,22 @@
 # Endgame Tablebases
 
-CheckAI supports **Syzygy endgame tablebases** for perfect endgame play in the analysis engine.
+CheckAI supports **Syzygy tablebase integration scaffolding** in the analysis engine.
 
 ## What are Syzygy Tablebases?
 
-Syzygy tablebases contain precomputed optimal play for all positions with a small number of pieces (typically up to 6 or 7). When a position matches a tablebase entry, the engine knows the exact game-theoretic result (win/draw/loss) and the optimal move.
+Syzygy tablebases contain precomputed optimal play for all positions with a small number of pieces (typically up to 6 or 7). In a full Syzygy integration, an engine can read exact game-theoretic outcomes (WDL) and distance-to-zeroing (DTZ) values from `.rtbw`/`.rtbz` files.
+
+## Current Status in CheckAI
+
+At the moment, CheckAI does **not** perform binary probing of `.rtbw`/`.rtbz` files yet.
+
+- If a simple endgame is analytically solved by built-in rules, CheckAI returns that result (source: `analytical`).
+- If matching Syzygy files are present for a position, CheckAI currently logs that binary probing is not implemented, then falls back to a material-based heuristic WDL estimate (source: `heuristic`).
+- Heuristic fallback results are **not** treated as true tablebase hits (`is_tablebase_position = false`).
 
 ## Analytical Probing
 
-CheckAI includes built-in analytical probing for common endgames. This is automatically applied when a tablebase is configured (via `--tablebase-path`) for positions where analytical results are provably correct, even if no corresponding `.rtbw`/`.rtbz` file is present:
+CheckAI includes built-in analytical probing for common endgames. This is applied when a tablebase path is configured (via `--tablebase-path`) for positions where analytical results are provably correct, even if no corresponding `.rtbw`/`.rtbz` file is present:
 
 | Endgame | Result                |
 | ------- | --------------------- |
@@ -16,11 +24,19 @@ CheckAI includes built-in analytical probing for common endgames. This is automa
 | KR vs K | Win for stronger side |
 | KQ vs K | Win for stronger side |
 
-To enable tablebase (and analytical) probing, configure a tablebase path as described below.
+To enable this analytical probing path (and table file discovery), configure a tablebase path as described below.
 
 ## Setup with External Files
 
-For comprehensive tablebase coverage:
+External Syzygy files are currently optional. Today they provide:
+
+- Discovery/indexing of available `.rtbw`/`.rtbz` configurations
+- Piece-count coverage/range information
+- Forward compatibility for future full binary probing
+
+They do **not yet** provide exact WDL/DTZ probing in CheckAI.
+
+To configure external files anyway (recommended for future compatibility):
 
 1. Download Syzygy tablebase files (`.rtbw` for WDL, `.rtbz` for DTZ)
 2. Place them in a directory, e.g. `tablebase/`
