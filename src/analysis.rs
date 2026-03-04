@@ -659,10 +659,20 @@ impl AnalysisManager {
     }
 
     /// Pre-probes the tablebase for all positions in the game.
+    ///
+    /// Only probes when actual Syzygy files are present (`tb.is_available()`),
+    /// so that per-move `is_tablebase_position` flags stay consistent with
+    /// the top-level `AnalysisResult::tablebase_available` flag.
     fn pre_probe_tablebase(&self, game: &Game) -> Vec<Option<TablebaseInfo>> {
         let Some(tb) = &self.tablebase else {
             return vec![None; game.move_history.len()];
         };
+
+        // No real tablebase files → skip probing entirely so analytical
+        // hits don't appear while tablebase_available is false.
+        if !tb.is_available() {
+            return vec![None; game.move_history.len()];
+        }
 
         let mut results = Vec::new();
         let mut replay = Game::new();
