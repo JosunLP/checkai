@@ -27,7 +27,7 @@ COPY . .
 RUN touch src/main.rs
 
 # Build the release binary
-RUN cargo build --release --locked 2>/dev/null || cargo build --release
+RUN cargo build --release --locked
 
 # ---------------------------------------------------------------------------
 # Stage 2 — Runtime

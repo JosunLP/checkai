@@ -507,6 +507,19 @@ impl SearchEngine {
         Self::new(DEFAULT_TT_SIZE_MB)
     }
 
+    /// Replaces the internal abort flag with a shared external token.
+    ///
+    /// This allows external orchestration (e.g. analysis job cancellation)
+    /// to stop the search promptly while it is running.
+    pub fn set_abort_token(&mut self, token: Arc<AtomicBool>) {
+        self.abort = token;
+    }
+
+    /// Resets the current abort flag to `false`.
+    pub fn reset_abort(&self) {
+        self.abort.store(false, Ordering::Relaxed);
+    }
+
     /// Runs iterative deepening search to the specified depth.
     ///
     /// Returns the best move and evaluation at the target depth.
@@ -514,7 +527,6 @@ impl SearchEngine {
         let max_depth = max_depth.clamp(1, MAX_DEPTH);
         let start = Instant::now();
         self.stats = SearchStats::default();
-        self.abort.store(false, Ordering::Relaxed);
 
         // Clear killer and history tables
         for k in &mut self.killers {
@@ -980,6 +992,21 @@ mod tests {
         let result = engine.search(&pos, 5);
         assert!(result.best_move.is_some());
         assert_eq!(result.depth, 5);
+    }
+
+    #[test]
+    fn test_search_does_not_clear_external_abort_token() {
+        let pos = starting_pos();
+        let mut engine = SearchEngine::with_defaults();
+        let token = Arc::new(AtomicBool::new(true));
+        engine.set_abort_token(token.clone());
+
+        let _ = engine.search(&pos, 3);
+
+        assert!(
+            token.load(Ordering::Relaxed),
+            "search must not reset externally owned abort token"
+        );
     }
 
     #[test]

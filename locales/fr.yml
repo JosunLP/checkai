@@ -167,4 +167,26 @@ ws.missing_action_type: 'Champ manquant : action_type'
 ws.subscribed: 'Abonné à la partie %{id}'
 ws.unsubscribed: 'Désabonné de la partie %{id}'
 ws.binary_not_supported: 'Les messages binaires ne sont pas supportés. Veuillez envoyer du texte JSON.'
+
+# ---------------------------------------------------------------------------
+# Analyse
+# ---------------------------------------------------------------------------
+analysis.job_submitted: "Travail d'analyse soumis pour la partie %{id} (%{moves} coups)"
+analysis.job_not_found: "Travail d'analyse introuvable : %{id}"
+analysis.job_deleted: "Travail d'analyse %{id} supprimé"
 analysis.job_cancelled: "Travail d'analyse %{id} annulé"
+analysis.game_no_moves: "La partie n'a aucun coup à analyser"
+analysis.quality.best: 'Meilleur'
+analysis.quality.excellent: 'Excellent'
+analysis.quality.good: 'Bon'
+analysis.quality.inaccuracy: 'Imprécision'
+analysis.quality.mistake: 'Erreur'
+analysis.quality.blunder: 'Gaffe'
+analysis.quality.book: 'Livre'
+analysis.book_loaded: "Livre d'ouvertures chargé : %{count} entrées"
+analysis.book_failed: "Échec du chargement du livre d'ouvertures : %{error}"
+analysis.tablebase_loaded: 'Tablebase Syzygy chargée : maximum %{pieces} pièces'
+analysis.tablebase_failed: 'Échec du chargement de la tablebase Syzygy : %{error}'
+analysis.engine_config: "Moteur d'analyse : profondeur=%{depth}, TT=%{tt}MB"
+analysis.archive_load_failed: 'Impossible de charger la partie archivée'
+analysis.archive_replay_failed: 'Impossible de rejouer la partie archivée'

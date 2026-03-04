@@ -61,7 +61,7 @@ pub struct AnalysisJobListResponse {
     post,
     path = "/api/analysis/game/{game_id}",
     tag = "analysis",
-    request_body = AnalyzeGameRequest,
+    request_body = Option<AnalyzeGameRequest>,
     responses(
         (status = 202, description = "Analysis job submitted", body = SubmitAnalysisResponse),
         (status = 400, description = "Invalid game ID or game has no moves", body = AnalysisErrorResponse),
@@ -71,7 +71,7 @@ pub struct AnalysisJobListResponse {
 )]
 pub async fn analyze_game(
     path: web::Path<String>,
-    body: web::Json<AnalyzeGameRequest>,
+    body: Option<web::Json<AnalyzeGameRequest>>,
     data: web::Data<AppState>,
     analysis: web::Data<AnalysisManager>,
 ) -> impl Responder {
@@ -138,7 +138,8 @@ pub async fn analyze_game(
         });
     }
 
-    let job_id = analysis.analyze_game(&snapshot, body.depth).await;
+    let depth = body.as_ref().and_then(|b| b.depth);
+    let job_id = analysis.analyze_game(&snapshot, depth).await;
 
     HttpResponse::Accepted().json(SubmitAnalysisResponse {
         job_id,

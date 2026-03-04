@@ -623,7 +623,7 @@ struct RunAnalysisParams<'a> {
     tablebase_results: &'a [Option<TablebaseInfo>],
     jobs: &'a Arc<RwLock<HashMap<String, AnalysisJob>>>,
     job_id: &'a str,
-    cancel_token: &'a AtomicBool,
+    cancel_token: &'a Arc<AtomicBool>,
 }
 
 /// Runs the analysis for a game snapshot.
@@ -641,6 +641,7 @@ async fn run_analysis(params: RunAnalysisParams<'_>) -> Result<AnalysisResult, S
         cancel_token,
     } = params;
     let mut engine = SearchEngine::new(tt_size_mb);
+    engine.set_abort_token(Arc::clone(cancel_token));
     let mut annotations = Vec::new();
     let total_moves = game.move_history.len();
 
