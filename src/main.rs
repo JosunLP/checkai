@@ -174,6 +174,18 @@ enum Commands {
         /// Transposition table size in MB for analysis.
         #[arg(long, default_value_t = 64)]
         tt_size_mb: usize,
+
+        /// Maximum number of analysis jobs retained in memory.
+        #[arg(long, default_value_t = 256)]
+        analysis_max_jobs: usize,
+
+        /// Maximum number of concurrently active analysis jobs (queued + running).
+        #[arg(long, default_value_t = 4)]
+        analysis_max_concurrent_jobs: usize,
+
+        /// TTL for finished analysis jobs in seconds (0 disables TTL-based eviction).
+        #[arg(long, default_value_t = 3600)]
+        analysis_completed_ttl_secs: u64,
     },
 
     /// Play a chess game in the terminal (two-player).
@@ -239,6 +251,9 @@ async fn main() -> std::io::Result<()> {
             tablebase_path,
             analysis_depth,
             tt_size_mb,
+            analysis_max_jobs,
+            analysis_max_concurrent_jobs,
+            analysis_completed_ttl_secs,
         } => {
             // Check for updates in the background before starting the server
             update::check_for_updates().await;
@@ -250,6 +265,9 @@ async fn main() -> std::io::Result<()> {
                 tablebase_path,
                 analysis_depth,
                 tt_size_mb,
+                analysis_max_jobs,
+                analysis_max_concurrent_jobs,
+                analysis_completed_ttl_secs,
             )
             .await
         }
@@ -301,6 +319,9 @@ async fn run_server(
     tablebase_path: Option<String>,
     analysis_depth: u32,
     tt_size_mb: usize,
+    analysis_max_jobs: usize,
+    analysis_max_concurrent_jobs: usize,
+    analysis_completed_ttl_secs: u64,
 ) -> std::io::Result<()> {
     let openapi = ApiDoc::openapi();
 
@@ -318,7 +339,20 @@ async fn run_server(
         book_path: book_path.map(std::path::PathBuf::from),
         tablebase_path: tablebase_path.map(std::path::PathBuf::from),
         tt_size_mb,
+        max_jobs_retained: analysis_max_jobs.max(1),
+        max_concurrent_jobs: analysis_max_concurrent_jobs.max(1),
+        completed_job_ttl_secs: if analysis_completed_ttl_secs == 0 {
+            None
+        } else {
+            Some(analysis_completed_ttl_secs)
+        },
     };
+    let analysis_max_jobs = analysis_config.max_jobs_retained;
+    let analysis_max_active = analysis_config.max_concurrent_jobs;
+    let analysis_ttl_label = analysis_config
+        .completed_job_ttl_secs
+        .map(|v| v.to_string())
+        .unwrap_or_else(|| "disabled".to_string());
     let analysis_manager = web::Data::new(AnalysisManager::new(analysis_config));
 
     log::info!("Starting CheckAI server on {}:{}", host, port);
@@ -335,6 +369,12 @@ async fn run_server(
         "Analysis engine: depth={}, TT={}MB",
         analysis_depth.max(30),
         tt_size_mb
+    );
+    log::info!(
+        "Analysis job limits: max_jobs={}, max_active={}, finished_ttl={}s",
+        analysis_max_jobs,
+        analysis_max_active,
+        analysis_ttl_label
     );
 
     HttpServer::new(move || {

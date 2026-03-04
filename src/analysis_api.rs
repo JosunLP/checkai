@@ -8,7 +8,9 @@ use actix_web::{HttpResponse, Responder, web};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::analysis::{AnalysisJobSummary, AnalysisManager, DeleteJobOutcome};
+use crate::analysis::{
+    AnalysisJobSummary, AnalysisManager, AnalysisSubmitError, DeleteJobOutcome,
+};
 use crate::api::AppState;
 use crate::storage::ArchiveLoadError;
 
@@ -66,6 +68,7 @@ pub struct AnalysisJobListResponse {
         (status = 202, description = "Analysis job submitted", body = SubmitAnalysisResponse),
         (status = 400, description = "Invalid game ID or game has no moves", body = AnalysisErrorResponse),
         (status = 404, description = "Game not found", body = AnalysisErrorResponse),
+        (status = 429, description = "Analysis capacity exceeded", body = AnalysisErrorResponse),
         (status = 500, description = "Archive load or replay failure", body = AnalysisErrorResponse),
     )
 )]
@@ -139,7 +142,36 @@ pub async fn analyze_game(
     }
 
     let depth = body.as_ref().and_then(|b| b.depth);
-    let job_id = analysis.analyze_game(&snapshot, depth).await;
+    let job_id = match analysis.analyze_game(&snapshot, depth).await {
+        Ok(id) => id,
+        Err(AnalysisSubmitError::ConcurrentLimitExceeded {
+            active_jobs,
+            max_concurrent_jobs,
+        }) => {
+            return HttpResponse::TooManyRequests().json(AnalysisErrorResponse {
+                error: t!(
+                    "analysis.job_limit_exceeded",
+                    active = active_jobs,
+                    max_active = max_concurrent_jobs,
+                    stored = analysis.list_jobs().await.len()
+                )
+                .to_string(),
+            });
+        }
+        Err(AnalysisSubmitError::JobStoreLimitExceeded {
+            stored_jobs,
+            max_jobs_retained,
+        }) => {
+            return HttpResponse::TooManyRequests().json(AnalysisErrorResponse {
+                error: t!(
+                    "analysis.job_store_limit_exceeded",
+                    stored = stored_jobs,
+                    max_stored = max_jobs_retained
+                )
+                .to_string(),
+            });
+        }
+    };
 
     HttpResponse::Accepted().json(SubmitAnalysisResponse {
         job_id,

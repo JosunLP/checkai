@@ -61,6 +61,14 @@ pub struct AnalysisConfig {
     pub tablebase_path: Option<PathBuf>,
     /// Transposition table size in MB.
     pub tt_size_mb: usize,
+    /// Maximum number of jobs retained in memory.
+    pub max_jobs_retained: usize,
+    /// Maximum number of active jobs (Queued + InProgress).
+    pub max_concurrent_jobs: usize,
+    /// Time-to-live in seconds for finished jobs (Completed/Failed/Cancelled).
+    ///
+    /// If `None`, finished jobs are only removed by capacity-based eviction.
+    pub completed_job_ttl_secs: Option<u64>,
 }
 
 impl Default for AnalysisConfig {
@@ -70,8 +78,26 @@ impl Default for AnalysisConfig {
             book_path: None,
             tablebase_path: None,
             tt_size_mb: 64,
+            max_jobs_retained: 256,
+            max_concurrent_jobs: 4,
+            completed_job_ttl_secs: Some(60 * 60),
         }
     }
+}
+
+/// Error returned when an analysis submission cannot be accepted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnalysisSubmitError {
+    /// Too many active jobs are already queued/running.
+    ConcurrentLimitExceeded {
+        active_jobs: usize,
+        max_concurrent_jobs: usize,
+    },
+    /// Job store reached capacity and no further eviction was possible.
+    JobStoreLimitExceeded {
+        stored_jobs: usize,
+        max_jobs_retained: usize,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -302,6 +328,11 @@ pub struct AnalysisManager {
 impl AnalysisManager {
     /// Creates a new analysis manager with the given configuration.
     pub fn new(config: AnalysisConfig) -> Self {
+        let mut config = config;
+        // Keep limits sane even if config comes from external input.
+        config.max_jobs_retained = config.max_jobs_retained.max(1);
+        config.max_concurrent_jobs = config.max_concurrent_jobs.max(1);
+
         // Load opening book
         let book = config
             .book_path
@@ -354,24 +385,64 @@ impl AnalysisManager {
     ///
     /// The game is cloned (read-only snapshot) and analysis runs on a
     /// background task. Returns the job ID immediately.
-    pub async fn analyze_game(&self, game: &Game, depth: Option<u32>) -> String {
+    pub async fn analyze_game(
+        &self,
+        game: &Game,
+        depth: Option<u32>,
+    ) -> Result<String, AnalysisSubmitError> {
         let job_id = Uuid::new_v4().to_string();
         let depth = depth
             .unwrap_or(self.config.min_depth)
             .max(self.config.min_depth);
+        let now = storage::unix_timestamp();
 
         let job = AnalysisJob {
             id: job_id.clone(),
             game_id: Some(game.id.to_string()),
             status: AnalysisStatus::Queued,
             result: None,
-            created_at: storage::unix_timestamp(),
+            created_at: now,
             completed_at: None,
         };
 
-        {
+        let evicted_job_ids = {
             let mut jobs = self.jobs.write().await;
+
+            let evicted = Self::evict_jobs_locked(
+                &mut jobs,
+                now,
+                self.config.completed_job_ttl_secs,
+                self.config.max_jobs_retained,
+                1,
+            );
+
+            let active_jobs = jobs
+                .values()
+                .filter(|j| Self::is_active_status(&j.status))
+                .count();
+            if active_jobs >= self.config.max_concurrent_jobs {
+                return Err(AnalysisSubmitError::ConcurrentLimitExceeded {
+                    active_jobs,
+                    max_concurrent_jobs: self.config.max_concurrent_jobs,
+                });
+            }
+
+            if jobs.len() >= self.config.max_jobs_retained {
+                return Err(AnalysisSubmitError::JobStoreLimitExceeded {
+                    stored_jobs: jobs.len(),
+                    max_jobs_retained: self.config.max_jobs_retained,
+                });
+            }
+
             jobs.insert(job_id.clone(), job);
+            evicted
+        };
+
+        if !evicted_job_ids.is_empty() {
+            let mut tokens = self.cancel_tokens.write().await;
+            for id in evicted_job_ids {
+                tokens.remove(&id);
+            }
         }
 
         // Create cancellation token for this job
@@ -461,7 +532,77 @@ impl AnalysisManager {
             });
         });
 
-        job_id
+        Ok(job_id)
+    }
+
+    fn is_active_status(status: &AnalysisStatus) -> bool {
+        matches!(status, AnalysisStatus::Queued | AnalysisStatus::InProgress { .. })
+    }
+
+    fn is_finished_status(status: &AnalysisStatus) -> bool {
+        matches!(
+            status,
+            AnalysisStatus::Completed | AnalysisStatus::Failed { .. } | AnalysisStatus::Cancelled
+        )
+    }
+
+    /// Evicts old/finished jobs according to TTL and capacity requirements.
+    ///
+    /// Returns the list of evicted job IDs so callers can also remove
+    /// corresponding cancellation tokens.
+    fn evict_jobs_locked(
+        jobs: &mut HashMap<String, AnalysisJob>,
+        now: u64,
+        finished_ttl_secs: Option<u64>,
+        max_jobs_retained: usize,
+        reserve_slots: usize,
+    ) -> Vec<String> {
+        let mut evicted_ids = Vec::new();
+
+        // 1) TTL-based eviction for finished jobs.
+        if let Some(ttl) = finished_ttl_secs {
+            let expired: Vec<String> = jobs
+                .iter()
+                .filter_map(|(id, job)| {
+                    if !Self::is_finished_status(&job.status) {
+                        return None;
+                    }
+                    let finished_at = job.completed_at.unwrap_or(job.created_at);
+                    let age = now.saturating_sub(finished_at);
+                    (age >= ttl).then(|| id.clone())
+                })
+                .collect();
+
+            for id in expired {
+                if jobs.remove(&id).is_some() {
+                    evicted_ids.push(id);
+                }
+            }
+        }
+
+        // 2) Capacity-based eviction (oldest finished jobs first).
+        let target_len = max_jobs_retained.saturating_sub(reserve_slots);
+        if jobs.len() > target_len {
+            let mut finished_candidates: Vec<(String, u64)> = jobs
+                .iter()
+                .filter_map(|(id, job)| {
+                    Self::is_finished_status(&job.status)
+                        .then(|| (id.clone(), job.completed_at.unwrap_or(job.created_at)))
+                })
+                .collect();
+            finished_candidates.sort_by_key(|(_, ts)| *ts);
+
+            for (id, _) in finished_candidates {
+                if jobs.len() <= target_len {
+                    break;
+                }
+                if jobs.remove(&id).is_some() {
+                    evicted_ids.push(id);
+                }
+            }
+        }
+
+        evicted_ids
     }
 
     /// Pre-probes the opening book for all positions in the game.
@@ -548,22 +689,63 @@ impl AnalysisManager {
 
     /// Gets the status and result of an analysis job.
     pub async fn get_job(&self, job_id: &str) -> Option<AnalysisJob> {
-        let jobs = self.jobs.read().await;
-        jobs.get(job_id).cloned()
+        let now = storage::unix_timestamp();
+        let (job, evicted) = {
+            let mut jobs = self.jobs.write().await;
+            let evicted = Self::evict_jobs_locked(
+                &mut jobs,
+                now,
+                self.config.completed_job_ttl_secs,
+                self.config.max_jobs_retained,
+                0,
+            );
+            let job = jobs.get(job_id).cloned();
+            (job, evicted)
+        };
+
+        if !evicted.is_empty() {
+            let mut tokens = self.cancel_tokens.write().await;
+            for id in evicted {
+                tokens.remove(&id);
+            }
+        }
+
+        job
     }
 
     /// Lists all analysis jobs (summaries).
     pub async fn list_jobs(&self) -> Vec<AnalysisJobSummary> {
-        let jobs = self.jobs.read().await;
-        jobs.values()
-            .map(|j| AnalysisJobSummary {
-                id: j.id.clone(),
-                game_id: j.game_id.clone(),
-                status: j.status.clone(),
-                created_at: j.created_at,
-                completed_at: j.completed_at,
-            })
-            .collect()
+        let now = storage::unix_timestamp();
+        let (summaries, evicted) = {
+            let mut jobs = self.jobs.write().await;
+            let evicted = Self::evict_jobs_locked(
+                &mut jobs,
+                now,
+                self.config.completed_job_ttl_secs,
+                self.config.max_jobs_retained,
+                0,
+            );
+            let summaries = jobs
+                .values()
+                .map(|j| AnalysisJobSummary {
+                    id: j.id.clone(),
+                    game_id: j.game_id.clone(),
+                    status: j.status.clone(),
+                    created_at: j.created_at,
+                    completed_at: j.completed_at,
+                })
+                .collect();
+            (summaries, evicted)
+        };
+
+        if !evicted.is_empty() {
+            let mut tokens = self.cancel_tokens.write().await;
+            for id in evicted {
+                tokens.remove(&id);
+            }
+        }
+
+        summaries
     }
 
     /// Cancels an in-progress / queued job or removes a finished job.
@@ -578,28 +760,48 @@ impl AnalysisManager {
     /// Jobs that are already finished (Completed / Failed / Cancelled) are
     /// removed from the store entirely.
     pub async fn delete_job(&self, job_id: &str) -> Option<DeleteJobOutcome> {
-        let mut jobs = self.jobs.write().await;
-        let job = jobs.get_mut(job_id)?;
+        enum Action {
+            CancelActive,
+            DeleteFinished,
+        }
 
-        match &job.status {
-            AnalysisStatus::Queued | AnalysisStatus::InProgress { .. } => {
-                // Signal the background task to stop
-                {
-                    let tokens = self.cancel_tokens.read().await;
-                    if let Some(token) = tokens.get(job_id) {
-                        token.store(true, Ordering::Relaxed);
-                    }
+        // Decide and update job state while holding only the jobs lock.
+        // Do not await on other locks in this scope.
+        let action = {
+            let mut jobs = self.jobs.write().await;
+            let job = jobs.get_mut(job_id)?;
+
+            match &job.status {
+                AnalysisStatus::Queued | AnalysisStatus::InProgress { .. } => {
+                    job.status = AnalysisStatus::Cancelled;
+                    job.completed_at = Some(storage::unix_timestamp());
+                    Action::CancelActive
                 }
-                job.status = AnalysisStatus::Cancelled;
-                job.completed_at = Some(storage::unix_timestamp());
+                // Already finished — safe to remove completely
+                AnalysisStatus::Completed
+                | AnalysisStatus::Failed { .. }
+                | AnalysisStatus::Cancelled => {
+                    jobs.remove(job_id);
+                    Action::DeleteFinished
+                }
+            }
+        };
+
+        match action {
+            Action::CancelActive => {
+                // Signal the background task to stop.
+                // Done after releasing the jobs lock to avoid lock-order issues.
+                let token = {
+                    let tokens = self.cancel_tokens.read().await;
+                    tokens.get(job_id).cloned()
+                };
+                if let Some(token) = token {
+                    token.store(true, Ordering::Relaxed);
+                }
                 Some(DeleteJobOutcome::Cancelled)
             }
-            // Already finished — safe to remove completely
-            AnalysisStatus::Completed
-            | AnalysisStatus::Failed { .. }
-            | AnalysisStatus::Cancelled => {
-                jobs.remove(job_id);
-                // Also clean up any lingering token
+            Action::DeleteFinished => {
+                // Clean up any lingering token after removing the job.
                 let mut tokens = self.cancel_tokens.write().await;
                 tokens.remove(job_id);
                 Some(DeleteJobOutcome::Deleted)
@@ -955,11 +1157,18 @@ mod tests {
         let config = AnalysisConfig::default();
         assert_eq!(config.min_depth, 30);
         assert_eq!(config.tt_size_mb, 64);
+        assert_eq!(config.max_jobs_retained, 256);
+        assert_eq!(config.max_concurrent_jobs, 4);
+        assert_eq!(config.completed_job_ttl_secs, Some(3600));
     }
 
     // Helper: create a manager with default config (no book / tablebase).
     fn make_manager() -> AnalysisManager {
         AnalysisManager::new(AnalysisConfig::default())
+    }
+
+    fn make_manager_with_config(config: AnalysisConfig) -> AnalysisManager {
+        AnalysisManager::new(config)
     }
 
     /// Build a game with a realistic move sequence so `analyze_game` has
@@ -1007,7 +1216,10 @@ mod tests {
     async fn test_delete_queued_job_returns_cancelled() {
         let mgr = make_manager();
         let game = make_game_with_moves();
-        let job_id = mgr.analyze_game(&game, None).await;
+        let job_id = mgr
+            .analyze_game(&game, None)
+            .await
+            .expect("submission should succeed");
 
         // The job should be Queued or InProgress; delete it immediately.
         let outcome = mgr.delete_job(&job_id).await;
@@ -1026,7 +1238,10 @@ mod tests {
     async fn test_delete_cancelled_job_returns_deleted() {
         let mgr = make_manager();
         let game = make_game_with_moves();
-        let job_id = mgr.analyze_game(&game, None).await;
+        let job_id = mgr
+            .analyze_game(&game, None)
+            .await
+            .expect("submission should succeed");
 
         // First call: cancel an active job.
         let first = mgr.delete_job(&job_id).await;
@@ -1039,5 +1254,125 @@ mod tests {
         // Job must be gone from the store.
         let jobs = mgr.list_jobs().await;
         assert!(jobs.iter().all(|j| j.id != job_id));
+    }
+
+    #[tokio::test]
+    async fn test_submit_rejected_when_concurrent_limit_exceeded() {
+        let cfg = AnalysisConfig {
+            max_concurrent_jobs: 1,
+            ..AnalysisConfig::default()
+        };
+        let mgr = make_manager_with_config(cfg);
+
+        {
+            let mut jobs = mgr.jobs.write().await;
+            jobs.insert(
+                "active-job".to_string(),
+                AnalysisJob {
+                    id: "active-job".to_string(),
+                    game_id: None,
+                    status: AnalysisStatus::Queued,
+                    result: None,
+                    created_at: storage::unix_timestamp(),
+                    completed_at: None,
+                },
+            );
+        }
+
+        let game = make_game_with_moves();
+        let err = mgr
+            .analyze_game(&game, None)
+            .await
+            .expect_err("submission should be rejected");
+
+        assert!(matches!(
+            err,
+            AnalysisSubmitError::ConcurrentLimitExceeded {
+                max_concurrent_jobs: 1,
+                ..
+            }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_submit_rejected_when_store_limit_exceeded_without_evictable_jobs() {
+        let cfg = AnalysisConfig {
+            max_jobs_retained: 1,
+            completed_job_ttl_secs: None,
+            ..AnalysisConfig::default()
+        };
+        let mgr = make_manager_with_config(cfg);
+
+        {
+            let mut jobs = mgr.jobs.write().await;
+            jobs.insert(
+                "active-job".to_string(),
+                AnalysisJob {
+                    id: "active-job".to_string(),
+                    game_id: None,
+                    status: AnalysisStatus::InProgress {
+                        moves_analyzed: 0,
+                        total_moves: 1,
+                    },
+                    result: None,
+                    created_at: storage::unix_timestamp(),
+                    completed_at: None,
+                },
+            );
+        }
+
+        let game = make_game_with_moves();
+        let err = mgr
+            .analyze_game(&game, None)
+            .await
+            .expect_err("submission should be rejected");
+
+        assert!(matches!(
+            err,
+            AnalysisSubmitError::JobStoreLimitExceeded {
+                max_jobs_retained: 1,
+                ..
+            }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_list_jobs_evicts_expired_finished_jobs_by_ttl() {
+        let cfg = AnalysisConfig {
+            completed_job_ttl_secs: Some(1),
+            ..AnalysisConfig::default()
+        };
+        let mgr = make_manager_with_config(cfg);
+        let now = storage::unix_timestamp();
+
+        {
+            let mut jobs = mgr.jobs.write().await;
+            jobs.insert(
+                "old-finished".to_string(),
+                AnalysisJob {
+                    id: "old-finished".to_string(),
+                    game_id: None,
+                    status: AnalysisStatus::Completed,
+                    result: None,
+                    created_at: now.saturating_sub(10),
+                    completed_at: Some(now.saturating_sub(10)),
+                },
+            );
+            jobs.insert(
+                "fresh-finished".to_string(),
+                AnalysisJob {
+                    id: "fresh-finished".to_string(),
+                    game_id: None,
+                    status: AnalysisStatus::Completed,
+                    result: None,
+                    created_at: now,
+                    completed_at: Some(now),
+                },
+            );
+        }
+
+        let jobs = mgr.list_jobs().await;
+        assert!(jobs.iter().all(|j| j.id != "old-finished"));
+        assert!(jobs.iter().any(|j| j.id == "fresh-finished"));
     }
 }
