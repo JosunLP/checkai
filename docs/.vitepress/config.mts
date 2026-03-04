@@ -9,7 +9,7 @@ export default defineConfig({
   base: '/checkai/',
 
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/checkai/logo.svg' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
     ['meta', { name: 'theme-color', content: '#10b981' }],
     [
       'meta',

@@ -258,6 +258,15 @@ pub struct AnalysisJob {
     pub completed_at: Option<u64>,
 }
 
+/// Outcome of a [`AnalysisManager::delete_job`] call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeleteJobOutcome {
+    /// The job was active (Queued/InProgress) and has been cancelled.
+    Cancelled,
+    /// The job was already finished and has been removed from the store.
+    Deleted,
+}
+
 /// Brief summary of a job (for listing).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct AnalysisJobSummary {
@@ -560,10 +569,10 @@ impl AnalysisManager {
     /// cancellation flag so the analysis loop stops at the next iteration
     /// and marks the status as `Cancelled`.  Completed / Failed / Cancelled
     /// jobs are removed from the store entirely.
-    pub async fn delete_job(&self, job_id: &str) -> bool {
+    pub async fn delete_job(&self, job_id: &str) -> Option<DeleteJobOutcome> {
         let mut jobs = self.jobs.write().await;
         let Some(job) = jobs.get_mut(job_id) else {
-            return false;
+            return None;
         };
 
         match &job.status {
@@ -577,7 +586,7 @@ impl AnalysisManager {
                 }
                 job.status = AnalysisStatus::Cancelled;
                 job.completed_at = Some(storage::unix_timestamp());
-                true
+                Some(DeleteJobOutcome::Cancelled)
             }
             // Already finished — safe to remove completely
             AnalysisStatus::Completed
@@ -587,7 +596,7 @@ impl AnalysisManager {
                 // Also clean up any lingering token
                 let mut tokens = self.cancel_tokens.write().await;
                 tokens.remove(job_id);
-                true
+                Some(DeleteJobOutcome::Deleted)
             }
         }
     }

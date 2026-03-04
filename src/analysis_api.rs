@@ -8,7 +8,7 @@ use actix_web::{HttpResponse, Responder, web};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::analysis::{AnalysisJobSummary, AnalysisManager};
+use crate::analysis::{AnalysisJobSummary, AnalysisManager, DeleteJobOutcome};
 use crate::api::AppState;
 use crate::storage::ArchiveLoadError;
 
@@ -204,7 +204,7 @@ pub async fn get_analysis_job(
     path = "/api/analysis/jobs/{job_id}",
     tag = "analysis",
     responses(
-        (status = 200, description = "Job deleted"),
+        (status = 200, description = "Job cancelled or deleted"),
         (status = 404, description = "Job not found", body = AnalysisErrorResponse),
     )
 )]
@@ -213,14 +213,16 @@ pub async fn delete_analysis_job(
     analysis: web::Data<AnalysisManager>,
 ) -> impl Responder {
     let job_id = path.into_inner();
-    if analysis.delete_job(&job_id).await {
-        HttpResponse::Ok().json(serde_json::json!({
+    match analysis.delete_job(&job_id).await {
+        Some(DeleteJobOutcome::Cancelled) => HttpResponse::Ok().json(serde_json::json!({
+            "message": t!("analysis.job_cancelled", id = &job_id).to_string()
+        })),
+        Some(DeleteJobOutcome::Deleted) => HttpResponse::Ok().json(serde_json::json!({
             "message": t!("analysis.job_deleted", id = &job_id).to_string()
-        }))
-    } else {
-        HttpResponse::NotFound().json(AnalysisErrorResponse {
+        })),
+        None => HttpResponse::NotFound().json(AnalysisErrorResponse {
             error: t!("analysis.job_not_found", id = &job_id).to_string(),
-        })
+        }),
     }
 }
 
