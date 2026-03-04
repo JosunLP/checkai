@@ -79,7 +79,7 @@ command:
 
 The Dockerfile uses a two-stage build:
 
-1. **Build stage** — Uses `rust:1.87-bookworm` to compile the release binary with dependency caching.
+1. **Build stage** — Uses `rust:1.93-bookworm` to compile the release binary with dependency caching.
 2. **Runtime stage** — Uses `debian:bookworm-slim` with only the binary, locale files, and a non-root user.
 
 The resulting image is minimal and runs as a non-root user (`checkai`).

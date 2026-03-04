@@ -4,7 +4,7 @@ Before each move, the agent receives a JSON object with the complete game state.
 
 ## Schema
 
-```json
+```text
 {
   "board": {
     "<Square>": "<Symbol>"
