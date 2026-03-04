@@ -20,8 +20,8 @@ following the **FIDE 2023 Laws of Chess**.
   null-move pruning, LMR, killer/history heuristics, and quiescence search.
 
 - **Opening Book & Endgame Tablebases** — Polyglot `.bin` opening book support
-  and Syzygy endgame tablebase integration for perfect endgame play.
-
+  and Syzygy endgame tablebase detection with limited analytical evaluation
+  (no full tablebase probing / perfect endgame play yet).
 - **REST API** — JSON-based API for AI agents to create games, query state,
   submit moves, and handle special actions (draw claims, resignation).
   Follows the protocol defined in [`docs/AGENT.md`](docs/AGENT.md).
