@@ -945,7 +945,7 @@ mod tests {
                 // Path should point at the expected archive file for this game.
                 assert_eq!(
                     path.file_name().unwrap(),
-                    format!("{}.cai.zst", missing_id).as_str()
+                    std::ffi::OsStr::new(&format!("{}.cai.zst", missing_id))
                 );
             }
             other => panic!("Expected NotFound, got {:?}", other),
