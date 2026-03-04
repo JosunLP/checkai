@@ -404,7 +404,7 @@ impl AnalysisManager {
                     }
                 }
 
-                let result = run_analysis(&RunAnalysisParams {
+                let result = run_analysis(RunAnalysisParams {
                     game: &snapshot,
                     depth,
                     tt_size_mb: tt_size,
@@ -612,7 +612,7 @@ struct RunAnalysisParams<'a> {
 }
 
 /// Runs the analysis for a game snapshot.
-async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, String> {
+async fn run_analysis(params: RunAnalysisParams<'_>) -> Result<AnalysisResult, String> {
     let RunAnalysisParams {
         game,
         depth,
@@ -625,7 +625,7 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
         job_id,
         cancel_token,
     } = params;
-    let mut engine = SearchEngine::new(*tt_size_mb);
+    let mut engine = SearchEngine::new(tt_size_mb);
     let mut annotations = Vec::new();
     let total_moves = game.move_history.len();
 
@@ -740,7 +740,7 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
             }
         } else {
             // Deep search — clamp depth to i32::MAX before casting to avoid wrap-around
-            let depth_i32 = (*depth).min(i32::MAX as u32) as i32;
+            let depth_i32 = depth.min(i32::MAX as u32) as i32;
             let search_result = engine.search(&pos, depth_i32);
 
             let best_move = search_result.best_move.unwrap_or(played);
@@ -802,7 +802,7 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
         }
         {
             let mut jobs_lock = jobs.write().await;
-            if let Some(job) = jobs_lock.get_mut(*job_id) {
+            if let Some(job) = jobs_lock.get_mut(job_id) {
                 job.status = AnalysisStatus::InProgress {
                     moves_analyzed: idx + 1,
                     total_moves,
@@ -820,9 +820,9 @@ async fn run_analysis(params: &RunAnalysisParams<'_>) -> Result<AnalysisResult, 
         // Report the effective depth: clamp to i32::MAX (for cast safety) and to
         // MAX_DEPTH (as enforced by SearchEngine::search) so API consumers
         // see the depth that was actually used, not a potentially unclamped request.
-        depth: (*depth).min(i32::MAX as u32).min(MAX_DEPTH as u32),
-        book_available: *has_book,
-        tablebase_available: *has_tablebase,
+        depth: depth.min(i32::MAX as u32).min(MAX_DEPTH as u32),
+        book_available: has_book,
+        tablebase_available: has_tablebase,
     })
 }
 

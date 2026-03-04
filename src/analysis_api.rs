@@ -100,11 +100,28 @@ pub async fn analyze_game(
     let game_snapshot = if let Some(snap) = active_snapshot {
         Some(snap)
     } else if let Some(storage) = storage_clone {
-        // Disk IO + zstd decompression happens outside the mutex
-        storage
-            .load_archive(&game_id)
-            .ok()
-            .and_then(|archive| archive.replay(archive.move_count()).ok())
+        // Disk IO + zstd decompression happens outside the mutex.
+        // Distinguish between "game not found" (→ 404) and actual
+        // IO / decompression / deserialization errors (→ 500).
+        match storage.load_archive(&game_id) {
+            Ok(archive) => match archive.replay(archive.move_count()) {
+                Ok(game) => Some(game),
+                Err(e) => {
+                    return HttpResponse::InternalServerError().json(AnalysisErrorResponse {
+                        error: format!("Failed to replay archived game: {e}"),
+                    });
+                }
+            },
+            Err(e) => {
+                if storage.archive_file_size(&game_id).is_some() {
+                    // File exists but failed to load (corrupt / decompression error)
+                    return HttpResponse::InternalServerError().json(AnalysisErrorResponse {
+                        error: format!("Failed to load archived game: {e}"),
+                    });
+                }
+                None // Archive not found → fall through to 404 below
+            }
+        }
     } else {
         None
     };
