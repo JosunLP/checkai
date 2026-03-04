@@ -258,7 +258,7 @@ pub struct AnalysisJob {
     pub completed_at: Option<u64>,
 }
 
-/// Outcome of a [`AnalysisManager::delete_job`] call.
+/// Outcome of an [`AnalysisManager::delete_job`] call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeleteJobOutcome {
     /// The job was active (Queued/InProgress) and has been cancelled.
@@ -402,14 +402,17 @@ impl AnalysisManager {
         tokio::task::spawn_blocking(move || {
             let rt = tokio::runtime::Handle::current();
             rt.block_on(async {
-                // Update status to InProgress
+                // Update status to InProgress only if the job has not been
+                // cancelled before this task actually started running.
                 {
                     let mut jobs_lock = jobs.write().await;
                     if let Some(job) = jobs_lock.get_mut(&jid) {
-                        job.status = AnalysisStatus::InProgress {
-                            moves_analyzed: 0,
-                            total_moves: snapshot.move_history.len(),
-                        };
+                        if !cancel_token.load(Ordering::Relaxed) {
+                            job.status = AnalysisStatus::InProgress {
+                                moves_analyzed: 0,
+                                total_moves: snapshot.move_history.len(),
+                            };
+                        }
                     }
                 }
 
@@ -566,9 +569,14 @@ impl AnalysisManager {
     /// Cancels an in-progress / queued job or removes a finished job.
     ///
     /// For jobs that are still running (Queued / InProgress) this sets the
-    /// cancellation flag so the analysis loop stops at the next iteration
-    /// and marks the status as `Cancelled`.  Completed / Failed / Cancelled
-    /// jobs are removed from the store entirely.
+    /// cancellation flag so the analysis loop stops at the next iteration,
+    /// marks the status as `Cancelled`, and **keeps the job in the store**
+    /// (so callers can still retrieve the cancelled status).  A subsequent
+    /// call for the same job ID will then fall into the finished-job branch
+    /// and remove it entirely.
+    ///
+    /// Jobs that are already finished (Completed / Failed / Cancelled) are
+    /// removed from the store entirely.
     pub async fn delete_job(&self, job_id: &str) -> Option<DeleteJobOutcome> {
         let mut jobs = self.jobs.write().await;
         let Some(job) = jobs.get_mut(job_id) else {
@@ -948,5 +956,51 @@ mod tests {
         let config = AnalysisConfig::default();
         assert_eq!(config.min_depth, 30);
         assert_eq!(config.tt_size_mb, 64);
+    }
+
+    // Helper: create a manager with default config (no book / tablebase).
+    fn make_manager() -> AnalysisManager {
+        AnalysisManager::new(AnalysisConfig::default())
+    }
+
+    #[tokio::test]
+    async fn test_delete_job_not_found_returns_none() {
+        let mgr = make_manager();
+        assert_eq!(mgr.delete_job("nonexistent-job-id").await, None);
+    }
+
+    #[tokio::test]
+    async fn test_delete_queued_job_returns_cancelled() {
+        let mgr = make_manager();
+        let game = Game::new();
+        let job_id = mgr.analyze_game(&game, None).await;
+
+        // The job should be Queued or InProgress; delete it immediately.
+        let outcome = mgr.delete_job(&job_id).await;
+        assert_eq!(outcome, Some(DeleteJobOutcome::Cancelled));
+
+        // The job must still exist in the store with Cancelled status.
+        let jobs = mgr.list_jobs().await;
+        let job = jobs.iter().find(|j| j.id == job_id).expect("job must still be in store");
+        assert!(matches!(job.status, AnalysisStatus::Cancelled));
+    }
+
+    #[tokio::test]
+    async fn test_delete_cancelled_job_returns_deleted() {
+        let mgr = make_manager();
+        let game = Game::new();
+        let job_id = mgr.analyze_game(&game, None).await;
+
+        // First call: cancel an active job.
+        let first = mgr.delete_job(&job_id).await;
+        assert_eq!(first, Some(DeleteJobOutcome::Cancelled));
+
+        // Second call: the job is now Cancelled → should be removed entirely.
+        let second = mgr.delete_job(&job_id).await;
+        assert_eq!(second, Some(DeleteJobOutcome::Deleted));
+
+        // Job must be gone from the store.
+        let jobs = mgr.list_jobs().await;
+        assert!(jobs.iter().all(|j| j.id != job_id));
     }
 }
