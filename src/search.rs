@@ -304,7 +304,11 @@ impl SearchPosition {
         if mv.is_castling {
             let rank = mv.from.rank;
             let rook = Piece::new(PieceKind::Rook, self.turn);
-            let (rook_from, rook_to) = if mv.to.file == 6 { (7u8, 5u8) } else { (0u8, 3u8) };
+            let (rook_from, rook_to) = if mv.to.file == 6 {
+                (7u8, 5u8)
+            } else {
+                (0u8, 3u8)
+            };
             new_hash ^= zobrist::piece_square_key(&rook, Square::new(rook_from, rank));
             new_hash ^= zobrist::piece_square_key(&rook, Square::new(rook_to, rank));
         }
@@ -1146,12 +1150,8 @@ mod tests {
         let pos = starting_pos();
         for mv in pos.legal_moves() {
             let child = pos.make_move(&mv);
-            let expected = zobrist::hash_position(
-                &child.board,
-                child.turn,
-                &child.castling,
-                child.en_passant,
-            );
+            let expected =
+                zobrist::hash_position(&child.board, child.turn, &child.castling, child.en_passant);
             assert_eq!(
                 child.hash, expected,
                 "Incremental hash mismatch after move {:?}",
@@ -1193,12 +1193,8 @@ mod tests {
 
         for mv in pos.legal_moves() {
             let child = pos.make_move(&mv);
-            let expected = zobrist::hash_position(
-                &child.board,
-                child.turn,
-                &child.castling,
-                child.en_passant,
-            );
+            let expected =
+                zobrist::hash_position(&child.board, child.turn, &child.castling, child.en_passant);
             assert_eq!(
                 child.hash, expected,
                 "Incremental hash mismatch after move {:?}",
@@ -1248,12 +1244,8 @@ mod tests {
             .expect("en-passant capture must be legal in this position");
 
         let child = pos.make_move(&ep_move);
-        let expected = zobrist::hash_position(
-            &child.board,
-            child.turn,
-            &child.castling,
-            child.en_passant,
-        );
+        let expected =
+            zobrist::hash_position(&child.board, child.turn, &child.castling, child.en_passant);
         assert_eq!(
             child.hash, expected,
             "Incremental hash mismatch after en-passant capture {:?}",
@@ -1271,12 +1263,8 @@ mod tests {
     fn test_null_move_incremental_hash() {
         let pos = starting_pos();
         let null = pos.make_null_move();
-        let expected = zobrist::hash_position(
-            &null.board,
-            null.turn,
-            &null.castling,
-            null.en_passant,
-        );
+        let expected =
+            zobrist::hash_position(&null.board, null.turn, &null.castling, null.en_passant);
         assert_eq!(null.hash, expected, "Null move incremental hash mismatch");
     }
 }
