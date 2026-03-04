@@ -8,9 +8,7 @@ use actix_web::{HttpResponse, Responder, web};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::analysis::{
-    AnalysisJobSummary, AnalysisManager, AnalysisSubmitError, DeleteJobOutcome,
-};
+use crate::analysis::{AnalysisJobSummary, AnalysisManager, AnalysisSubmitError, DeleteJobOutcome};
 use crate::api::AppState;
 use crate::storage::ArchiveLoadError;
 

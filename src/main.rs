@@ -225,6 +225,20 @@ enum Commands {
     Version,
 }
 
+/// Runtime configuration for starting the HTTP/WebSocket server.
+struct ServeConfig {
+    host: String,
+    port: u16,
+    data_dir: String,
+    book_path: Option<String>,
+    tablebase_path: Option<String>,
+    analysis_depth: u32,
+    tt_size_mb: usize,
+    analysis_max_jobs: usize,
+    analysis_max_concurrent_jobs: usize,
+    analysis_completed_ttl_secs: u64,
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Initialize logger
@@ -257,10 +271,10 @@ async fn main() -> std::io::Result<()> {
         } => {
             // Check for updates in the background before starting the server
             update::check_for_updates().await;
-            run_server(
-                &host,
+            run_server(ServeConfig {
+                host,
                 port,
-                &data_dir,
+                data_dir,
                 book_path,
                 tablebase_path,
                 analysis_depth,
@@ -268,7 +282,7 @@ async fn main() -> std::io::Result<()> {
                 analysis_max_jobs,
                 analysis_max_concurrent_jobs,
                 analysis_completed_ttl_secs,
-            )
+            })
             .await
         }
         Commands::Play => {
@@ -311,22 +325,24 @@ async fn main() -> std::io::Result<()> {
 }
 
 /// Starts the HTTP + WebSocket server with all API routes and Swagger UI.
-async fn run_server(
-    host: &str,
-    port: u16,
-    data_dir: &str,
-    book_path: Option<String>,
-    tablebase_path: Option<String>,
-    analysis_depth: u32,
-    tt_size_mb: usize,
-    analysis_max_jobs: usize,
-    analysis_max_concurrent_jobs: usize,
-    analysis_completed_ttl_secs: u64,
-) -> std::io::Result<()> {
+async fn run_server(cfg: ServeConfig) -> std::io::Result<()> {
+    let ServeConfig {
+        host,
+        port,
+        data_dir,
+        book_path,
+        tablebase_path,
+        analysis_depth,
+        tt_size_mb,
+        analysis_max_jobs,
+        analysis_max_concurrent_jobs,
+        analysis_completed_ttl_secs,
+    } = cfg;
+
     let openapi = ApiDoc::openapi();
 
     let game_manager = web::Data::new(AppState {
-        game_manager: Mutex::new(GameManager::new(data_dir)),
+        game_manager: Mutex::new(GameManager::new(&data_dir)),
     });
 
     // Start the central WebSocket event broadcaster actor
@@ -409,7 +425,7 @@ async fn run_server(
                 }),
             )
     })
-    .bind((host, port))?
+    .bind((host.as_str(), port))?
     .run()
     .await
 }

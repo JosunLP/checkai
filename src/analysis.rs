@@ -536,7 +536,10 @@ impl AnalysisManager {
     }
 
     fn is_active_status(status: &AnalysisStatus) -> bool {
-        matches!(status, AnalysisStatus::Queued | AnalysisStatus::InProgress { .. })
+        matches!(
+            status,
+            AnalysisStatus::Queued | AnalysisStatus::InProgress { .. }
+        )
     }
 
     fn is_finished_status(status: &AnalysisStatus) -> bool {
@@ -585,10 +588,8 @@ impl AnalysisManager {
         if jobs.len() > target_len {
             let mut finished_candidates: Vec<(String, u64)> = jobs
                 .iter()
-                .filter_map(|(id, job)| {
-                    Self::is_finished_status(&job.status)
-                        .then(|| (id.clone(), job.completed_at.unwrap_or(job.created_at)))
-                })
+                .filter(|(_, job)| Self::is_finished_status(&job.status))
+                .map(|(id, job)| (id.clone(), job.completed_at.unwrap_or(job.created_at)))
                 .collect();
             finished_candidates.sort_by_key(|(_, ts)| *ts);
 
