@@ -174,6 +174,7 @@ ws.binary_not_supported: 'Binary messages are not supported. Please send JSON te
 analysis.job_submitted: 'Analysis job submitted for game %{id} (%{moves} moves)'
 analysis.job_not_found: 'Analysis job not found: %{id}'
 analysis.job_deleted: 'Analysis job %{id} deleted'
+analysis.job_cancelled: 'Analysis job %{id} cancelled'
 analysis.game_no_moves: 'Game has no moves to analyze'
 analysis.quality.best: 'Best'
 analysis.quality.excellent: 'Excellent'

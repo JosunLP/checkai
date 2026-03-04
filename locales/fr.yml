@@ -167,3 +167,4 @@ ws.missing_action_type: 'Champ manquant : action_type'
 ws.subscribed: 'Abonné à la partie %{id}'
 ws.unsubscribed: 'Désabonné de la partie %{id}'
 ws.binary_not_supported: 'Les messages binaires ne sont pas supportés. Veuillez envoyer du texte JSON.'
+analysis.job_cancelled: "Travail d'analyse %{id} annulé"
