@@ -95,6 +95,20 @@ pub struct PieceConfig {
 }
 
 impl PieceConfig {
+    fn normalize_pawn_case_for_side(pieces: &[char], pawn_char: char) -> Vec<char> {
+        pieces
+            .iter()
+            .map(|&c| if c == 'P' || c == 'p' { pawn_char } else { c })
+            .collect()
+    }
+
+    fn normalized_for_filename(&self) -> Self {
+        Self {
+            white: Self::normalize_pawn_case_for_side(&self.white, 'P'),
+            black: Self::normalize_pawn_case_for_side(&self.black, 'p'),
+        }
+    }
+
     /// Creates a piece configuration from a board position.
     pub fn from_board(board: &Board) -> Self {
         let mut white = Vec::new();
@@ -153,22 +167,19 @@ impl PieceConfig {
     /// Converts to the canonical (normalized) form where the side with
     /// more material comes first.
     pub fn canonical(&self) -> Self {
-        if self.white.len() < self.black.len()
-            || (self.white.len() == self.black.len()
-                && self.to_filename_base() > {
-                    let swapped = Self {
-                        white: self.black.clone(),
-                        black: self.white.clone(),
-                    };
-                    swapped.to_filename_base()
-                })
+        let current = self.normalized_for_filename();
+        let swapped = Self {
+            white: Self::normalize_pawn_case_for_side(&self.black, 'P'),
+            black: Self::normalize_pawn_case_for_side(&self.white, 'p'),
+        };
+
+        if current.white.len() < current.black.len()
+            || (current.white.len() == current.black.len()
+                && current.to_filename_base() > swapped.to_filename_base())
         {
-            Self {
-                white: self.black.clone(),
-                black: self.white.clone(),
-            }
+            swapped
         } else {
-            self.clone()
+            current
         }
     }
 }
@@ -539,6 +550,28 @@ mod tests {
         let config = PieceConfig::from_board(&board);
         assert_eq!(config.to_filename_base(), "KRvK");
         assert_eq!(config.total_pieces(), 3);
+    }
+
+    #[test]
+    fn test_piece_config_canonical_swapped_pawn_case_normalized() {
+        let config = PieceConfig {
+            white: vec!['K'],
+            black: vec!['K', 'p'],
+        };
+
+        let canonical = config.canonical();
+        assert_eq!(canonical.to_filename_base(), "KPvK");
+    }
+
+    #[test]
+    fn test_piece_config_canonical_normalizes_existing_side_case() {
+        let config = PieceConfig {
+            white: vec!['K', 'p'],
+            black: vec!['K'],
+        };
+
+        let canonical = config.canonical();
+        assert_eq!(canonical.to_filename_base(), "KPvK");
     }
 
     #[test]

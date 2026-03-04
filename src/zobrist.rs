@@ -201,14 +201,20 @@ pub fn piece_square_key(piece: &Piece, sq: Square) -> u64 {
 /// Returns the Zobrist key for a specific castling flag.
 ///
 /// Index: 0=WK, 1=WQ, 2=BK, 3=BQ
-pub fn castling_key(index: usize) -> u64 {
-    debug_assert!(index < 4);
+///
+/// # Panics
+/// Panics if `index >= 4`.
+pub(crate) fn castling_key(index: usize) -> u64 {
+    assert!(index < 4, "castling key index out of range: {index}");
     ZOBRIST_KEYS[768 + index]
 }
 
 /// Returns the Zobrist key for an en passant file (0=a, 7=h).
-pub fn en_passant_key(file: u8) -> u64 {
-    debug_assert!(file < 8);
+///
+/// # Panics
+/// Panics if `file >= 8`.
+pub(crate) fn en_passant_key(file: u8) -> u64 {
+    assert!(file < 8, "en passant file out of range: {file}");
     ZOBRIST_KEYS[772 + file as usize]
 }
 
@@ -294,5 +300,17 @@ mod tests {
             h_no_ep, h_ep,
             "EP key should not be included when no pawn can capture"
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "castling key index out of range")]
+    fn test_castling_key_panics_on_invalid_index() {
+        let _ = castling_key(4);
+    }
+
+    #[test]
+    #[should_panic(expected = "en passant file out of range")]
+    fn test_en_passant_key_panics_on_invalid_file() {
+        let _ = en_passant_key(8);
     }
 }
