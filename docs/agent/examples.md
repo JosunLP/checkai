@@ -109,11 +109,25 @@ White pawn on `e7`, White to move, square `e8` is free.
 
 ---
 
-## Example 5: Draw Claim
+## Example 5: Threefold Repetition Draw Claim
 
 ### Situation
 
-The `halfmove_clock` is 100 (50 moves without a pawn move or capture).
+The `position_history` array contains three occurrences of the current position hash. Both sides have been shuffling pieces back and forth.
+
+### Output
+
+```json
+{ "action": "claim_draw", "reason": "threefold_repetition" }
+```
+
+---
+
+## Example 6: Fifty-Move Rule Draw Claim
+
+### Situation
+
+The `halfmove_clock` is 100 (50 full moves without a pawn move or capture).
 
 ### Output
 
@@ -123,7 +137,7 @@ The `halfmove_clock` is 100 (50 moves without a pawn move or capture).
 
 ---
 
-## Example 6: Resignation
+## Example 7: Resignation
 
 ### Output
 

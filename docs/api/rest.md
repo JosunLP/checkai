@@ -223,6 +223,81 @@ Returns a text representation of the current board.
   a b c d e f g h
 ```
 
+---
+
+## FEN & PGN Endpoints
+
+### Export FEN
+
+```http
+GET /api/games/{id}/fen
+```
+
+Returns the current position in full FEN notation (6 fields: piece placement, turn, castling, en passant, halfmove clock, fullmove number).
+
+**Response** `200 OK`:
+
+```json
+{
+  "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+}
+```
+
+---
+
+### Import FEN
+
+```http
+POST /api/games/fen
+```
+
+Creates a new game from a FEN string. The FEN must contain all 6 fields.
+
+**Request Body**:
+
+```json
+{
+  "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+}
+```
+
+**Response** `200 OK`:
+
+```json
+{
+  "game_id": "550e8400-e29b-41d4-a716-446655440000",
+  "message": "Game created from FEN."
+}
+```
+
+**Response** `400 Bad Request`:
+
+```json
+{
+  "error": "Invalid FEN: expected 6 space-separated fields"
+}
+```
+
+---
+
+### Export PGN
+
+```http
+GET /api/games/{id}/pgn
+```
+
+Returns the game in PGN (Portable Game Notation) format with standard Seven Tag Roster headers.
+
+**Response** `200 OK`:
+
+```json
+{
+  "pgn": "[Event \"CheckAI Game\"]\n[Site \"CheckAI\"]\n[Date \"2025.03.05\"]\n[Round \"?\"]\n[White \"Player\"]\n[Black \"Player\"]\n[Result \"*\"]\n\n1. e2e4 e7e5 2. g1f3 *"
+}
+```
+
+---
+
 ## Localization
 
 All API responses respect the requested locale:
@@ -242,3 +317,19 @@ Interactive API documentation is available at:
 ```bash
 http://localhost:8080/swagger-ui/
 ```
+
+## Error Responses
+
+All error responses return a JSON object with an `error` field:
+
+```json
+{
+  "error": "Description of what went wrong"
+}
+```
+
+| Status Code                 | Meaning                                               | Example                           |
+| --------------------------- | ----------------------------------------------------- | --------------------------------- |
+| `400 Bad Request`           | Invalid input (bad FEN, illegal move, missing fields) | `{"error": "Illegal move: e2e5"}` |
+| `404 Not Found`             | Game or resource does not exist                       | `{"error": "Game not found"}`     |
+| `500 Internal Server Error` | Unexpected server error                               | `{"error": "Internal error"}`     |

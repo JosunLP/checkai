@@ -25,17 +25,17 @@ features:
     details: Full FIDE 2023 move generation with castling, en passant, promotion, check/checkmate/stalemate, and all draw conditions.
   - icon: 🔌
     title: REST & WebSocket API
-    details: JSON-based API for AI agents to create games, submit moves, and receive real-time events via WebSocket subscriptions.
+    details: JSON-based API for AI agents and the web UI. FEN/PGN import/export, real-time WebSocket events, and interactive Swagger docs.
   - icon: 🔬
     title: Deep Analysis Engine
-    details: Async analysis with 30+ ply depth, PVS search, transposition tables, null-move pruning, LMR, and PeSTO evaluation.
+    details: Async analysis with 30+ ply depth, PVS, SEE, futility pruning, king safety, mobility scoring, and PeSTO evaluation.
+  - icon: 🖥️
+    title: Modern Web UI
+    details: TypeScript web app with bQuery signals, Tailwind CSS v4, analysis panel, FEN/PGN tools, board flip, and promotion dialog.
   - icon: 📖
     title: Opening Book & Tablebases
-    details: Polyglot .bin opening book support plus Syzygy file detection and analytical evaluation for select endgames; full binary Syzygy probing is planned future work.
-  - icon: 🐳
-    title: Docker Ready
-    details: Multi-stage Dockerfile and docker-compose.yml for containerized deployment with volume mounts for data and books.
+    details: Polyglot .bin opening book support plus Syzygy file detection and analytical evaluation for select endgames.
   - icon: 🌐
-    title: Internationalization
-    details: 8 languages supported out of the box with automatic locale detection and per-request language selection.
+    title: 8 Languages
+    details: English, German, French, Spanish, Chinese, Japanese, Portuguese, Russian — auto-detected from the browser with per-request API selection.
 ---

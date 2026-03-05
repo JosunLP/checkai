@@ -60,6 +60,9 @@ pub struct AppState {
         get_archived_game,
         replay_archived_game,
         get_storage_stats,
+        export_fen,
+        import_fen,
+        export_pgn,
         crate::analysis_api::analyze_game,
         crate::analysis_api::list_analysis_jobs,
         crate::analysis_api::get_analysis_job,
@@ -672,7 +675,10 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .route(
                 "/archive/{game_id}/replay",
                 web::get().to(replay_archived_game),
-            ),
+            )
+            .route("/games/{game_id}/fen", web::get().to(export_fen))
+            .route("/games/fen", web::post().to(import_fen))
+            .route("/games/{game_id}/pgn", web::get().to(export_pgn)),
     );
 }
 
@@ -886,4 +892,290 @@ pub async fn get_storage_stats(data: web::Data<AppState>) -> impl Responder {
             error: t!("api.failed_stats", error = &e).to_string(),
         }),
     }
+}
+
+// ---------------------------------------------------------------------------
+// FEN / PGN endpoints
+// ---------------------------------------------------------------------------
+
+/// Export the current position of a game as FEN.
+///
+/// Returns a full 6-field FEN string for the current position.
+#[utoipa::path(
+    get,
+    path = "/api/games/{game_id}/fen",
+    tag = "games",
+    params(
+        ("game_id" = String, Path, description = "Unique game identifier (UUID)")
+    ),
+    responses(
+        (status = 200, description = "FEN string"),
+        (status = 404, description = "Game not found", body = ErrorResponse),
+    )
+)]
+pub async fn export_fen(path: web::Path<String>, data: web::Data<AppState>) -> impl Responder {
+    let game_id_str = path.into_inner();
+    let game_id = match uuid::Uuid::parse_str(&game_id_str) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "Invalid game ID format".to_string(),
+            });
+        }
+    };
+
+    let manager = data.game_manager.lock().unwrap();
+    match manager.games.get(&game_id) {
+        Some(game) => {
+            let position_fen =
+                game.board
+                    .to_position_fen(game.turn, &game.castling, game.en_passant);
+            let fen = format!(
+                "{} {} {}",
+                position_fen, game.halfmove_clock, game.fullmove_number
+            );
+            HttpResponse::Ok().json(serde_json::json!({ "fen": fen }))
+        }
+        None => HttpResponse::NotFound().json(ErrorResponse {
+            error: "Game not found".to_string(),
+        }),
+    }
+}
+
+/// Import a game from a FEN string.
+///
+/// Creates a new game initialized to the position described by the FEN.
+/// Only standard 6-field FEN strings are accepted.
+#[utoipa::path(
+    post,
+    path = "/api/games/fen",
+    tag = "games",
+    request_body(content = serde_json::Value, description = "JSON body with a `fen` field"),
+    responses(
+        (status = 201, description = "Game created from FEN"),
+        (status = 400, description = "Invalid FEN", body = ErrorResponse),
+    )
+)]
+pub async fn import_fen(
+    data: web::Data<AppState>,
+    body: web::Json<serde_json::Value>,
+) -> impl Responder {
+    let fen_str = match body.get("fen").and_then(|v| v.as_str()) {
+        Some(s) => s.to_string(),
+        None => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "Missing 'fen' field".to_string(),
+            });
+        }
+    };
+
+    match parse_fen(&fen_str) {
+        Ok(game) => {
+            let game_id = game.id.to_string();
+            let mut manager = data.game_manager.lock().unwrap();
+            if let Err(e) = manager.storage.save_active(&game) {
+                log::error!("Failed to persist FEN game {}: {}", game_id, e);
+            }
+            manager.games.insert(game.id, game);
+            HttpResponse::Created()
+                .json(serde_json::json!({ "game_id": game_id, "message": "Game created from FEN" }))
+        }
+        Err(e) => HttpResponse::BadRequest().json(ErrorResponse {
+            error: format!("Invalid FEN: {}", e),
+        }),
+    }
+}
+
+/// Export a game as PGN.
+///
+/// Returns the game in Portable Game Notation (PGN) format.
+#[utoipa::path(
+    get,
+    path = "/api/games/{game_id}/pgn",
+    tag = "games",
+    params(
+        ("game_id" = String, Path, description = "Unique game identifier (UUID)")
+    ),
+    responses(
+        (status = 200, description = "PGN string"),
+        (status = 404, description = "Game not found", body = ErrorResponse),
+    )
+)]
+pub async fn export_pgn(path: web::Path<String>, data: web::Data<AppState>) -> impl Responder {
+    let game_id_str = path.into_inner();
+    let game_id = match uuid::Uuid::parse_str(&game_id_str) {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: "Invalid game ID format".to_string(),
+            });
+        }
+    };
+
+    let manager = data.game_manager.lock().unwrap();
+    match manager.games.get(&game_id) {
+        Some(game) => {
+            let pgn = game_to_pgn(game);
+            HttpResponse::Ok().json(serde_json::json!({ "pgn": pgn }))
+        }
+        None => HttpResponse::NotFound().json(ErrorResponse {
+            error: "Game not found".to_string(),
+        }),
+    }
+}
+
+/// Parses a standard 6-field FEN string into a new Game.
+fn parse_fen(fen: &str) -> Result<Game, String> {
+    let parts: Vec<&str> = fen.split_whitespace().collect();
+    if parts.len() < 4 {
+        return Err("FEN must have at least 4 fields".to_string());
+    }
+
+    // Parse piece placement
+    let mut board = Board::default();
+    let rows: Vec<&str> = parts[0].split('/').collect();
+    if rows.len() != 8 {
+        return Err("FEN piece placement must have exactly 8 ranks".to_string());
+    }
+
+    for (row_idx, row) in rows.iter().enumerate() {
+        let rank = 7 - row_idx as u8;
+        let mut file: u8 = 0;
+        for ch in row.chars() {
+            if ch.is_ascii_digit() {
+                let skip = ch.to_digit(10).unwrap() as u8;
+                file += skip;
+            } else {
+                if file >= 8 {
+                    return Err(format!("Too many pieces on rank {}", rank + 1));
+                }
+                let piece =
+                    Piece::from_fen_char(ch).ok_or_else(|| format!("Invalid piece '{}'", ch))?;
+                board.set(Square::new(file, rank), Some(piece));
+                file += 1;
+            }
+        }
+        if file != 8 {
+            return Err(format!("Rank {} has {} files, expected 8", rank + 1, file));
+        }
+    }
+
+    // Parse turn
+    let turn = match parts[1] {
+        "w" => Color::White,
+        "b" => Color::Black,
+        _ => return Err(format!("Invalid turn field: '{}'", parts[1])),
+    };
+
+    // Parse castling
+    let mut castling = CastlingRights {
+        white: SideCastlingRights {
+            kingside: false,
+            queenside: false,
+        },
+        black: SideCastlingRights {
+            kingside: false,
+            queenside: false,
+        },
+    };
+    if parts[2] != "-" {
+        for ch in parts[2].chars() {
+            match ch {
+                'K' => castling.white.kingside = true,
+                'Q' => castling.white.queenside = true,
+                'k' => castling.black.kingside = true,
+                'q' => castling.black.queenside = true,
+                _ => return Err(format!("Invalid castling character: '{}'", ch)),
+            }
+        }
+    }
+
+    // Parse en passant
+    let en_passant = if parts[3] == "-" {
+        None
+    } else {
+        Square::from_algebraic(parts[3])
+            .ok_or_else(|| format!("Invalid en passant square: '{}'", parts[3]))?
+            .into()
+    };
+
+    // Parse halfmove clock (optional, default 0)
+    let halfmove_clock = if parts.len() > 4 {
+        parts[4]
+            .parse::<u32>()
+            .map_err(|_| format!("Invalid halfmove clock: '{}'", parts[4]))?
+    } else {
+        0
+    };
+
+    // Parse fullmove number (optional, default 1)
+    let fullmove_number = if parts.len() > 5 {
+        parts[5]
+            .parse::<u32>()
+            .map_err(|_| format!("Invalid fullmove number: '{}'", parts[5]))?
+    } else {
+        1
+    };
+
+    let initial_fen_str = board.to_position_fen(turn, &castling, en_passant);
+
+    Ok(Game {
+        id: uuid::Uuid::new_v4(),
+        board,
+        turn,
+        castling,
+        en_passant,
+        halfmove_clock,
+        fullmove_number,
+        position_history: vec![initial_fen_str],
+        move_history: Vec::new(),
+        result: None,
+        end_reason: None,
+        draw_offered_by: None,
+        start_timestamp: crate::storage::unix_timestamp(),
+        end_timestamp: 0,
+    })
+}
+
+/// Converts an active Game to PGN notation.
+fn game_to_pgn(game: &Game) -> String {
+    let mut pgn = String::new();
+
+    pgn.push_str("[Event \"CheckAI Game\"]\n");
+    pgn.push_str("[Site \"CheckAI Server\"]\n");
+    pgn.push_str("[Date \"????.??.??\"]\n");
+    pgn.push_str("[Round \"-\"]\n");
+    pgn.push_str("[White \"AI Agent\"]\n");
+    pgn.push_str("[Black \"AI Agent\"]\n");
+
+    let result_str = match &game.result {
+        Some(GameResult::WhiteWins) => "1-0",
+        Some(GameResult::BlackWins) => "0-1",
+        Some(GameResult::Draw) => "1/2-1/2",
+        None => "*",
+    };
+    pgn.push_str(&format!("[Result \"{}\"]\n\n", result_str));
+
+    // Move text (coordinate notation)
+    let mut move_num = 1;
+    for (i, record) in game.move_history.iter().enumerate() {
+        if i % 2 == 0 {
+            pgn.push_str(&format!("{}. ", move_num));
+        }
+        // Use coordinate notation (from+to, e.g. "e2e4")
+        let move_text = format!("{}{}", record.move_json.from, record.move_json.to);
+        pgn.push_str(&move_text);
+        if let Some(promo) = &record.move_json.promotion {
+            pgn.push('=');
+            pgn.push_str(promo);
+        }
+        pgn.push(' ');
+        if i % 2 == 1 {
+            move_num += 1;
+        }
+    }
+
+    pgn.push_str(result_str);
+    pgn.push('\n');
+    pgn
 }

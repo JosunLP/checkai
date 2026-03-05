@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-05
+
+### Added
+
+- **Modern TypeScript Web UI** — Complete modular rewrite of the browser frontend
+  - Built with [@bquery/bquery](https://www.npmjs.com/package/@bquery/bquery) v1.4 (TypeScript-first DOM library with signals)
+  - Tailwind CSS v4 with custom `@theme` tokens for consistent design
+  - Vite v7 build system with HMR, path aliases, and production bundling
+  - 12 modular TypeScript source files: `types`, `store`, `api`, `ws`, `i18n`, `ui`, `board`, `game`, `archive`, `analysis`, `main`, `styles`
+  - Reactive signal-driven architecture with unidirectional data flow
+  - SVG chess board with click selection, legal move indicators, check highlight, and board flip
+  - Analysis panel with start/stop, real-time polling, score formatting (including mate detection)
+  - Promotion dialog with piece picker
+  - FEN copy, PGN copy, and FEN import directly from the toolbar
+  - WebSocket connection indicator with auto-reconnect
+  - Vite-built SPA embedded into the Rust binary via `rust-embed` (dual `DistAssets` + `WebAssets` with priority fallback)
+- **FEN/PGN API endpoints** — Three new REST endpoints for position interchange
+  - `GET /api/games/{id}/fen` — Export full 6-field FEN notation
+  - `POST /api/games/fen` — Create a new game from a FEN string with full validation
+  - `GET /api/games/{id}/pgn` — Export PGN with Seven Tag Roster headers
+  - Complete `parse_fen()` parser and `game_to_pgn()` generator
+  - OpenAPI/Swagger annotations for all new endpoints
+- **King safety evaluation** — Pawn shield analysis, open file penalties near the king, enemy piece tropism within Chebyshev distance 2
+- **Piece mobility evaluation** — Pseudo-legal square counts for knights, bishops, rooks, and queens with separate midgame/endgame scoring
+- **Static Exchange Evaluation (SEE)** — Filters bad captures at low depth (≤ 3) to reduce search explosion
+- **Futility pruning** — Skips quiet moves when static evaluation plus margin is far below alpha at depth ≤ 3
+- **Bun** as the frontend package manager and script runner (replaces Node.js/npm)
+- **Build script** (`build.rs`) — Ensures `web/dist/` exists at compile time so `rust-embed` compiles without a prior web build (fixes CI for clippy/test jobs)
+
+### Changed
+
+- `rust-embed` now uses `include-exclude` feature to exclude TypeScript source, `node_modules`, and build config from the legacy `WebAssets` embed
+- Evaluation module description updated from "PeSTO position evaluation" to "PeSTO evaluation + king safety + mobility"
+- Search module description updated to include SEE and futility pruning
+- VitePress documentation updated for all new features: architecture, analysis engine, web UI, REST API, landing page
+
+### Fixed
+
+- Promotion dialog: piece symbols were not displayed because `dataset.piece` was read instead of `dataset.promote` — now correctly reads the `data-promote` attribute from the HTML buttons
+- CI build: `#[derive(RustEmbed)]` failed when `web/dist/` did not exist; added `build.rs` to auto-create the directory so `cargo clippy` and `cargo test` work without a prior web build
+- Collapsed nested `if` statements in king tropism evaluation (clippy `collapsible_if`)
+- Replaced manual range check with `RangeInclusive::contains` in futility pruning (clippy `manual_range_contains`)
+
 ## [0.3.1] - 2026-03-02
 
 ### Added
@@ -133,7 +176,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Game archiving with zstd compression
 - Web UI for browser-based game viewing
 
-[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/JosunLP/checkai/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/JosunLP/checkai/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/JosunLP/checkai/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/JosunLP/checkai/compare/v0.2.1...v0.2.2

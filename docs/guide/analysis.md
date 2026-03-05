@@ -16,25 +16,57 @@ The analysis engine runs asynchronously and provides:
 
 The engine uses a sophisticated search stack:
 
-| Technique                  | Description                                                       |
-| -------------------------- | ----------------------------------------------------------------- |
-| Alpha-Beta with PVS        | Principal Variation Search (Negascout) for efficient tree pruning |
-| Transposition Table        | Configurable (default 64 MB) Zobrist-hashed position cache        |
-| Null-Move Pruning (NMP)    | Skip a turn to quickly detect strong positions                    |
-| Late Move Reductions (LMR) | Reduce depth for unlikely moves                                   |
-| Killer Heuristic           | Prioritize moves that caused cutoffs at the same depth            |
-| History Heuristic          | Score moves by how often they caused cutoffs globally             |
-| Quiescence Search          | Extend search through capture sequences to avoid horizon effects  |
+| Technique                          | Description                                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------- |
+| Alpha-Beta with PVS                | Principal Variation Search (Negascout) for efficient tree pruning                           |
+| Iterative Deepening                | Progressive deepening with aspiration windows (initial delta ±25 cp)                        |
+| Transposition Table                | Configurable (default 64 MB) Zobrist-hashed position cache with depth-preferred replacement |
+| Null-Move Pruning (NMP)            | Skip a turn to quickly detect strong positions (R = 3)                                      |
+| Late Move Reductions (LMR)         | Reduce depth for unlikely moves beyond the first 4 in the move list                         |
+| Static Exchange Evaluation (SEE)   | Filter bad captures at low depth to avoid search explosion                                  |
+| Futility Pruning                   | Skip quiet moves when static eval is far below alpha (depth ≤ 3)                            |
+| Razoring                           | Drop into quiescence search when eval + 300 cp ≤ alpha at depth ≤ 2                         |
+| Internal Iterative Deepening (IID) | Shallow search (depth − 2) at PV nodes without a TT move when depth ≥ 4                     |
+| Late Move Pruning (LMP)            | Skip late quiet moves at depths 1–4 once a threshold is exceeded (5/8/13/20)                |
+| Killer Heuristic                   | Prioritize moves that caused cutoffs at the same depth (2 slots per ply)                    |
+| History Heuristic                  | Score quiet moves by how often they caused cutoffs, aged between iterations                 |
+| Counter-Move Heuristic             | Prioritize the move that refuted the opponent's previous move                               |
+| Quiescence Search                  | Extend search through capture sequences to avoid horizon effects                            |
 
 ## Evaluation
 
-The position evaluation is based on **PeSTO** (Piece-Square Tables Only):
+The position evaluation combines multiple scoring components with separate midgame (MG) and endgame (EG) scores, interpolated by game phase:
+
+### PeSTO Tables
 
 - **Midgame tables** — Piece-specific positional values for the opening/middlegame
 - **Endgame tables** — Adjusted values for the endgame phase
-- **Phase interpolation** — Smooth transition between midgame and endgame evaluation
-- **Pawn structure** — Bonus/penalty for doubled, isolated, and passed pawns
+- **Phase interpolation** — Smooth transition based on remaining material
+
+### King Safety
+
+- **Pawn shield** — Penalty when pawns in front of the king are missing or advanced
+- **Open file penalty** — Extra penalty when files near the king have no friendly pawns
+- **Enemy piece tropism** — Penalty scaled by number of enemy pieces within Chebyshev distance 2 of the king
+
+### Piece Mobility
+
+Pseudo-legal square counts with per-phase bonuses:
+
+| Piece  | MG per square | EG per square |
+| ------ | ------------- | ------------- |
+| Knight | +4 cp         | +3 cp         |
+| Bishop | +5 cp         | +4 cp         |
+| Rook   | +2 cp         | +3 cp         |
+| Queen  | +1 cp         | +2 cp         |
+
+### Positional Evaluation
+
+- **Pawn structure** — Bonus/penalty for doubled, isolated, passed, backward, and connected pawns
 - **Bishop pair** — Bonus for retaining both bishops
+- **Rook on open/semi-open files** — Bonus for rooks on files with no pawns or only enemy pawns
+- **Tempo bonus** — Small bonus (+10 cp) for the side to move
+- **Space advantage** — Bonus for pawns advanced into the opponent's half of the board (ranks 5–7 for White, 2–4 for Black)
 
 ## Move Classification
 

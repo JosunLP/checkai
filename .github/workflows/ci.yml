@@ -14,6 +14,7 @@ env:
   RUSTFLAGS: -Dwarnings
 
 jobs:
+  # ── Rust ────────────────────────────────────────────────────────────────
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
@@ -59,4 +60,41 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install web dependencies
+        working-directory: web
+        run: bun install --frozen-lockfile
+
+      - name: Build web UI
+        working-directory: web
+        run: bun run build
+
+      - name: Build Rust binary
+        run: cargo build --release
+
+  # ── Frontend ────────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend (lint · format · typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        working-directory: web
+        run: bun install --frozen-lockfile
+
+      - name: TypeScript type-check
+        working-directory: web
+        run: bun run tsc --noEmit
+
+      - name: ESLint
+        working-directory: web
+        run: bun run eslint src/
+
+      - name: Prettier
+        working-directory: web
+        run: bun run prettier --check "src/**/*.{ts,css}"
