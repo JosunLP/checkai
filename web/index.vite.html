@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CheckAI — Chess for AI Agents</title>
-    <link rel="stylesheet" href="/web/css/styles.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -21,15 +20,15 @@
           <span class="logo-text">CheckAI</span>
         </div>
         <nav id="main-nav">
-          <button class="nav-btn active" data-view="dashboard">
+          <button class="nav-btn active" data-nav="dashboard">
             <span class="nav-icon">⊞</span>
             <span data-i18n="nav.dashboard">Dashboard</span>
           </button>
-          <button class="nav-btn" data-view="game">
+          <button class="nav-btn" data-nav="game">
             <span class="nav-icon">♟</span>
             <span data-i18n="nav.game">Game</span>
           </button>
-          <button class="nav-btn" data-view="archive">
+          <button class="nav-btn" data-nav="archive">
             <span class="nav-icon">📦</span>
             <span data-i18n="nav.archive">Archive</span>
           </button>
@@ -41,12 +40,10 @@
             title="Language"
           ></select>
           <span
-            id="ws-status"
-            class="ws-indicator disconnected"
-            title="WebSocket Status"
-            >⬤</span
-          >
-          <span id="ws-label">Disconnected</span>
+            id="ws-indicator"
+            class="disconnected"
+            title="Disconnected"
+          ></span>
         </div>
       </div>
     </header>
@@ -54,15 +51,22 @@
     <!-- Main Content -->
     <main id="app">
       <!-- ========== DASHBOARD VIEW ========== -->
-      <section id="view-dashboard" class="view active">
+      <section id="view-dashboard" class="view">
         <div class="section-header">
           <h1 data-i18n="dashboard.active_games">Active Games</h1>
-          <button id="btn-new-game" class="btn btn-primary">
-            <span>＋</span> <span data-i18n="dashboard.new_game">New Game</span>
-          </button>
+          <div style="display: flex; gap: 0.5rem; align-items: center">
+            <select id="select-color" class="lang-select" title="Play as">
+              <option value="white">White</option>
+              <option value="black">Black</option>
+            </select>
+            <button id="btn-new-game" class="btn btn-primary">
+              <span>＋</span>
+              <span data-i18n="dashboard.new_game">New Game</span>
+            </button>
+          </div>
         </div>
 
-        <div id="games-list" class="games-grid">
+        <div id="game-list" class="games-grid">
           <div class="empty-state" id="no-games">
             <span class="empty-icon">♔</span>
             <p data-i18n="dashboard.no_games">No games yet.</p>
@@ -75,12 +79,7 @@
         <!-- Storage Stats -->
         <div class="section-header" style="margin-top: 2rem">
           <h2 data-i18n="dashboard.storage_stats">Storage Statistics</h2>
-          <button
-            id="btn-refresh-stats"
-            class="btn btn-ghost"
-            data-i18n-title="dashboard.refresh"
-            title="Refresh"
-          >
+          <button id="btn-refresh-stats" class="btn btn-ghost" title="Refresh">
             ↻
           </button>
         </div>
@@ -113,7 +112,7 @@
       </section>
 
       <!-- ========== GAME VIEW ========== -->
-      <section id="view-game" class="view">
+      <section id="view-game" class="view hidden">
         <div id="game-placeholder" class="empty-state">
           <span class="empty-icon">♟</span>
           <p data-i18n="game.no_game_selected">No game selected.</p>
@@ -143,27 +142,55 @@
               </div>
             </div>
 
+            <!-- Toolbar -->
+            <div class="toolbar" style="margin-top: 0.75rem">
+              <button
+                id="btn-flip-board"
+                class="btn btn-ghost btn-sm"
+                data-i18n="game.flip_board"
+              >
+                Flip Board
+              </button>
+              <button
+                id="btn-copy-fen"
+                class="btn btn-ghost btn-sm"
+                data-i18n="game.fen_export"
+              >
+                Copy FEN
+              </button>
+              <button
+                id="btn-copy-pgn"
+                class="btn btn-ghost btn-sm"
+                data-i18n="game.pgn_export"
+              >
+                Copy PGN
+              </button>
+              <button
+                id="btn-import-fen"
+                class="btn btn-ghost btn-sm"
+                data-i18n="game.fen_import"
+              >
+                Import FEN
+              </button>
+            </div>
+
             <!-- Promotion Dialog -->
-            <div
-              id="promotion-dialog"
-              class="promotion-dialog"
-              style="display: none"
-            >
+            <div id="promotion-dialog" class="promotion-dialog hidden">
               <div class="promotion-overlay"></div>
               <div class="promotion-content">
                 <h3 data-i18n="game.promotion_title">Pawn Promotion</h3>
                 <div class="promotion-pieces">
-                  <button class="promotion-btn" data-piece="Q">
-                    <span class="promo-piece"></span>
+                  <button class="promotion-btn" data-promote="Q">
+                    <span class="promo-piece">♛</span>
                   </button>
-                  <button class="promotion-btn" data-piece="R">
-                    <span class="promo-piece"></span>
+                  <button class="promotion-btn" data-promote="R">
+                    <span class="promo-piece">♜</span>
                   </button>
-                  <button class="promotion-btn" data-piece="B">
-                    <span class="promo-piece"></span>
+                  <button class="promotion-btn" data-promote="B">
+                    <span class="promo-piece">♝</span>
                   </button>
-                  <button class="promotion-btn" data-piece="N">
-                    <span class="promo-piece"></span>
+                  <button class="promotion-btn" data-promote="N">
+                    <span class="promo-piece">♞</span>
                   </button>
                 </div>
               </div>
@@ -209,11 +236,7 @@
             </div>
 
             <!-- Game Message -->
-            <div
-              id="game-message"
-              class="game-message"
-              style="display: none"
-            ></div>
+            <div id="game-message" class="game-message hidden"></div>
 
             <!-- Actions -->
             <div class="panel-section" id="game-actions">
@@ -227,7 +250,7 @@
                   Resign
                 </button>
                 <button
-                  id="btn-offer-draw"
+                  id="btn-draw"
                   class="btn btn-warning btn-sm"
                   data-i18n="game.offer_draw"
                 >
@@ -250,16 +273,42 @@
               </div>
             </div>
 
+            <!-- Analysis Panel -->
+            <div class="panel-section">
+              <h3 data-i18n="analysis.title">Engine Analysis</h3>
+              <div class="analysis-buttons">
+                <button
+                  id="btn-analysis-start"
+                  class="btn btn-primary btn-sm"
+                  data-i18n="analysis.start"
+                >
+                  Start Analysis
+                </button>
+                <button
+                  id="btn-analysis-stop"
+                  class="btn btn-danger btn-sm"
+                  disabled
+                  data-i18n="analysis.stop"
+                >
+                  Stop
+                </button>
+              </div>
+              <div id="analysis-content">
+                <p class="analysis-idle" data-i18n="analysis.idle">
+                  Click "Start" to analyze the current position.
+                </p>
+              </div>
+            </div>
+
             <!-- Manual Move Input -->
             <div class="panel-section">
               <h3 data-i18n="game.move_input">Enter Move</h3>
-              <div class="move-input-row">
+              <form id="move-form" class="move-input-row">
                 <input
                   type="text"
                   id="input-from"
                   class="move-input"
-                  data-i18n-placeholder="game.from_placeholder"
-                  placeholder="from (e.g. e2)"
+                  placeholder="e2"
                   maxlength="2"
                 />
                 <span class="move-arrow">→</span>
@@ -267,18 +316,17 @@
                   type="text"
                   id="input-to"
                   class="move-input"
-                  data-i18n-placeholder="game.to_placeholder"
-                  placeholder="to (e.g. e4)"
+                  placeholder="e4"
                   maxlength="2"
                 />
                 <button
-                  id="btn-submit-move"
+                  type="submit"
                   class="btn btn-primary btn-sm"
                   data-i18n="game.submit_move"
                 >
                   Move
                 </button>
-              </div>
+              </form>
             </div>
 
             <!-- Move History -->
@@ -296,23 +344,19 @@
               <h3 data-i18n="game.castling_rights">Castling Rights</h3>
               <div id="castling-info" class="castling-grid">
                 <div class="castling-item">
-                  <span>♔</span>
-                  <span data-i18n="game.kingside">Kingside</span>:
+                  <span>♔</span> <span data-i18n="game.kingside">K</span>:
                   <span id="castle-wk">✓</span>
                 </div>
                 <div class="castling-item">
-                  <span>♔</span>
-                  <span data-i18n="game.queenside">Queenside</span>:
+                  <span>♔</span> <span data-i18n="game.queenside">Q</span>:
                   <span id="castle-wq">✓</span>
                 </div>
                 <div class="castling-item">
-                  <span>♚</span>
-                  <span data-i18n="game.kingside">Kingside</span>:
+                  <span>♚</span> <span data-i18n="game.kingside">K</span>:
                   <span id="castle-bk">✓</span>
                 </div>
                 <div class="castling-item">
-                  <span>♚</span>
-                  <span data-i18n="game.queenside">Queenside</span>:
+                  <span>♚</span> <span data-i18n="game.queenside">Q</span>:
                   <span id="castle-bq">✓</span>
                 </div>
               </div>
@@ -322,14 +366,10 @@
       </section>
 
       <!-- ========== ARCHIVE VIEW ========== -->
-      <section id="view-archive" class="view">
+      <section id="view-archive" class="view hidden">
         <div class="section-header">
           <h1 data-i18n="archive.title">Game Archive</h1>
-          <button
-            id="btn-refresh-archive"
-            class="btn btn-ghost"
-            data-i18n="archive.refresh"
-          >
+          <button id="btn-refresh-archive" class="btn btn-ghost">
             ↻ Refresh
           </button>
         </div>
@@ -342,16 +382,10 @@
         </div>
 
         <!-- Archive Replay -->
-        <div id="archive-replay" style="display: none">
+        <div id="archive-replay" class="hidden">
           <div class="section-header">
             <h2 id="replay-title" data-i18n="archive.replay">Replay</h2>
-            <button
-              id="btn-close-replay"
-              class="btn btn-ghost"
-              data-i18n="archive.close"
-            >
-              ✕ Close
-            </button>
+            <button id="btn-close-replay" class="btn btn-ghost">✕ Close</button>
           </div>
           <div class="replay-layout">
             <div class="board-wrapper">
@@ -387,9 +421,7 @@
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/@bquery/bquery@1/dist/full.umd.min.js"></script>
-    <script src="/web/js/i18n.js"></script>
-    <script src="/web/js/app.js"></script>
+    <!-- Vite entry point -->
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

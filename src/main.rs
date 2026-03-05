@@ -97,15 +97,24 @@ use crate::api::{ApiDoc, AppState};
 use crate::game::GameManager;
 use crate::ws::GameBroadcaster;
 
-/// Embedded web UI assets (compiled into the binary).
+/// Embedded Vite-built UI assets (compiled into the binary).
+/// Built via `cd web && bun run build`.
 #[derive(RustEmbed)]
-#[folder = "web/"]
-struct WebAssets;
+#[folder = "web/dist/"]
+struct DistAssets;
 
-/// Serves embedded web UI files.
+/// Serves embedded web UI files from the Vite-built bundle.
 async fn serve_web_asset(path: web::Path<String>) -> HttpResponse {
     let file_path = path.into_inner();
-    match WebAssets::get(&file_path) {
+
+    // Map index.html → index.vite.html (Vite output filename)
+    let dist_path = if file_path == "index.html" {
+        "index.vite.html"
+    } else {
+        &file_path
+    };
+
+    match DistAssets::get(dist_path) {
         Some(content) => {
             let mime_type = match file_path.rsplit('.').next() {
                 Some("html") => "text/html; charset=utf-8",

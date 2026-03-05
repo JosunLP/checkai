@@ -183,3 +183,42 @@ ws = websocket.WebSocketApp(
 )
 ws.run_forever()
 ```
+
+## Reconnection Strategy
+
+The server does not send ping/pong heartbeats. Clients should implement their own reconnection logic:
+
+1. On unexpected close, wait before reconnecting using **exponential backoff** (start at 1 s, double on each failure, cap at 30 s).
+2. On successful reconnection, reset the delay to 1 s.
+3. Re-subscribe to any games the client was previously watching.
+
+The built-in Web UI implements this automatically. For custom clients, a simple pattern:
+
+```javascript
+let delay = 1000;
+const MAX_DELAY = 30000;
+
+function connect() {
+  const ws = new WebSocket("ws://localhost:8080/ws");
+  ws.onopen = () => { delay = 1000; /* resubscribe */ };
+  ws.onclose = () => {
+    setTimeout(connect, delay);
+    delay = Math.min(delay * 2, MAX_DELAY);
+  };
+}
+connect();
+```
+
+## Error Handling
+
+If a client sends an invalid action or references a non-existent game, the server responds with `"success": false`:
+
+```json
+{
+  "type": "response",
+  "action": "get_game",
+  "request_id": "5",
+  "success": false,
+  "error": "Game not found"
+}
+```

@@ -33,10 +33,20 @@ command:
 
 ## How It Works
 
-- On each analysis move, the engine first checks the opening book
-- If the position is found, the book move is used directly (no search needed)
-- Move selection respects the weights stored in the book
+- During game analysis, the engine probes the opening book for each position
+- If the position is found, all matching book moves and their weights are retrieved
+- The played move is compared to book moves — if it matches, it is classified as a "book move" and the analysis skips the search for that position
+- Each book move carries a **weight** (frequency or strength indicator); higher weights represent stronger or more popular continuations
+- **Move selection:** The book is used for classification during analysis, not for automatic play. Agents still choose their own moves.
 - Once the position leaves book theory, the full search engine takes over
+
+### Weight Interpretation
+
+Each position may have multiple book moves with different weights. The `BookMoveInfo` returned includes:
+
+- `weight` — the weight of the played move (0 if not a book move)
+- `total_weight` — sum of all book move weights for the position
+- `book_moves` — list of all book moves with individual weights and relative probabilities (`weight / total_weight`)
 
 ## Supported Format
 

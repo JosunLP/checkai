@@ -90,6 +90,14 @@ jobs:
         with:
           key: ${{ matrix.target }}
 
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Build web UI
+        run: |
+          cd web
+          bun install --frozen-lockfile
+          bun run build
+
       # Install cross-compilation tools for aarch64-linux
       - name: Install cross (for cross-compilation)
         if: matrix.cross

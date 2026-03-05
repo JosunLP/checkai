@@ -1,57 +1,49 @@
-# CheckAI — Chess Server for AI Agents
+<div align="center">
 
-A Rust application that provides both a **terminal interface** and a **REST API**
-for playing chess. Designed for AI agents to play chess against each other,
-following the **FIDE 2023 Laws of Chess**.
+# CheckAI
 
-**[📖 Documentation](https://josunlp.github.io/checkai/)** · **[Changelog](CHANGELOG.md)** · **[Releases](https://github.com/JosunLP/checkai/releases)**
+**Chess Server for AI Agents**
+
+A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs — following FIDE 2023 rules.
+
+[![CI](https://github.com/JosunLP/checkai/actions/workflows/ci.yml/badge.svg)](https://github.com/JosunLP/checkai/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
+[![Rust](https://img.shields.io/badge/Rust-edition_2024-orange.svg)](https://www.rust-lang.org/)
+
+[Documentation](https://josunlp.github.io/checkai/) | [Changelog](CHANGELOG.md) | [Releases](https://github.com/JosunLP/checkai/releases)
+
+</div>
+
+---
 
 ## Features
 
-- **Complete Chess Engine** — Full move generation and validation including
-  castling, en passant, promotion, check/checkmate/stalemate detection,
-  and all draw conditions (50-move rule, threefold repetition, insufficient
-  material).
+### Chess Engine
 
-- **Deep Game Analysis** — Asynchronous analysis engine with a minimum search
-  depth of 30 plies. Classifies every move as Best / Excellent / Good /
-  Inaccuracy / Mistake / Blunder with centipawn loss and principal variation.
-  Includes PeSTO evaluation, alpha-beta search with PVS, transposition table,
-  null-move pruning, LMR, killer/history heuristics, and quiescence search.
+- **Full FIDE 2023 Rules** — Move generation and validation with castling, en passant, promotion, check/checkmate/stalemate, and all draw conditions (50-move rule, threefold repetition, insufficient material)
+- **Deep Game Analysis** — Asynchronous engine with 30+ ply depth, PVS/Negascout, transposition table, null-move pruning, LMR, SEE, futility pruning, killer/history heuristics, and quiescence search
+- **PeSTO Evaluation** — Midgame/endgame piece-square tables with king safety, pawn shield analysis, piece mobility, and phase interpolation
+- **Opening Book** — Polyglot `.bin` format with binary search lookups
+- **Endgame Tablebases** — Syzygy tablebase detection with analytical evaluation for common endgames
 
-- **Opening Book & Endgame Tablebases** — Polyglot `.bin` opening book support
-  and Syzygy endgame tablebase detection with limited analytical evaluation
-  (no full tablebase probing / perfect endgame play yet).
-- **REST API** — JSON-based API for AI agents to create games, query state,
-  submit moves, and handle special actions (draw claims, resignation).
-  Follows the protocol defined in [`docs/AGENT.md`](docs/AGENT.md).
+### APIs & Interfaces
 
-- **Analysis API** — Separate `/api/analysis/*` endpoints for submitting games
-  for deep analysis with real-time progress tracking. Architecturally isolated
-  from the player-facing game endpoints.
+- **REST API** — JSON-based endpoints for game management, moves, draw claims, resignation, FEN/PGN import/export ([Agent Protocol](docs/AGENT.md))
+- **Analysis API** — Separate `/api/analysis/*` endpoints for deep game analysis with real-time progress tracking
+- **WebSocket API** — Full real-time API at `/ws` mirroring REST endpoints with push notifications and game subscriptions
+- **Swagger/OpenAPI** — Auto-generated interactive API docs at `/swagger-ui/`
+- **Terminal Interface** — Colored board display with interactive move input for local two-player games
 
-- **WebSocket API** — Full WebSocket support at `/ws` mirroring every REST
-  endpoint, with real-time event broadcasting. Clients can subscribe to
-  individual games and receive push notifications for moves, state changes,
-  and game deletions.
+### Web & Deployment
 
-- **Swagger/OpenAPI Documentation** — Auto-generated interactive API docs
-  available at `/swagger-ui/`.
-
-- **Terminal Interface** — Colored board display with interactive move input
-  for local two-player games.
-
-- **Docker Support** — Multi-stage Dockerfile and docker-compose.yml for
-  containerized deployment with volume mounts for game data, opening books,
-  and tablebases.
-
-- **Documentation** — Full [VitePress documentation site](https://josunlp.github.io/checkai/)
-  with guides, API reference, and agent protocol specification. Automatically
-  deployed to GitHub Pages on every release.
+- **Modern Web UI** — TypeScript SPA with @bquery/bquery, Tailwind CSS v4, Vite — interactive SVG board, analysis panel, FEN/PGN tools, promotion dialog, WebSocket auto-reconnect. Compiled into the binary via `rust-embed`
+- **Docker Support** — Multi-stage Dockerfile and docker-compose.yml with volume mounts for game data, opening books, and tablebases
+- **Internationalization** — 8 languages (EN, DE, FR, ES, ZH, JA, PT, RU) with auto-detection and per-request API selection
+- **Self-Update** — Automatic version checks and `checkai update` for in-place binary updates
 
 ## Quick Start
 
-### Install (pre-built binary)
+### Install
 
 **Linux / macOS:**
 
@@ -65,221 +57,138 @@ curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/instal
 irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.ps1 | iex
 ```
 
-### Uninstall
+> **Tip:** For production use, download and verify the script before running it.
+> See the [Getting Started guide](https://josunlp.github.io/checkai/guide/getting-started) for details.
 
-**Linux / macOS:**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | sh
-```
-
-**Windows (PowerShell):**
-
-```powershell
-irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.ps1 | iex
-```
-
-### Build from source
+### Build from Source
 
 ```bash
+git clone https://github.com/JosunLP/checkai.git
+cd checkai
+
+# Build web UI (requires Bun)
+cd web && bun install && bun run build && cd ..
+
+# Build the Rust binary
 cargo build --release
 ```
 
-### Run the API Server
+### Start the Server
 
 ```bash
-# Default: http://0.0.0.0:8080
-cargo run -- serve
-
-# Custom port
-cargo run -- serve --port 3000
-
-# With opening book and tablebase
-cargo run -- serve --book-path books/book.bin --tablebase-path tablebase/ --analysis-depth 30
+checkai serve                    # Default: http://0.0.0.0:8080
+checkai serve --port 3000        # Custom port
+checkai serve \
+  --book-path books/book.bin \
+  --tablebase-path tablebase/ \
+  --analysis-depth 30            # With opening book + tablebases
 ```
 
-Swagger UI will be available at `http://localhost:8080/swagger-ui/`.
+Open `http://localhost:8080/` for the Web UI or `/swagger-ui/` for interactive API docs.
 
-### Run with Docker
+### Docker
 
 ```bash
-# Build and start
-docker compose up -d
-
-# Follow logs
-docker compose logs -f
-
-# Stop
-docker compose down
+docker compose up -d             # Build and start
+docker compose logs -f           # Follow logs
+docker compose down              # Stop
 ```
 
-See `docker-compose.yml` to configure opening book and tablebase volume mounts.
-
-### Play in Terminal
+### Terminal Mode
 
 ```bash
-cargo run -- play
+checkai play
 ```
 
-## API Endpoints
+## API Reference
 
-### Game API
+### Game Endpoints
 
-| Method   | Path                     | Description             |
-| -------- | ------------------------ | ----------------------- |
-| `POST`   | `/api/games`             | Create a new game       |
-| `GET`    | `/api/games`             | List all games          |
-| `GET`    | `/api/games/{id}`        | Get full game state     |
-| `DELETE` | `/api/games/{id}`        | Delete a game           |
-| `POST`   | `/api/games/{id}/move`   | Submit a move           |
-| `POST`   | `/api/games/{id}/action` | Submit a special action |
-| `GET`    | `/api/games/{id}/moves`  | Get all legal moves     |
-| `GET`    | `/api/games/{id}/board`  | Get ASCII board display |
-| `GET`    | `/ws`                    | WebSocket endpoint      |
+| Method   | Path                     | Description                         |
+| -------- | ------------------------ | ----------------------------------- |
+| `POST`   | `/api/games`             | Create a new game                   |
+| `GET`    | `/api/games`             | List all games                      |
+| `GET`    | `/api/games/{id}`        | Get full game state                 |
+| `DELETE` | `/api/games/{id}`        | Delete a game                       |
+| `POST`   | `/api/games/{id}/move`   | Submit a move                       |
+| `POST`   | `/api/games/{id}/action` | Special action (resign, draw claim) |
+| `GET`    | `/api/games/{id}/moves`  | List legal moves                    |
+| `GET`    | `/api/games/{id}/board`  | ASCII board display                 |
+| `GET`    | `/api/games/{id}/fen`    | Export FEN notation                 |
+| `POST`   | `/api/games/fen`         | Import game from FEN                |
+| `GET`    | `/api/games/{id}/pgn`    | Export PGN notation                 |
 
-### Analysis API
+### Analysis Endpoints
 
-| Method   | Path                      | Description                |
-| -------- | ------------------------- | -------------------------- |
-| `POST`   | `/api/analysis/game/{id}` | Submit a game for analysis |
-| `GET`    | `/api/analysis/jobs`      | List all analysis jobs     |
-| `GET`    | `/api/analysis/jobs/{id}` | Get job status and results |
-| `DELETE` | `/api/analysis/jobs/{id}` | Cancel or delete a job     |
+| Method   | Path                      | Description              |
+| -------- | ------------------------- | ------------------------ |
+| `POST`   | `/api/analysis/game/{id}` | Submit game for analysis |
+| `GET`    | `/api/analysis/jobs`      | List all analysis jobs   |
+| `GET`    | `/api/analysis/jobs/{id}` | Get job status & results |
+| `DELETE` | `/api/analysis/jobs/{id}` | Cancel or delete a job   |
 
-## API Usage Example
+### WebSocket
 
-### 1. Create a Game
+Connect to `ws://localhost:8080/ws` for real-time bidirectional communication.
+
+| Action                           | Fields                                |
+| -------------------------------- | ------------------------------------- |
+| `create_game`                    | —                                     |
+| `list_games`                     | —                                     |
+| `get_game`                       | `game_id`                             |
+| `delete_game`                    | `game_id`                             |
+| `submit_move`                    | `game_id`, `from`, `to`, `promotion?` |
+| `submit_action`                  | `game_id`, `action_type`, `reason?`   |
+| `get_legal_moves`                | `game_id`                             |
+| `subscribe` / `unsubscribe`      | `game_id`                             |
+| `list_archived` / `get_archived` | `game_id`                             |
+| `replay_archived`                | `game_id`, `move_number?`             |
+
+> Full API documentation with request/response schemas: [REST](https://josunlp.github.io/checkai/api/rest) | [WebSocket](https://josunlp.github.io/checkai/api/websocket) | [Analysis](https://josunlp.github.io/checkai/api/analysis)
+
+## Usage Examples
+
+### REST API
 
 ```bash
+# Create a game
 curl -X POST http://localhost:8080/api/games
-```
+# → { "game_id": "550e8400-...", "message": "New chess game created. White to move." }
 
-Response:
-
-```json
-{
-  "game_id": "550e8400-e29b-41d4-a716-446655440000",
-  "message": "New chess game created. White to move."
-}
-```
-
-### 2. Get Game State
-
-```bash
-curl http://localhost:8080/api/games/{game_id}
-```
-
-### 3. Submit a Move (e.g. 1. e4)
-
-```bash
+# Submit a move (1. e4)
 curl -X POST http://localhost:8080/api/games/{game_id}/move \
   -H "Content-Type: application/json" \
-  -d '{"from": "e2", "to": "e4", "promotion": null}'
-```
+  -d '{"from": "e2", "to": "e4"}'
 
-### 4. Get Legal Moves
-
-```bash
+# Get legal moves
 curl http://localhost:8080/api/games/{game_id}/moves
-```
 
-### 5. Resign
-
-```bash
+# Resign
 curl -X POST http://localhost:8080/api/games/{game_id}/action \
   -H "Content-Type: application/json" \
   -d '{"action": "resign"}'
-```
 
-### 6. Claim Draw
-
-```bash
+# Claim draw
 curl -X POST http://localhost:8080/api/games/{game_id}/action \
   -H "Content-Type: application/json" \
   -d '{"action": "claim_draw", "reason": "threefold_repetition"}'
-```
 
-### 7. Submit Game for Analysis
-
-```bash
+# Submit game for deep analysis
 curl -X POST http://localhost:8080/api/analysis/game/{game_id} \
   -H "Content-Type: application/json" \
   -d '{"depth": 30}'
-```
+# → { "job_id": "a1b2c3d4-...", "message": "Analysis submitted ..." }
 
-Response:
-
-```json
-{
-  "job_id": "a1b2c3d4-...",
-  "message": "Analysis submitted for game ... (42 moves)"
-}
-```
-
-### 8. Get Analysis Results
-
-```bash
+# Get analysis results
 curl http://localhost:8080/api/analysis/jobs/{job_id}
 ```
 
-## WebSocket API
-
-Connect to `ws://localhost:8080/ws` to use the fully reactive WebSocket API.
-
-### Client → Server Messages
-
-All messages are JSON with an `"action"` field. Include an optional
-`"request_id"` for response correlation.
-
-| Action              | Extra Fields                          |
-| ------------------- | ------------------------------------- |
-| `create_game`       | —                                     |
-| `list_games`        | —                                     |
-| `get_game`          | `game_id`                             |
-| `delete_game`       | `game_id`                             |
-| `submit_move`       | `game_id`, `from`, `to`, `promotion?` |
-| `submit_action`     | `game_id`, `action_type`, `reason?`   |
-| `get_legal_moves`   | `game_id`                             |
-| `get_board`         | `game_id`                             |
-| `subscribe`         | `game_id`                             |
-| `unsubscribe`       | `game_id`                             |
-| `list_archived`     | —                                     |
-| `get_archived`      | `game_id`                             |
-| `replay_archived`   | `game_id`, `move_number?`             |
-| `get_storage_stats` | —                                     |
-
-### Server → Client Messages
-
-**Response** (to a command):
-
-```json
-{
-  "type": "response",
-  "action": "submit_move",
-  "request_id": "abc123",
-  "success": true,
-  "data": { ... }
-}
-```
-
-**Event** (pushed to subscribers):
-
-```json
-{
-  "type": "event",
-  "event": "game_updated",
-  "game_id": "550e8400-...",
-  "data": { ... }
-}
-```
-
-### WebSocket Example (JavaScript)
+### WebSocket
 
 ```javascript
 const ws = new WebSocket("ws://localhost:8080/ws");
 
 ws.onopen = () => {
-  // Create a game
   ws.send(JSON.stringify({ action: "create_game", request_id: "1" }));
 };
 
@@ -288,16 +197,9 @@ ws.onmessage = (event) => {
 
   if (msg.type === "response" && msg.action === "create_game") {
     const gameId = msg.data.game_id;
-
-    // Subscribe to real-time events
     ws.send(JSON.stringify({ action: "subscribe", game_id: gameId }));
-
-    // Make a move
     ws.send(JSON.stringify({
-      action: "submit_move",
-      game_id: gameId,
-      from: "e2",
-      to: "e4"
+      action: "submit_move", game_id: gameId, from: "e2", to: "e4"
     }));
   }
 
@@ -309,91 +211,87 @@ ws.onmessage = (event) => {
 
 ## Terminal Commands
 
-When running in terminal mode (`checkai play`):
-
 | Command   | Description                          |
 | --------- | ------------------------------------ |
 | `e2e4`    | Move piece (from-to notation)        |
 | `e7e8Q`   | Pawn promotion (append piece letter) |
 | `moves`   | List all legal moves                 |
-| `board`   | Show the current board               |
+| `board`   | Show current board                   |
 | `resign`  | Resign the game                      |
 | `draw`    | Claim a draw (if eligible)           |
 | `history` | Show move history                    |
-| `json`    | Show the game state as JSON          |
-| `help`    | Show help message                    |
-| `quit`    | Quit the application                 |
+| `json`    | Game state as JSON                   |
+| `help`    | Show help                            |
+| `quit`    | Quit                                 |
 
-## Update
+## Updating
 
-CheckAI checks for new versions automatically on startup. To update manually:
+CheckAI checks for new versions on startup. Update manually:
 
 ```bash
 checkai update
 ```
 
-This downloads the latest release from GitHub and replaces the current binary
-in-place. Works on Linux, macOS, and Windows.
-
 ## Project Structure
 
 ```bash
 checkai/
-├── Cargo.toml          # Dependencies and project metadata
-├── CHANGELOG.md        # Version history (Keep a Changelog)
-├── README.md           # This file
-├── Dockerfile          # Multi-stage Docker build
-├── docker-compose.yml  # Container orchestration
-├── .dockerignore       # Docker build exclusions
-├── .github/
-│   └── workflows/
-│       ├── ci.yml      # CI pipeline (fmt, clippy, test, build)
-│       ├── release.yml # Release pipeline (binaries + Docker image)
-│       └── docs.yml    # Documentation deployment to GitHub Pages
+├── build.rs              # Ensures web/dist/ exists for rust-embed
+├── Cargo.toml            # Dependencies and project metadata
+├── Dockerfile            # Multi-stage Docker build
+├── docker-compose.yml    # Container orchestration
+├── .github/workflows/
+│   ├── ci.yml            # CI (fmt, clippy, test, build)
+│   ├── release.yml       # Release (binaries + Docker image)
+│   └── docs.yml          # Documentation → GitHub Pages
 ├── scripts/
-│   ├── install.sh      # Installer for Linux / macOS
-│   ├── install.ps1     # Installer for Windows
-│   ├── uninstall.sh    # Uninstaller for Linux / macOS
-│   └── uninstall.ps1   # Uninstaller for Windows
-├── docs/                # VitePress documentation site
-│   ├── .vitepress/     # VitePress configuration
-│   ├── guide/          # User guides (getting started, CLI, Docker, etc.)
-│   ├── api/            # API reference (REST, WebSocket, Analysis)
-│   ├── agent/          # Agent protocol docs (rules, schema, examples)
-│   └── AGENT.md        # Chess rules and JSON protocol for AI agents
-├── web/                # Browser-based game UI
+│   ├── install.sh        # Installer (Linux / macOS)
+│   ├── install.ps1       # Installer (Windows)
+│   ├── uninstall.sh      # Uninstaller (Linux / macOS)
+│   └── uninstall.ps1     # Uninstaller (Windows)
+├── docs/                 # VitePress documentation site
+├── locales/              # i18n YAML files (8 languages)
+├── web/                  # TypeScript Web UI (bQuery + Tailwind + Vite)
+│   ├── src/              # 12 TypeScript source modules
+│   ├── dist/             # Vite production build (embedded into binary)
+│   └── index.vite.html   # Vite HTML entry point
 └── src/
-    ├── main.rs         # Entry point, CLI parsing, server setup
-    ├── types.rs        # Core types (pieces, board, squares, JSON protocol)
-    ├── movegen.rs      # Move generation and validation engine
-    ├── game.rs         # Game state management and API response types
-    ├── api.rs          # REST API handlers with OpenAPI annotations
-    ├── ws.rs           # WebSocket API, broadcaster, and session actors
-    ├── storage.rs      # Persistent binary game storage with zstd compression
-    ├── export.rs       # Game export in text, PGN, and JSON formats
-    ├── update.rs       # Self-update and version check against GitHub
-    ├── terminal.rs     # Terminal interface with colored output
-    ├── i18n.rs         # Internationalization helpers
-    ├── zobrist.rs      # Zobrist hashing (compile-time key generation)
-    ├── eval.rs         # PeSTO position evaluation (midgame + endgame)
-    ├── search.rs       # Alpha-beta search engine (PVS, TT, LMR, NMP)
-    ├── opening_book.rs # Polyglot opening book reader
-    ├── tablebase.rs    # Syzygy endgame tablebase interface
-    ├── analysis.rs     # Analysis orchestrator (async job queue, pipeline)
-    └── analysis_api.rs # Analysis REST API endpoints
+    ├── main.rs           # Entry point, CLI, server setup
+    ├── types.rs          # Core types (pieces, board, JSON protocol)
+    ├── movegen.rs        # Move generation and validation
+    ├── game.rs           # Game state management
+    ├── api.rs            # REST API handlers + OpenAPI
+    ├── ws.rs             # WebSocket API + broadcaster
+    ├── storage.rs        # Persistent storage (zstd compression)
+    ├── export.rs         # Export (text, PGN, JSON)
+    ├── eval.rs           # PeSTO evaluation + king safety + mobility
+    ├── search.rs         # Alpha-beta (PVS, TT, LMR, NMP, SEE, futility)
+    ├── analysis.rs       # Analysis orchestrator (async job queue)
+    ├── analysis_api.rs   # Analysis REST endpoints
+    ├── opening_book.rs   # Polyglot opening book reader
+    ├── tablebase.rs      # Syzygy endgame tablebase interface
+    ├── zobrist.rs        # Zobrist hashing
+    ├── terminal.rs       # Terminal interface
+    ├── i18n.rs           # Internationalization helpers
+    └── update.rs         # Self-update + version check
 ```
 
 ## Documentation
 
-Full documentation is available at **https://josunlp.github.io/checkai/**
+Full documentation at **<https://josunlp.github.io/checkai/>**
 
-- [Getting Started](https://josunlp.github.io/checkai/guide/getting-started) — Installation and first steps
-- [API Reference](https://josunlp.github.io/checkai/api/rest) — REST, WebSocket, and Analysis API
-- [Agent Protocol](https://josunlp.github.io/checkai/agent/overview) — JSON protocol for AI agents
-- [Chess Rules](https://josunlp.github.io/checkai/agent/chess-rules) — Complete FIDE 2023 rule reference
+| Section                                                                    | Description                          |
+| -------------------------------------------------------------------------- | ------------------------------------ |
+| [Getting Started](https://josunlp.github.io/checkai/guide/getting-started) | Installation and first steps         |
+| [REST API](https://josunlp.github.io/checkai/api/rest)                     | Full REST endpoint reference         |
+| [WebSocket API](https://josunlp.github.io/checkai/api/websocket)           | Real-time bidirectional API          |
+| [Analysis API](https://josunlp.github.io/checkai/api/analysis)             | Deep game analysis endpoints         |
+| [Agent Protocol](https://josunlp.github.io/checkai/agent/overview)         | JSON protocol for AI agents          |
+| [Chess Rules](https://josunlp.github.io/checkai/agent/chess-rules)         | FIDE 2023 rule reference             |
+| [Architecture](https://josunlp.github.io/checkai/guide/architecture)       | Module overview and design decisions |
 
 The raw agent protocol specification is also available at [`docs/AGENT.md`](docs/AGENT.md).
 
 ## License
 
-MIT
+[MIT](LICENSE.md)
