@@ -154,6 +154,66 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: artifacts/checksums-sha256.txt
 
+  # Build WASM package and publish to GitHub Packages
+  wasm:
+    name: WebAssembly (npm)
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm
+          workspaces: wasm
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked --version 0.12.1
+
+      - name: Build WASM package
+        run: |
+          cd wasm
+          wasm-pack build --target nodejs --out-dir ../npm/pkg --out-name checkai
+
+      - name: Set npm package version
+        run: |
+          cd npm
+          VERSION="${{ needs.create-release.outputs.version }}"
+          node -e "
+            const pkg = require('./package.json');
+            pkg.version = '${VERSION}';
+            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+      - name: Create npm tarball
+        run: |
+          cd npm
+          npm pack
+          mv josunlp-checkai-*.tgz ../checkai-wasm-${{ needs.create-release.outputs.version }}.tgz
+
+      - name: Upload WASM release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: checkai-wasm-${{ needs.create-release.outputs.version }}.tgz
+
+      - name: Publish to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd npm
+          echo "@josunlp:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> .npmrc
+          npm publish
+          rm -f .npmrc
+
   # Build and push Docker image to GHCR
   docker:
     name: Docker image

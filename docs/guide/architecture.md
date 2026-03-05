@@ -29,6 +29,28 @@ src/
 └── analysis_api.rs  # Analysis REST API endpoints
 ```
 
+### WebAssembly Crate
+
+```bash
+wasm/
+├── Cargo.toml       # WASM crate manifest (cdylib + rlib)
+└── src/
+    ├── lib.rs       # WASM bindings: position analysis, game mgmt, export, board
+    └── search.rs    # Search with web-time::Instant (WASM-compatible)
+```
+
+The WASM crate re-uses core source files from the parent crate via `#[path = "../../src/..."]` directives, ensuring zero code duplication for `types`, `movegen`, `eval`, `zobrist`, and `polyglot_keys`.
+
+### npm Package
+
+```bash
+npm/
+├── package.json     # @josunlp/checkai (GitHub Packages)
+├── bin/checkai.mjs  # Node.js CLI entry point
+├── src/index.mjs    # ESM library API
+└── README.md        # npm package documentation
+```
+
 ### TypeScript Web UI
 
 ```bash

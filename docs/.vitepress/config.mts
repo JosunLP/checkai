@@ -32,7 +32,7 @@ export default defineConfig({
       { text: 'API Reference', link: '/api/rest' },
       { text: 'Agent Protocol', link: '/agent/overview' },
       {
-        text: 'v0.4.0',
+        text: 'v0.5.0',
         items: [
           {
             text: 'Changelog',
@@ -62,6 +62,7 @@ export default defineConfig({
             { text: 'Docker', link: '/guide/docker' },
             { text: 'Configuration', link: '/guide/configuration' },
             { text: 'Web UI', link: '/guide/web-ui' },
+            { text: 'npm Package (WASM)', link: '/guide/npm-package' },
           ],
         },
         {

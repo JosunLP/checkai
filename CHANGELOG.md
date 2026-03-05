@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-05
+
+### Added
+
+- **WebAssembly (WASM) build** — The core chess engine is now compiled to WebAssembly via `wasm-pack`, enabling use from JavaScript/Node.js environments
+  - New `wasm/` crate with `#[path]` re-exports of core engine modules (types, movegen, eval, search, zobrist) — zero code duplication
+  - WASM-compatible search using `web-time` crate instead of `std::time::Instant`
+  - `js-sys` integration for timestamps and random ID generation
+- **npm package** (`@josunlp/checkai`) published to **GitHub Packages**
+  - Node.js CLI tool (`checkai`) installable via `npm install -g @josunlp/checkai`
+  - JavaScript/ESM library API (`import { engine } from "@josunlp/checkai"`)
+- **Full feature parity in WASM** — All major features available in the npm package:
+  - Position analysis: `legalMoves`, `evaluate`, `bestMove`, `isCheckmate`, `isStalemate`, `isCheck`, `isInsufficientMaterial`, `makeMove`
+  - Game management: `createGame`, `createGameFromFen`, `gameState`, `gameSubmitMove`, `gameProcessAction`, `gameMoveHistory`, `gameFen`, `deleteGame`, `listGames`
+  - Export: `gameToPgn`, `gameToJson`, `gameToText`
+  - Board display: `boardToAscii`
+- **Node.js CLI commands** — `fen`, `moves`, `eval`, `search`, `move`, `board`, `play`, `game new/state/move/action/list/delete`, `export`, `version`
+- **Release workflow** — New `wasm` job in `release.yml` builds the WASM package, creates a tarball release asset, and publishes to GitHub Packages using `GITHUB_TOKEN`
+
 ## [0.4.0] - 2026-03-05
 
 ### Added
@@ -176,7 +195,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Game archiving with zstd compression
 - Web UI for browser-based game viewing
 
-[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/JosunLP/checkai/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/JosunLP/checkai/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/JosunLP/checkai/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/JosunLP/checkai/compare/v0.2.2...v0.3.0
