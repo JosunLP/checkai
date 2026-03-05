@@ -92,7 +92,7 @@ async function openReplay(gameId: string, totalMoves: number): Promise<void> {
   setText('replay-total-moves', totalMoves || 0);
   setText('replay-title', t('archive.replay_title', { id: gameId.substring(0, 8) + '…' }));
 
-  replaySection.style.display = 'block';
+  replaySection.classList.remove('hidden');
   replaySection.dataset.gameId = gameId;
 
   await loadReplayPosition(gameId, totalMoves || 0);
@@ -119,7 +119,7 @@ export function bindArchiveEvents(): void {
   const closeBtn = document.getElementById('btn-close-replay');
   closeBtn?.addEventListener('click', () => {
     const section = document.getElementById('archive-replay');
-    if (section) section.style.display = 'none';
+    if (section) section.classList.add('hidden');
   });
 
   const slider = document.getElementById('replay-slider') as HTMLInputElement | null;

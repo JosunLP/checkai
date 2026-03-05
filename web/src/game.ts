@@ -156,12 +156,12 @@ export function showPromotionDialog(): void {
     if (span) span.textContent = promoMap[p] || '';
   });
 
-  dialog.style.display = 'flex';
+  dialog.classList.remove('hidden');
 }
 
 export function hidePromotionDialog(): void {
   const dialog = document.getElementById('promotion-dialog');
-  if (dialog) dialog.style.display = 'none';
+  if (dialog) dialog.classList.add('hidden');
 }
 
 // ============================================================================
