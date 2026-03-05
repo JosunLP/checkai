@@ -2,6 +2,24 @@
 
 All notable changes to CheckAI are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-03-05
+
+### Added
+
+- **WebAssembly (WASM) build** — The core chess engine compiled to WebAssembly via `wasm-pack`
+  - New `wasm/` crate with `#[path]` re-exports of core engine modules — zero code duplication
+  - WASM-compatible search using `web-time` crate, `js-sys` for timestamps and IDs
+- **npm package** (`@josunlp/checkai`) published to **GitHub Packages**
+  - Node.js CLI tool installable via `npm install -g @josunlp/checkai`
+  - JavaScript/ESM library API via `import { engine } from "@josunlp/checkai"`
+- **Full feature parity in WASM**:
+  - Position analysis: `legalMoves`, `evaluate`, `bestMove`, `makeMove`, check/mate/stalemate detection
+  - Game management: `createGame`, `gameSubmitMove`, `gameProcessAction`, history, FEN export
+  - Export: PGN, JSON, text formatting
+  - Board display: `boardToAscii`
+- **Node.js CLI commands**: `fen`, `moves`, `eval`, `search`, `move`, `board`, `play`, `game`, `export`, `version`
+- **Release workflow**: New `wasm` job builds WASM and publishes to GitHub Packages
+
 ## [0.4.0] — 2026-03-05
 
 ### Added
