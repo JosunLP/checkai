@@ -26,6 +26,7 @@ dependencies = [
  "serde_json",
  "utoipa",
  "wasm-bindgen",
+ "web-sys",
  "web-time",
 ]
 

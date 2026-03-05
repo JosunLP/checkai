@@ -450,14 +450,12 @@ fn piece_value(kind: PieceKind) -> i32 {
 /// 1. TT best move (score = 10_000_000)
 /// 2. Captures ordered by MVV-LVA (score = 1_000_000 + mvv_lva)
 /// 3. Killer moves (score = 900_000 / 899_000)
-/// 4. Counter-move heuristic (score = 898_000)
-/// 5. Quiet moves by history heuristic
+/// 4. Quiet moves by history heuristic
 fn score_moves(
     moves: &[ChessMove],
     board: &Board,
     tt_move: Option<&ChessMove>,
     killers: &[Option<ChessMove>; 2],
-    counter_move: Option<&ChessMove>,
     history: &[[i32; 64]; 64],
 ) -> Vec<(ChessMove, i32)> {
     moves
@@ -472,8 +470,6 @@ fn score_moves(
                 900_000
             } else if killers[1].as_ref().is_some_and(|k| k == mv) {
                 899_000
-            } else if counter_move.is_some_and(|cm| cm == mv) {
-                898_000
             } else {
                 // History heuristic
                 history[mv.from.index()][mv.to.index()]
@@ -499,8 +495,6 @@ pub struct SearchEngine {
     killers: Vec<[Option<ChessMove>; 2]>,
     /// History heuristic table: `[from_sq][to_sq] -> score`.
     history: [[i32; 64]; 64],
-    /// Counter-move heuristic: `[prev_from][prev_to] -> counter_move`.
-    counter_moves: [[Option<ChessMove>; 64]; 64],
     /// Search statistics for the current search.
     pub stats: SearchStats,
     /// Cancellation flag — set to `true` to abort the search.
@@ -514,7 +508,6 @@ impl SearchEngine {
             tt: TranspositionTable::new(tt_size_mb),
             killers: vec![[None; 2]; MAX_DEPTH as usize],
             history: [[0i32; 64]; 64],
-            counter_moves: [[None; 64]; 64],
             stats: SearchStats::default(),
             abort: Arc::new(AtomicBool::new(false)),
         }
@@ -787,24 +780,11 @@ impl SearchEngine {
         }
 
         let killers = &self.killers[ply as usize];
-        // Look up counter-move based on the *previous* move's from/to
-        // (previous ply's move is the opponent's last move — approximated
-        // by checking the TT entry of the parent if available; we use
-        // the board state change instead for simplicity).
-        let counter = if ply > 0 {
-            // Use parent position data — we don't have it directly, so
-            // check the counter-move table entry for the last move applied.
-            // This is approximated by storing the counter on beta cutoffs below.
-            None // filled at cutoff site
-        } else {
-            None
-        };
         let mut scored = score_moves(
             &moves,
             &pos.board,
             tt_move.as_ref(),
             killers,
-            counter,
             &self.history,
         );
         sort_moves(&mut scored);
@@ -925,13 +905,6 @@ impl SearchEngine {
 
                             // Update history heuristic
                             self.history[mv.from.index()][mv.to.index()] += depth * depth;
-
-                            // Update counter-move table: record this move as
-                            // a good reply to the previous move (if any).
-                            if let Some(prev_mv) = best_move {
-                                self.counter_moves[prev_mv.from.index()][prev_mv.to.index()] =
-                                    Some(mv);
-                            }
                         }
 
                         break;
