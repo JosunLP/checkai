@@ -102,12 +102,8 @@ export function renderAnalysis(): void {
   const result = store.analysisResult.value;
 
   // Toggle button states
-  const startBtn = document.getElementById(
-    'btn-analysis-start'
-  ) as HTMLButtonElement | null;
-  const stopBtn = document.getElementById(
-    'btn-analysis-stop'
-  ) as HTMLButtonElement | null;
+  const startBtn = document.getElementById('btn-analysis-start') as HTMLButtonElement | null;
+  const stopBtn = document.getElementById('btn-analysis-stop') as HTMLButtonElement | null;
   if (startBtn) startBtn.disabled = running;
   if (stopBtn) stopBtn.disabled = !running;
 
@@ -158,10 +154,6 @@ export function renderAnalysis(): void {
 
 /** Bind analysis panel events. */
 export function bindAnalysisEvents(): void {
-  document
-    .getElementById('btn-analysis-start')
-    ?.addEventListener('click', startAnalysis);
-  document
-    .getElementById('btn-analysis-stop')
-    ?.addEventListener('click', stopAnalysis);
+  document.getElementById('btn-analysis-start')?.addEventListener('click', startAnalysis);
+  document.getElementById('btn-analysis-stop')?.addEventListener('click', stopAnalysis);
 }

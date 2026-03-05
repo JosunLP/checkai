@@ -22,11 +22,7 @@ export function onWsMessage(handler: WsEventHandler): void {
 
 /** Opens (or re-opens) the WebSocket connection. */
 export function connectWebSocket(): void {
-  if (
-    ws &&
-    (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)
-  )
-    return;
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
 
   try {
     ws = new WebSocket(WS_URL);

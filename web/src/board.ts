@@ -24,7 +24,7 @@ export interface BoardRenderOptions {
 export function renderBoard(
   containerId: string,
   boardMap: BoardMap | null,
-  options: BoardRenderOptions = {}
+  options: BoardRenderOptions = {},
 ): void {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -41,12 +41,8 @@ export function renderBoard(
 
   container.innerHTML = '';
 
-  const rankOrder = flipped
-    ? [0, 1, 2, 3, 4, 5, 6, 7]
-    : [7, 6, 5, 4, 3, 2, 1, 0];
-  const fileOrder = flipped
-    ? [7, 6, 5, 4, 3, 2, 1, 0]
-    : [0, 1, 2, 3, 4, 5, 6, 7];
+  const rankOrder = flipped ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
+  const fileOrder = flipped ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
 
   for (const rank of rankOrder) {
     for (const file of fileOrder) {
@@ -125,9 +121,7 @@ export function renderCurrentBoard(): void {
   if (!game) return;
 
   const lastMoveData = store.lastMove.value;
-  const lastMoveSqs: SquareName[] = lastMoveData
-    ? [lastMoveData.from, lastMoveData.to]
-    : [];
+  const lastMoveSqs: SquareName[] = lastMoveData ? [lastMoveData.from, lastMoveData.to] : [];
 
   // Fallback to move history's last move
   if (lastMoveSqs.length === 0 && game.move_history?.length > 0) {
@@ -188,10 +182,7 @@ function isPieceOfCurrentTurn(fenChar: string): boolean {
   const game = store.currentGame.value;
   if (!game) return false;
   const isWhite = fenChar === fenChar.toUpperCase();
-  return (
-    (game.state.turn === 'white' && isWhite) ||
-    (game.state.turn === 'black' && !isWhite)
-  );
+  return (game.state.turn === 'white' && isWhite) || (game.state.turn === 'black' && !isWhite);
 }
 
 function selectSquare(sq: SquareName): void {

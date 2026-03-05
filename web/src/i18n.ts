@@ -24,8 +24,7 @@ const DICTIONARIES: Record<string, Record<string, string>> = {
     'stat.active_storage': 'Active Storage',
     'stat.archive_storage': 'Archive Storage',
     'game.no_game_selected': 'No game selected.',
-    'game.no_game_hint':
-      'Select a game from the dashboard or create a new one.',
+    'game.no_game_hint': 'Select a game from the dashboard or create a new one.',
     'game.black': 'Black',
     'game.white': 'White',
     'game.promotion_title': 'Pawn Promotion',
@@ -104,8 +103,7 @@ const DICTIONARIES: Record<string, Record<string, string>> = {
     'toast.enter_from_to': 'Please enter "from" and "to" squares',
     'confirm.resign': 'Really resign?',
     'confirm.delete': 'Really delete this game?',
-    'confirm.claim_draw_reason':
-      'Enter reason: threefold_repetition or fifty_move_rule',
+    'confirm.claim_draw_reason': 'Enter reason: threefold_repetition or fifty_move_rule',
     'analysis.title': 'Engine Analysis',
     'analysis.start': 'Analyze',
     'analysis.stop': 'Stop',
@@ -138,8 +136,7 @@ const DICTIONARIES: Record<string, Record<string, string>> = {
     'stat.active_storage': 'Aktiver Speicher',
     'stat.archive_storage': 'Archiv-Speicher',
     'game.no_game_selected': 'Kein Spiel ausgewählt.',
-    'game.no_game_hint':
-      'Wähle ein Spiel aus dem Dashboard oder erstelle ein neues.',
+    'game.no_game_hint': 'Wähle ein Spiel aus dem Dashboard oder erstelle ein neues.',
     'game.black': 'Schwarz',
     'game.white': 'Weiß',
     'game.promotion_title': 'Bauernumwandlung',
@@ -218,8 +215,7 @@ const DICTIONARIES: Record<string, Record<string, string>> = {
     'toast.enter_from_to': 'Bitte "von" und "nach" Feld angeben',
     'confirm.resign': 'Wirklich aufgeben?',
     'confirm.delete': 'Dieses Spiel wirklich löschen?',
-    'confirm.claim_draw_reason':
-      'Grund angeben: threefold_repetition oder fifty_move_rule',
+    'confirm.claim_draw_reason': 'Grund angeben: threefold_repetition oder fifty_move_rule',
     'analysis.title': 'Engine-Analyse',
     'analysis.start': 'Analysieren',
     'analysis.stop': 'Stoppen',
@@ -390,10 +386,7 @@ function detectLocale(): string {
 }
 
 /** Translate a key with optional interpolation. */
-export function t(
-  key: string,
-  params?: Record<string, string | number>
-): string {
+export function t(key: string, params?: Record<string, string | number>): string {
   const dict = DICTIONARIES[currentLocale];
   let val = dict?.[key] ?? DICTIONARIES.en[key] ?? key;
   if (params) {
@@ -423,12 +416,10 @@ export function translateDom(): void {
     const key = el.dataset.i18n!;
     el.textContent = t(key);
   });
-  document
-    .querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]')
-    .forEach((el) => {
-      const key = el.dataset.i18nPlaceholder!;
-      el.placeholder = t(key);
-    });
+  document.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]').forEach((el) => {
+    const key = el.dataset.i18nPlaceholder!;
+    el.placeholder = t(key);
+  });
   document.querySelectorAll<HTMLElement>('[data-i18n-title]').forEach((el) => {
     const key = el.dataset.i18nTitle!;
     el.title = t(key);
@@ -441,9 +432,7 @@ export function initI18n(): void {
   currentLocale = detectLocale();
 
   // Populate language dropdown
-  const select = document.getElementById(
-    'lang-select'
-  ) as HTMLSelectElement | null;
+  const select = document.getElementById('lang-select') as HTMLSelectElement | null;
   if (select) {
     select.innerHTML = '';
     for (const loc of SUPPORTED_LOCALES) {

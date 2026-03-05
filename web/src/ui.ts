@@ -20,7 +20,7 @@ export function formatBytes(bytes: number | null | undefined): string {
 /** Display a transient toast notification. */
 export function showToast(
   message: string,
-  type: 'info' | 'success' | 'warning' | 'error' = 'info'
+  type: 'info' | 'success' | 'warning' | 'error' = 'info',
 ): void {
   const container = document.getElementById('toast-container');
   if (!container) return;
@@ -39,7 +39,7 @@ export function showToast(
 /** Display a game-view inline message. */
 export function showGameMessage(
   text: string,
-  type: 'info' | 'success' | 'warning' | 'error' = 'info'
+  type: 'info' | 'success' | 'warning' | 'error' = 'info',
 ): void {
   const el = document.getElementById('game-message');
   if (!el) return;

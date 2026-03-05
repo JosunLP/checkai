@@ -100,20 +100,14 @@ function setupBoardEffect(): void {
 // Game action bindings
 // ---------------------------------------------------------------------------
 function bindGameActions(): void {
-  document
-    .getElementById('btn-new-game')
-    ?.addEventListener('click', async () => {
-      await createNewGame();
-    });
+  document.getElementById('btn-new-game')?.addEventListener('click', async () => {
+    await createNewGame();
+  });
 
   document.getElementById('btn-resign')?.addEventListener('click', resign);
   document.getElementById('btn-draw')?.addEventListener('click', offerDraw);
-  document
-    .getElementById('btn-claim-draw')
-    ?.addEventListener('click', claimDraw);
-  document
-    .getElementById('btn-delete-game')
-    ?.addEventListener('click', deleteCurrentGame);
+  document.getElementById('btn-claim-draw')?.addEventListener('click', claimDraw);
+  document.getElementById('btn-delete-game')?.addEventListener('click', deleteCurrentGame);
 
   document.getElementById('btn-flip-board')?.addEventListener('click', () => {
     store.boardFlipped.value = !store.boardFlipped.value;
@@ -121,9 +115,7 @@ function bindGameActions(): void {
 
   document.getElementById('btn-copy-fen')?.addEventListener('click', copyFen);
   document.getElementById('btn-copy-pgn')?.addEventListener('click', copyPgn);
-  document
-    .getElementById('btn-import-fen')
-    ?.addEventListener('click', importFen);
+  document.getElementById('btn-import-fen')?.addEventListener('click', importFen);
 
   // Move input form
   document.getElementById('move-form')?.addEventListener('submit', (e) => {
@@ -133,9 +125,7 @@ function bindGameActions(): void {
 
   // Game list delegation
   document.getElementById('game-list')?.addEventListener('click', (e) => {
-    const target = (e.target as HTMLElement).closest<HTMLElement>(
-      '[data-game-id]'
-    );
+    const target = (e.target as HTMLElement).closest<HTMLElement>('[data-game-id]');
     if (target) {
       loadGame(target.dataset.gameId!);
       navigateView('game');
@@ -147,9 +137,7 @@ function bindGameActions(): void {
 // Language selector
 // ---------------------------------------------------------------------------
 function bindLanguageSelector(): void {
-  const select = document.getElementById(
-    'lang-select'
-  ) as HTMLSelectElement | null;
+  const select = document.getElementById('lang-select') as HTMLSelectElement | null;
   if (!select) return;
   select.value = getLocale();
   select.addEventListener('change', () => {

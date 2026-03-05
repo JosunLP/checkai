@@ -106,9 +106,7 @@ export async function deleteCurrentGame(): Promise<void> {
 
 export async function attemptMove(from: string, to: string): Promise<void> {
   const moves = store.legalMoves.value || [];
-  const promoMoves = moves.filter(
-    (m) => m.from === from && m.to === to && m.promotion
-  );
+  const promoMoves = moves.filter((m) => m.from === from && m.to === to && m.promotion);
   if (promoMoves.length > 0) {
     store.pendingPromotion.value = { from, to };
     showPromotionDialog();
@@ -117,11 +115,7 @@ export async function attemptMove(from: string, to: string): Promise<void> {
   await executeMove(from, to);
 }
 
-export async function executeMove(
-  from: string,
-  to: string,
-  promotion?: string
-): Promise<void> {
+export async function executeMove(from: string, to: string, promotion?: string): Promise<void> {
   const gameId = store.currentGameId.value;
   if (!gameId) return;
 
@@ -224,9 +218,7 @@ export async function claimDraw(): Promise<void> {
 }
 
 export async function submitMoveFromInput(): Promise<void> {
-  const fromEl = document.getElementById(
-    'input-from'
-  ) as HTMLInputElement | null;
+  const fromEl = document.getElementById('input-from') as HTMLInputElement | null;
   const toEl = document.getElementById('input-to') as HTMLInputElement | null;
   const from = fromEl?.value?.trim().toLowerCase();
   const to = toEl?.value?.trim().toLowerCase();
@@ -334,8 +326,7 @@ export function renderGameList(): void {
     card.className = 'game-card';
     card.addEventListener('click', () => loadGame(game.game_id));
 
-    const turnLabel =
-      game.turn === 'white' ? t('game.turn_white') : t('game.turn_black');
+    const turnLabel = game.turn === 'white' ? t('game.turn_white') : t('game.turn_black');
     const badge = game.is_over
       ? `<span class="game-card-badge badge-over">${t('game.badge_over')}</span>`
       : `<span class="game-card-badge badge-active">${t('game.badge_active')}</span>`;
@@ -381,19 +372,10 @@ export function renderGameView(): void {
 
   // Info panel
   setText('info-game-id', game.game_id.substring(0, 12) + '…');
-  setText(
-    'info-turn',
-    game.state.turn === 'white' ? t('game.turn_white') : t('game.turn_black')
-  );
+  setText('info-turn', game.state.turn === 'white' ? t('game.turn_white') : t('game.turn_black'));
   setText('info-move-num', game.state.fullmove_number);
-  setText(
-    'info-status',
-    game.is_over ? t('game.status_over') : t('game.status_active')
-  );
-  setText(
-    'info-check',
-    game.is_check ? t('game.check_yes') : t('game.check_no')
-  );
+  setText('info-status', game.is_over ? t('game.status_over') : t('game.status_active'));
+  setText('info-check', game.is_check ? t('game.check_yes') : t('game.check_no'));
   setText('info-legal-moves', game.legal_move_count);
 
   // Castling rights
@@ -413,17 +395,13 @@ export function renderGameView(): void {
 
   const ws = document.getElementById('white-status');
   const bs = document.getElementById('black-status');
-  if (ws)
-    ws.textContent = game.state.turn === 'white' ? t('game.your_turn') : '';
-  if (bs)
-    bs.textContent = game.state.turn === 'black' ? t('game.your_turn') : '';
+  if (ws) ws.textContent = game.state.turn === 'white' ? t('game.your_turn') : '';
+  if (bs) bs.textContent = game.state.turn === 'black' ? t('game.your_turn') : '';
 
   // Disable actions if game is over
-  document
-    .querySelectorAll<HTMLButtonElement>('#game-actions .btn')
-    .forEach((btn) => {
-      if (btn.id !== 'btn-delete-game') btn.disabled = game.is_over;
-    });
+  document.querySelectorAll<HTMLButtonElement>('#game-actions .btn').forEach((btn) => {
+    if (btn.id !== 'btn-delete-game') btn.disabled = game.is_over;
+  });
 
   renderMoveHistory(game.move_history);
   renderCurrentBoard();
@@ -462,7 +440,7 @@ export function renderStorageStats(
     archived_count: number;
     active_bytes: number;
     archive_bytes: number;
-  } | null
+  } | null,
 ): void {
   if (!stats) return;
   setText('stat-active', stats.active_count);

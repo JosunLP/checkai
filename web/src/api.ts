@@ -18,11 +18,7 @@ import type {
 
 const API_BASE = `${window.location.origin}/api`;
 
-async function request<T>(
-  method: string,
-  path: string,
-  body?: unknown
-): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const opts: RequestInit = {
     method,
     headers: { 'Content-Type': 'application/json' },
@@ -66,17 +62,11 @@ export function deleteGame(id: string): Promise<void> {
 
 // ── Moves & Actions ──────────────────────────────────────────────────────────
 
-export function submitMove(
-  id: string,
-  move: MoveSubmission
-): Promise<MoveResponse> {
+export function submitMove(id: string, move: MoveSubmission): Promise<MoveResponse> {
   return request('POST', `/games/${encodeURIComponent(id)}/move`, move);
 }
 
-export function submitAction(
-  id: string,
-  action: ActionSubmission
-): Promise<MoveResponse> {
+export function submitAction(id: string, action: ActionSubmission): Promise<MoveResponse> {
   return request('POST', `/games/${encodeURIComponent(id)}/action`, action);
 }
 
@@ -97,10 +87,7 @@ export function getArchived(id: string): Promise<Game> {
   return request('GET', `/archive/${encodeURIComponent(id)}`);
 }
 
-export function replayArchived(
-  id: string,
-  moveNum?: number
-): Promise<ReplayState> {
+export function replayArchived(id: string, moveNum?: number): Promise<ReplayState> {
   const q = moveNum !== undefined ? `?move_number=${moveNum}` : '';
   return request('GET', `/archive/${encodeURIComponent(id)}/replay${q}`);
 }
@@ -111,32 +98,16 @@ export function getStorageStats(): Promise<StorageStats> {
 
 // ── Analysis ─────────────────────────────────────────────────────────────────
 
-export function startAnalysis(
-  id: string,
-  opts?: AnalysisRequest
-): Promise<{ job_id: string }> {
-  return request(
-    'POST',
-    `/games/${encodeURIComponent(id)}/analyze`,
-    opts ?? {}
-  );
+export function startAnalysis(id: string, opts?: AnalysisRequest): Promise<{ job_id: string }> {
+  return request('POST', `/games/${encodeURIComponent(id)}/analyze`, opts ?? {});
 }
 
-export function getAnalysis(
-  id: string,
-  jobId: string
-): Promise<AnalysisResult> {
-  return request(
-    'GET',
-    `/games/${encodeURIComponent(id)}/analyze/${encodeURIComponent(jobId)}`
-  );
+export function getAnalysis(id: string, jobId: string): Promise<AnalysisResult> {
+  return request('GET', `/games/${encodeURIComponent(id)}/analyze/${encodeURIComponent(jobId)}`);
 }
 
 export function cancelAnalysis(id: string, jobId: string): Promise<void> {
-  return request(
-    'DELETE',
-    `/games/${encodeURIComponent(id)}/analyze/${encodeURIComponent(jobId)}`
-  );
+  return request('DELETE', `/games/${encodeURIComponent(id)}/analyze/${encodeURIComponent(jobId)}`);
 }
 
 // ── FEN Import/Export ────────────────────────────────────────────────────────

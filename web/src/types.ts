@@ -6,19 +6,7 @@
 export type PieceColor = 'white' | 'black';
 
 /** Chess piece kind character (FEN) */
-export type FenChar =
-  | 'K'
-  | 'Q'
-  | 'R'
-  | 'B'
-  | 'N'
-  | 'P'
-  | 'k'
-  | 'q'
-  | 'r'
-  | 'b'
-  | 'n'
-  | 'p';
+export type FenChar = 'K' | 'Q' | 'R' | 'B' | 'N' | 'P' | 'k' | 'q' | 'r' | 'b' | 'n' | 'p';
 
 /** Square name like 'e4' */
 export type SquareName = string;

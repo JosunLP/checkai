@@ -42,9 +42,7 @@ function renderArchiveList(): void {
   for (const game of games) {
     const card = document.createElement('div');
     card.className = 'game-card archive-card';
-    card.addEventListener('click', () =>
-      openReplay(game.game_id, game.move_count)
-    );
+    card.addEventListener('click', () => openReplay(game.game_id, game.move_count));
 
     const resultMap: Record<string, { text: string; cls: string }> = {
       WhiteWins: { text: t('result.white_wins'), cls: 'result-white' },
@@ -55,12 +53,10 @@ function renderArchiveList(): void {
       text: game.result || '?',
       cls: '',
     };
-    const reason = game.end_reason
-      ? t(`reason.${game.end_reason}`) || game.end_reason
-      : '';
+    const reason = game.end_reason ? t(`reason.${game.end_reason}`) || game.end_reason : '';
     const date = game.start_timestamp
       ? new Date(game.start_timestamp * 1000).toLocaleString(
-          getLocale() === 'zh-CN' ? 'zh-CN' : getLocale()
+          getLocale() === 'zh-CN' ? 'zh-CN' : getLocale(),
         )
       : '';
 
@@ -87,19 +83,14 @@ async function openReplay(gameId: string, totalMoves: number): Promise<void> {
   store.replayTotalMoves.value = totalMoves || 0;
   store.replayMoveNum.value = totalMoves || 0;
 
-  const slider = document.getElementById(
-    'replay-slider'
-  ) as HTMLInputElement | null;
+  const slider = document.getElementById('replay-slider') as HTMLInputElement | null;
   if (slider) {
     slider.max = String(totalMoves || 0);
     slider.value = String(totalMoves || 0);
   }
 
   setText('replay-total-moves', totalMoves || 0);
-  setText(
-    'replay-title',
-    t('archive.replay_title', { id: gameId.substring(0, 8) + '…' })
-  );
+  setText('replay-title', t('archive.replay_title', { id: gameId.substring(0, 8) + '…' }));
 
   replaySection.style.display = 'block';
   replaySection.dataset.gameId = gameId;
@@ -107,10 +98,7 @@ async function openReplay(gameId: string, totalMoves: number): Promise<void> {
   await loadReplayPosition(gameId, totalMoves || 0);
 }
 
-async function loadReplayPosition(
-  gameId: string,
-  moveNum: number
-): Promise<void> {
+async function loadReplayPosition(gameId: string, moveNum: number): Promise<void> {
   try {
     const data = await api.replayArchived(gameId, moveNum);
     store.replayData.value = data;
@@ -134,24 +122,20 @@ export function bindArchiveEvents(): void {
     if (section) section.style.display = 'none';
   });
 
-  const slider = document.getElementById(
-    'replay-slider'
-  ) as HTMLInputElement | null;
+  const slider = document.getElementById('replay-slider') as HTMLInputElement | null;
   slider?.addEventListener('input', async () => {
     const section = document.getElementById('archive-replay');
     const gameId = section?.dataset.gameId;
     if (gameId) await loadReplayPosition(gameId, parseInt(slider.value));
   });
 
-  document
-    .getElementById('replay-start')
-    ?.addEventListener('click', async () => {
-      const section = document.getElementById('archive-replay');
-      const gameId = section?.dataset.gameId;
-      if (!gameId) return;
-      if (slider) slider.value = '0';
-      await loadReplayPosition(gameId, 0);
-    });
+  document.getElementById('replay-start')?.addEventListener('click', async () => {
+    const section = document.getElementById('archive-replay');
+    const gameId = section?.dataset.gameId;
+    if (!gameId) return;
+    if (slider) slider.value = '0';
+    await loadReplayPosition(gameId, 0);
+  });
 
   document.getElementById('replay-end')?.addEventListener('click', async () => {
     const section = document.getElementById('archive-replay');
@@ -162,26 +146,22 @@ export function bindArchiveEvents(): void {
     await loadReplayPosition(gameId, total);
   });
 
-  document
-    .getElementById('replay-prev')
-    ?.addEventListener('click', async () => {
-      const section = document.getElementById('archive-replay');
-      const gameId = section?.dataset.gameId;
-      if (!gameId) return;
-      const next = Math.max(0, store.replayMoveNum.value - 1);
-      if (slider) slider.value = String(next);
-      await loadReplayPosition(gameId, next);
-    });
+  document.getElementById('replay-prev')?.addEventListener('click', async () => {
+    const section = document.getElementById('archive-replay');
+    const gameId = section?.dataset.gameId;
+    if (!gameId) return;
+    const next = Math.max(0, store.replayMoveNum.value - 1);
+    if (slider) slider.value = String(next);
+    await loadReplayPosition(gameId, next);
+  });
 
-  document
-    .getElementById('replay-next')
-    ?.addEventListener('click', async () => {
-      const section = document.getElementById('archive-replay');
-      const gameId = section?.dataset.gameId;
-      if (!gameId) return;
-      const total = store.replayTotalMoves.value;
-      const next = Math.min(total, store.replayMoveNum.value + 1);
-      if (slider) slider.value = String(next);
-      await loadReplayPosition(gameId, next);
-    });
+  document.getElementById('replay-next')?.addEventListener('click', async () => {
+    const section = document.getElementById('archive-replay');
+    const gameId = section?.dataset.gameId;
+    if (!gameId) return;
+    const total = store.replayTotalMoves.value;
+    const next = Math.min(total, store.replayMoveNum.value + 1);
+    if (slider) slider.value = String(next);
+    await loadReplayPosition(gameId, next);
+  });
 }
