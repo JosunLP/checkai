@@ -317,3 +317,19 @@ Interactive API documentation is available at:
 ```bash
 http://localhost:8080/swagger-ui/
 ```
+
+## Error Responses
+
+All error responses return a JSON object with an `error` field:
+
+```json
+{
+  "error": "Description of what went wrong"
+}
+```
+
+| Status Code                 | Meaning                                               | Example                           |
+| --------------------------- | ----------------------------------------------------- | --------------------------------- |
+| `400 Bad Request`           | Invalid input (bad FEN, illegal move, missing fields) | `{"error": "Illegal move: e2e5"}` |
+| `404 Not Found`             | Game or resource does not exist                       | `{"error": "Game not found"}`     |
+| `500 Internal Server Error` | Unexpected server error                               | `{"error": "Internal error"}`     |

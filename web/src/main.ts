@@ -17,16 +17,17 @@ import {
   importFen,
   loadGame,
   offerDraw,
+  refreshCurrentGame,
   refreshGameList,
   refreshStorageStats,
   renderGameList,
   resign,
   submitMoveFromInput,
 } from './game';
-import { getLocale, initI18n, setLocale, translateDom } from './i18n';
+import { getLocale, initI18n, setLocale, t, translateDom } from './i18n';
 import { store } from './store';
 import { showToast } from './ui';
-import { connectWebSocket } from './ws';
+import { connectWebSocket, onWsMessage } from './ws';
 
 // ---------------------------------------------------------------------------
 // Navigation
@@ -193,6 +194,25 @@ async function init(): Promise<void> {
   setupViewEffect();
   setupWsIndicator();
   setupBoardEffect();
+
+  // Wire WebSocket event handler: when the server pushes game updates,
+  // refresh the affected game data in the UI.
+  onWsMessage(async (msg) => {
+    if (msg.event === 'game_updated' && msg.game_id) {
+      if (store.currentGameId.value === msg.game_id) {
+        await refreshCurrentGame();
+      }
+      await refreshGameList();
+    } else if (msg.event === 'game_created') {
+      await refreshGameList();
+    } else if (msg.event === 'game_deleted' && msg.game_id) {
+      if (store.currentGameId.value === msg.game_id) {
+        showToast(t('toast.current_game_deleted'), 'warning');
+        navigateView('dashboard');
+      }
+      await refreshGameList();
+    }
+  });
 
   connectWebSocket();
 

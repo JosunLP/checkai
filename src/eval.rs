@@ -291,11 +291,26 @@ const DOUBLED_PAWN_PENALTY_EG: i32 = -20;
 const ISOLATED_PAWN_PENALTY_MG: i32 = -10;
 const ISOLATED_PAWN_PENALTY_EG: i32 = -15;
 
+/// Penalty for backward pawns (no friendly pawn can protect it from behind,
+/// and advancing would walk into an enemy pawn's control).
+const BACKWARD_PAWN_PENALTY_MG: i32 = -8;
+const BACKWARD_PAWN_PENALTY_EG: i32 = -10;
+
+/// Bonus for connected pawns (pawns that defend each other diagonally).
+const CONNECTED_PAWN_BONUS_MG: i32 = 7;
+const CONNECTED_PAWN_BONUS_EG: i32 = 5;
+
 /// Bonus for passed pawns (indexed by rank from own side, 0-7).
 #[rustfmt::skip]
 const PASSED_PAWN_BONUS_EG: [i32; 8] = [
     0, 5, 10, 20, 35, 60, 100, 0,
 ];
+
+/// Tempo bonus: small advantage for having the move.
+const TEMPO_BONUS: i32 = 10;
+
+/// Space bonus per controlled square in the centre on ranks 2-4 (from own side).
+const SPACE_BONUS_MG: i32 = 3;
 
 // ---------------------------------------------------------------------------
 // King safety
@@ -364,11 +379,12 @@ pub fn evaluate(board: &Board, turn: Color) -> i32 {
     // phase = PHASE_MAX → pure midgame, phase = 0 → pure endgame.
     let score = (mg_score * phase + eg_score * (PHASE_MAX - phase)) / PHASE_MAX;
 
-    // Return relative to side to move
-    match turn {
+    // Return relative to side to move, with tempo bonus
+    let relative = match turn {
         Color::White => score,
         Color::Black => -score,
-    }
+    };
+    relative + TEMPO_BONUS
 }
 
 /// Accumulates material, PST, and bonus scores for both sides.
@@ -458,12 +474,14 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
 
     // Pawn structure
     let (w_pawn_mg, w_pawn_eg) = pawn_structure_score(
+        board,
         &white_pawns_per_file,
         &black_pawns_per_file,
         Color::White,
         &white_pawn_max_rank,
     );
     let (b_pawn_mg, b_pawn_eg) = pawn_structure_score(
+        board,
         &black_pawns_per_file,
         &white_pawns_per_file,
         Color::Black,
@@ -514,6 +532,7 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
 
 /// Evaluates pawn structure bonuses and penalties.
 fn pawn_structure_score(
+    board: &Board,
     own_pawns: &[u8; 8],
     opponent_pawns: &[u8; 8],
     color: Color,
@@ -541,15 +560,32 @@ fn pawn_structure_score(
         if !has_neighbor {
             mg += ISOLATED_PAWN_PENALTY_MG * count as i32;
             eg += ISOLATED_PAWN_PENALTY_EG * count as i32;
+        } else {
+            // Backward pawn: has neighbors but none can protect from behind.
+            // A pawn is backward if the stop-square is attacked by enemy pawns
+            // and no friendly pawn on adjacent files is at the same rank or behind.
+            let rank = most_advanced_rank[file];
+            let behind_rank_ok = match color {
+                Color::White => {
+                    (file > 0 && own_pawns[file - 1] > 0 && most_advanced_rank.get(file - 1).copied().unwrap_or(0) >= rank)
+                    || (file < 7 && own_pawns[file + 1] > 0 && most_advanced_rank.get(file + 1).copied().unwrap_or(0) >= rank)
+                }
+                Color::Black => {
+                    (file > 0 && own_pawns[file - 1] > 0 && most_advanced_rank.get(file - 1).copied().unwrap_or(7) <= rank)
+                    || (file < 7 && own_pawns[file + 1] > 0 && most_advanced_rank.get(file + 1).copied().unwrap_or(7) <= rank)
+                }
+            };
+            if !behind_rank_ok {
+                mg += BACKWARD_PAWN_PENALTY_MG;
+                eg += BACKWARD_PAWN_PENALTY_EG;
+            }
         }
 
         // Passed pawn: no opponent pawns on same or adjacent files ahead
-        // (simplified — checks if any opponent pawn exists on those files)
         let blocked = (file > 0 && opponent_pawns[file - 1] > 0)
             || opponent_pawns[file] > 0
             || (file < 7 && opponent_pawns[file + 1] > 0);
         if !blocked {
-            // Use the actual most-advanced rank for this file
             let rank_bonus = match color {
                 Color::White => most_advanced_rank[file] as usize,
                 Color::Black => (7 - most_advanced_rank[file]) as usize,
@@ -557,6 +593,51 @@ fn pawn_structure_score(
             eg += PASSED_PAWN_BONUS_EG[rank_bonus.min(7)];
         }
     }
+
+    // Connected pawns: bonus for pawns that diagonally defend each other
+    let (dir, start_rank, end_rank): (i8, u8, u8) = match color {
+        Color::White => (1, 1, 6),
+        Color::Black => (-1, 1, 6),
+    };
+    for rank in start_rank..=end_rank {
+        for file_idx in 0..8u8 {
+            let sq = Square::new(file_idx, rank);
+            if board.get(sq).is_some_and(|p| p.kind == PieceKind::Pawn && p.color == color) {
+                // Check if defended by a friendly pawn on adjacent file behind
+                let behind_rank = (rank as i8 - dir) as u8;
+                if behind_rank < 8 {
+                    let defended = (file_idx > 0
+                        && board
+                            .get(Square::new(file_idx - 1, behind_rank))
+                            .is_some_and(|p| p.kind == PieceKind::Pawn && p.color == color))
+                        || (file_idx < 7
+                            && board
+                                .get(Square::new(file_idx + 1, behind_rank))
+                                .is_some_and(|p| p.kind == PieceKind::Pawn && p.color == color));
+                    if defended {
+                        mg += CONNECTED_PAWN_BONUS_MG;
+                        eg += CONNECTED_PAWN_BONUS_EG;
+                    }
+                }
+            }
+        }
+    }
+
+    // Space advantage: count controlled central squares (files c-f, ranks 2-4 from own side)
+    let space_ranks: std::ops::RangeInclusive<u8> = match color {
+        Color::White => 1..=3,
+        Color::Black => 4..=6,
+    };
+    let mut space = 0i32;
+    for rank in space_ranks {
+        for file_idx in 2..=5u8 {
+            let sq = Square::new(file_idx, rank);
+            if board.get(sq).is_some_and(|p| p.kind == PieceKind::Pawn && p.color == color) {
+                space += 1;
+            }
+        }
+    }
+    mg += space * SPACE_BONUS_MG;
 
     (mg, eg)
 }

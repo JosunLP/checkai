@@ -19,7 +19,7 @@ The Web UI is compiled into the binary via `rust-embed`, so no external files ar
 - **Move Input** — Click-to-select squares or type moves in coordinate notation
 - **Legal Move Highlights** — Visual dots and rings for valid target squares
 - **Promotion Dialog** — Piece-picker popup when a pawn reaches the 8th rank
-- **Real-time Updates** — WebSocket-powered live game state with auto-reconnect
+- **Real-time Updates** — WebSocket-powered live game state with exponential-backoff auto-reconnect (1 s → 30 s max)
 - **FEN/PGN Tools** — Copy current position as FEN, export PGN, import from FEN string
 - **Board Flip** — Toggle board orientation
 - **Analysis Panel** — Start deep analysis and view real-time results (score, depth, best move, PV)

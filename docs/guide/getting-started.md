@@ -1,5 +1,16 @@
 # Getting Started
 
+## System Requirements
+
+| Requirement              | Minimum                                            |
+| ------------------------ | -------------------------------------------------- |
+| OS                       | Linux (glibc 2.31+), macOS 12+, Windows 10+        |
+| CPU                      | Any x86-64 or ARM64                                |
+| RAM                      | 128 MB (+ transposition table size, default 64 MB) |
+| Disk                     | ~20 MB for the binary                              |
+| Rust (build from source) | 1.85.0+ (edition 2024)                             |
+| Node.js (web UI dev)     | 18+                                                |
+
 ## Installation
 
 ### Pre-built Binaries (Recommended)

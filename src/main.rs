@@ -97,38 +97,24 @@ use crate::api::{ApiDoc, AppState};
 use crate::game::GameManager;
 use crate::ws::GameBroadcaster;
 
-/// Embedded web UI assets (compiled into the binary).
-#[derive(RustEmbed)]
-#[folder = "web/"]
-#[exclude = "src/*"]
-#[exclude = "node_modules/*"]
-#[exclude = "dist/*"]
-#[exclude = "*.ts"]
-#[exclude = "package*.json"]
-#[exclude = "tsconfig.json"]
-#[exclude = "vite.config.ts"]
-struct WebAssets;
-
 /// Embedded Vite-built UI assets (compiled into the binary).
 /// Built via `cd web && bun run build`.
 #[derive(RustEmbed)]
 #[folder = "web/dist/"]
 struct DistAssets;
 
-/// Serves embedded web UI files (Vite-built UI takes priority).
+/// Serves embedded web UI files from the Vite-built bundle.
 async fn serve_web_asset(path: web::Path<String>) -> HttpResponse {
     let file_path = path.into_inner();
 
-    // Map index.html → index.vite.html in the Vite dist bundle
+    // Map index.html → index.vite.html (Vite output filename)
     let dist_path = if file_path == "index.html" {
-        "index.vite.html".to_string()
+        "index.vite.html"
     } else {
-        file_path.clone()
+        &file_path
     };
 
-    // Try Vite-built dist first, fall back to legacy web/
-    let content = DistAssets::get(&dist_path).or_else(|| WebAssets::get(&file_path));
-    match content {
+    match DistAssets::get(dist_path) {
         Some(content) => {
             let mime_type = match file_path.rsplit('.').next() {
                 Some("html") => "text/html; charset=utf-8",

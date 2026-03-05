@@ -117,19 +117,25 @@ The evaluation function combines multiple scoring components:
 - **PeSTO tables** — separate midgame/endgame piece-square tables with phase interpolation
 - **King safety** — pawn shield analysis, open file penalties near the king, enemy piece tropism (Chebyshev distance)
 - **Piece mobility** — pseudo-legal square counts for knights, bishops, rooks, and queens with per-phase scoring
-- **Pawn structure** — doubled, isolated, and passed pawn evaluation
+- **Pawn structure** — doubled, isolated, passed, backward, and connected pawn evaluation
 - **Positional bonuses** — bishop pair, rook on open/semi-open files
+- **Tempo bonus** — small bonus for the side to move
+- **Space advantage** — bonus for pawns advanced past the center into the opponent's half
 
 ### Search Techniques
 
 The alpha-beta search employs numerous pruning and ordering optimizations:
 
-- **Iterative deepening** with aspiration windows
+- **Iterative deepening** with aspiration windows (initial delta ±25 cp)
 - **Principal Variation Search** (PVS) — narrowed alpha-beta windows
-- **Transposition table** — 64 MB hash table with Zobrist keys
+- **Transposition table** — configurable hash table (64 MB default) with Zobrist keys
 - **Null-move pruning** (R = 3) — skip a move to prove a position is strong
-- **Late Move Reductions** (LMR) — reduce search depth for unlikely moves
-- **Killer moves** and **history heuristic** for move ordering
+- **Late Move Reductions** (LMR) — reduce search depth for unlikely moves beyond the first 4
+- **Internal Iterative Deepening** (IID) — shallow search at PV nodes without a TT move (depth ≥ 4)
+- **Late Move Pruning** (LMP) — skip late quiet moves at depths 1–4 when threshold is exceeded
+- **Razoring** — drop into quiescence search when eval + 300 cp ≤ alpha at depth ≤ 2
+- **Killer moves** (2 slots per ply) and **history heuristic** (with aging between iterations) for move ordering
+- **Counter-move heuristic** — prioritize the move that refuted the opponent's last move
 - **Static Exchange Evaluation** (SEE) — filters bad captures at low depth
-- **Futility pruning** — skips quiet moves when the static evaluation is far below alpha
+- **Futility pruning** — skips quiet moves when the static evaluation is far below alpha (depth ≤ 3)
 - **Quiescence search** — resolves captures and checks to avoid horizon effects

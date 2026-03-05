@@ -36,7 +36,14 @@ async function request<T>(
   }
   const ct = res.headers.get('Content-Type') || '';
   if (ct.includes('application/json')) return res.json() as Promise<T>;
-  return res.text() as unknown as T;
+  // For non-JSON responses (plain text), try to parse as JSON first;
+  // if that fails, return the raw text. This avoids the unsafe `as unknown as T` cast.
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return text as unknown as T;
+  }
 }
 
 // ── Game CRUD ────────────────────────────────────────────────────────────────

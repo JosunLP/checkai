@@ -439,5 +439,21 @@ export function translateDom(): void {
 /** Initialize the i18n system. */
 export function initI18n(): void {
   currentLocale = detectLocale();
+
+  // Populate language dropdown
+  const select = document.getElementById(
+    'lang-select'
+  ) as HTMLSelectElement | null;
+  if (select) {
+    select.innerHTML = '';
+    for (const loc of SUPPORTED_LOCALES) {
+      const opt = document.createElement('option');
+      opt.value = loc.code;
+      opt.textContent = loc.name;
+      select.appendChild(opt);
+    }
+    select.value = currentLocale;
+  }
+
   translateDom();
 }

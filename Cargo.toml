@@ -12,7 +12,7 @@ actix-cors = "0.7"
 actix = "0.13"
 actix-web-actors = "4"
 # Embedded web assets
-rust-embed = { version = "8", features = ["include-exclude"] }
+rust-embed = "8"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

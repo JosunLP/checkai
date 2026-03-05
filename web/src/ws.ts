@@ -9,6 +9,8 @@ const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${wind
 
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectDelay = 1000; // Start at 1s, exponential backoff up to 30s
+const RECONNECT_MAX_DELAY = 30_000;
 
 type WsEventHandler = (msg: WsMessage) => void;
 let onMessage: WsEventHandler | null = null;
@@ -35,6 +37,7 @@ export function connectWebSocket(): void {
 
   ws.onopen = () => {
     store.wsConnected.value = true;
+    reconnectDelay = 1000; // Reset backoff on successful connection
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
@@ -67,7 +70,9 @@ function scheduleReconnect(): void {
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     connectWebSocket();
-  }, 3000);
+  }, reconnectDelay);
+  // Exponential backoff with cap
+  reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_DELAY);
 }
 
 function wsSend(payload: WsPayload): void {
