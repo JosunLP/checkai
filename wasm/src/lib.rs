@@ -1024,12 +1024,24 @@ fn board_to_ascii_internal(board: &Board, turn: Color) -> String {
 // Utility
 // ---------------------------------------------------------------------------
 
-/// Simple ID generator using js_sys::Math::random.
+/// Simple ID generator using cryptographically secure randomness from Web Crypto.
 fn generate_id() -> String {
+    // 16 random bytes => 32 hex characters.
+    let mut bytes = [0u8; 16];
+
+    // Use the browser's Web Crypto API for secure random values.
+    let window = web_sys::window().expect("no global `window` exists");
+    let crypto = window.crypto().expect("`window.crypto` not available");
+    crypto
+        .get_random_values_with_u8_array(&mut bytes)
+        .expect("failed to obtain secure random values");
+
     let mut id = String::with_capacity(32);
-    for _ in 0..32 {
-        let r = (js_sys::Math::random() * 16.0) as u8;
-        id.push(char::from_digit(r as u32, 16).unwrap_or('0'));
+    for byte in &bytes {
+        let high = (byte >> 4) & 0x0f;
+        let low = byte & 0x0f;
+        id.push(char::from_digit(high as u32, 16).unwrap_or('0'));
+        id.push(char::from_digit(low as u32, 16).unwrap_or('0'));
     }
     id
 }
