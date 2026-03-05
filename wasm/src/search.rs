@@ -450,14 +450,12 @@ fn piece_value(kind: PieceKind) -> i32 {
 /// 1. TT best move (score = 10_000_000)
 /// 2. Captures ordered by MVV-LVA (score = 1_000_000 + mvv_lva)
 /// 3. Killer moves (score = 900_000 / 899_000)
-/// 4. Counter-move heuristic (score = 898_000)
-/// 5. Quiet moves by history heuristic
+/// 4. Quiet moves by history heuristic
 fn score_moves(
     moves: &[ChessMove],
     board: &Board,
     tt_move: Option<&ChessMove>,
     killers: &[Option<ChessMove>; 2],
-    counter_move: Option<&ChessMove>,
     history: &[[i32; 64]; 64],
 ) -> Vec<(ChessMove, i32)> {
     moves
@@ -472,8 +470,6 @@ fn score_moves(
                 900_000
             } else if killers[1].as_ref().is_some_and(|k| k == mv) {
                 899_000
-            } else if counter_move.is_some_and(|cm| cm == mv) {
-                898_000
             } else {
                 // History heuristic
                 history[mv.from.index()][mv.to.index()]
@@ -789,7 +785,6 @@ impl SearchEngine {
             &pos.board,
             tt_move.as_ref(),
             killers,
-            None,
             &self.history,
         );
         sort_moves(&mut scored);
