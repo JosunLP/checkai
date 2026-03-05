@@ -133,12 +133,12 @@ try {
       if (jsonOutput) {
         console.log(JSON.stringify(result, null, 2));
       } else {
-        console.log(`Best move : ${result.best_move?.notation ?? '(none)'}`);
+        console.log(`Best move : ${result.bestMove?.notation ?? '(none)'}`);
         console.log(`Score     : ${result.score} cp`);
         console.log(`Depth     : ${result.depth}`);
         console.log(`PV        : ${result.pv.join(' ')}`);
         console.log(`Nodes     : ${result.nodes}`);
-        console.log(`Time      : ${result.time_ms} ms`);
+        console.log(`Time      : ${result.timeMs} ms`);
       }
       break;
     }
@@ -155,11 +155,10 @@ try {
         console.log(JSON.stringify(result, null, 2));
       } else {
         console.log(result.fen);
-        if (result.is_checkmate) console.log('Checkmate!');
-        else if (result.is_stalemate) console.log('Stalemate!');
-        else if (result.is_check) console.log('Check!');
-        if (result.is_insufficient_material)
-          console.log('Insufficient material');
+        if (result.isCheckmate) console.log('Checkmate!');
+        else if (result.isStalemate) console.log('Stalemate!');
+        else if (result.isCheck) console.log('Check!');
+        if (result.isInsufficientMaterial) console.log('Insufficient material');
       }
       break;
     }
@@ -430,7 +429,7 @@ function runInteractiveGame() {
       if (move === 'hint') {
         const result = wasm.bestMove(fen, 10);
         console.log(
-          `Hint: ${result.best_move?.notation ?? '?'} (${result.score} cp)`
+          `Hint: ${result.bestMove?.notation ?? '?'} (${result.score} cp)`
         );
         promptMove();
         return;

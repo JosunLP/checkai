@@ -41,7 +41,7 @@ export const engine = {
 
   /**
    * Apply a move (coordinate notation, e.g. "e2e4") to a FEN position.
-   * Returns { fen, is_check, is_checkmate, is_stalemate, is_insufficient_material }.
+   * Returns { fen, isCheck, isCheckmate, isStalemate, isInsufficientMaterial }.
    */
   makeMove: wasm.makeMove,
 

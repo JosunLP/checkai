@@ -71,8 +71,8 @@ import { engine } from "@josunlp/checkai";
 const fen = engine.startingFen();
 const moves = engine.legalMoves(fen);       // Array of legal moves
 const score = engine.evaluate(fen);          // Centipawns
-const result = engine.bestMove(fen, 10);     // { best_move, score, depth, pv, nodes, time_ms }
-const after = engine.makeMove(fen, "e2e4");  // { fen, is_check, is_checkmate, ... }
+const result = engine.bestMove(fen, 10);     // { bestMove, score, depth, pv, nodes, timeMs }
+const after = engine.makeMove(fen, "e2e4");  // { fen, isCheck, isCheckmate, ... }
 
 engine.isCheckmate(fen);            // boolean
 engine.isStalemate(fen);            // boolean
@@ -108,18 +108,18 @@ const text = engine.gameToText(gameId);
 
 ### Position Analysis
 
-| Function                      | Parameters              | Returns                                                                   |
-| ----------------------------- | ----------------------- | ------------------------------------------------------------------------- |
-| `startingFen()`               | —                       | `string`                                                                  |
-| `legalMoves(fen)`             | FEN string              | `Array<{ from, to, promotion?, notation }>`                               |
-| `evaluate(fen)`               | FEN string              | `number` (centipawns)                                                     |
-| `bestMove(fen, depth)`        | FEN, depth 1–30         | `{ best_move, score, depth, pv, nodes, time_ms }`                         |
-| `makeMove(fen, move)`         | FEN, move (e.g. "e2e4") | `{ fen, is_check, is_checkmate, is_stalemate, is_insufficient_material }` |
-| `isCheckmate(fen)`            | FEN string              | `boolean`                                                                 |
-| `isStalemate(fen)`            | FEN string              | `boolean`                                                                 |
-| `isCheck(fen)`                | FEN string              | `boolean`                                                                 |
-| `isInsufficientMaterial(fen)` | FEN string              | `boolean`                                                                 |
-| `boardToAscii(fen)`           | FEN string              | `string`                                                                  |
+| Function                      | Parameters              | Returns                                                              |
+| ----------------------------- | ----------------------- | -------------------------------------------------------------------- |
+| `startingFen()`               | —                       | `string`                                                             |
+| `legalMoves(fen)`             | FEN string              | `Array<{ from, to, promotion?, notation }>`                          |
+| `evaluate(fen)`               | FEN string              | `number` (centipawns)                                                |
+| `bestMove(fen, depth)`        | FEN, depth 1–30         | `{ bestMove, score, depth, pv, nodes, timeMs }`                      |
+| `makeMove(fen, move)`         | FEN, move (e.g. "e2e4") | `{ fen, isCheck, isCheckmate, isStalemate, isInsufficientMaterial }` |
+| `isCheckmate(fen)`            | FEN string              | `boolean`                                                            |
+| `isStalemate(fen)`            | FEN string              | `boolean`                                                            |
+| `isCheck(fen)`                | FEN string              | `boolean`                                                            |
+| `isInsufficientMaterial(fen)` | FEN string              | `boolean`                                                            |
+| `boardToAscii(fen)`           | FEN string              | `string`                                                             |
 
 ### Game Management
 

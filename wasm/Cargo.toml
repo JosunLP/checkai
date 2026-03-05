@@ -31,8 +31,8 @@ console_log = { version = "1", features = ["color"] }
 # Access to JavaScript Date.now() for timestamps
 js-sys = "0.3"
 
-# Web APIs: window, crypto for secure random ID generation
-web-sys = { version = "0.3", features = ["Window", "Crypto"] }
+# Web APIs (kept for potential browser-side usage)
+web-sys = "0.3"
 
 [profile.release]
 opt-level = "s"

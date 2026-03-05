@@ -615,6 +615,7 @@ impl From<&ChessMove> for MoveJson {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct SearchResultJson {
     best_move: Option<MoveJson>,
     score: i32,
@@ -625,6 +626,7 @@ struct SearchResultJson {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct MakeMoveResult {
     fen: String,
     is_check: bool,
@@ -1024,17 +1026,52 @@ fn board_to_ascii_internal(board: &Board, turn: Color) -> String {
 // Utility
 // ---------------------------------------------------------------------------
 
-/// Simple ID generator using cryptographically secure randomness from Web Crypto.
+/// Simple ID generator using cryptographically secure randomness via globalThis.crypto.
+/// Works in both browser and Node.js environments.
 fn generate_id() -> String {
     // 16 random bytes => 32 hex characters.
     let mut bytes = [0u8; 16];
 
-    // Use the browser's Web Crypto API for secure random values.
-    let window = web_sys::window().expect("no global `window` exists");
-    let crypto = window.crypto().expect("`window.crypto` not available");
-    crypto
-        .get_random_values_with_u8_array(&mut bytes)
-        .expect("failed to obtain secure random values");
+    // Try to use globalThis.crypto.getRandomValues (Node+browser compatible).
+    let mut filled = false;
+    {
+        let global = js_sys::global();
+        if let Ok(crypto_val) =
+            js_sys::Reflect::get(&global, &wasm_bindgen::JsValue::from_str("crypto"))
+        {
+            if !crypto_val.is_undefined() && !crypto_val.is_null() {
+                if let Ok(get_random_values) = js_sys::Reflect::get(
+                    &crypto_val,
+                    &wasm_bindgen::JsValue::from_str("getRandomValues"),
+                ) {
+                    if get_random_values.is_function() {
+                        let func: js_sys::Function = get_random_values.into();
+                        let uint8_array =
+                            js_sys::Uint8Array::new_with_length(bytes.len() as u32);
+                        let args = js_sys::Array::of1(&uint8_array);
+                        if js_sys::Reflect::apply(
+                            &func,
+                            &crypto_val,
+                            &args,
+                        )
+                        .is_ok()
+                        {
+                            uint8_array.copy_to(&mut bytes);
+                            filled = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: if secure randomness is unavailable, use Math.random.
+    if !filled {
+        for b in &mut bytes {
+            let r = js_sys::Math::random() * 256.0;
+            *b = r.floor() as u8;
+        }
+    }
 
     let mut id = String::with_capacity(32);
     for byte in &bytes {

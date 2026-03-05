@@ -87,7 +87,7 @@ checkai play
 
 ```bash
 checkai version
-checkai --json search "..." --depth 10   # JSON output for any command
+checkai search "..." --depth 10 --json   # JSON output for any command
 ```
 
 ## Library Usage
@@ -141,18 +141,18 @@ const allGames = engine.listGames();
 
 ### Position analysis
 
-| Function                      | Parameters              | Returns                                                                   |
-| ----------------------------- | ----------------------- | ------------------------------------------------------------------------- |
-| `startingFen()`               | —                       | `string`                                                                  |
-| `legalMoves(fen)`             | FEN string              | `Array<{ from, to, promotion?, notation }>`                               |
-| `evaluate(fen)`               | FEN string              | `number` (centipawns)                                                     |
-| `bestMove(fen, depth)`        | FEN string, depth 1-30  | `{ best_move, score, depth, pv, nodes, time_ms }`                         |
-| `makeMove(fen, move)`         | FEN, move (e.g. "e2e4") | `{ fen, is_check, is_checkmate, is_stalemate, is_insufficient_material }` |
-| `isCheckmate(fen)`            | FEN string              | `boolean`                                                                 |
-| `isStalemate(fen)`            | FEN string              | `boolean`                                                                 |
-| `isCheck(fen)`                | FEN string              | `boolean`                                                                 |
-| `isInsufficientMaterial(fen)` | FEN string              | `boolean`                                                                 |
-| `boardToAscii(fen)`           | FEN string              | `string`                                                                  |
+| Function                      | Parameters              | Returns                                                              |
+| ----------------------------- | ----------------------- | -------------------------------------------------------------------- |
+| `startingFen()`               | —                       | `string`                                                             |
+| `legalMoves(fen)`             | FEN string              | `Array<{ from, to, promotion?, notation }>`                          |
+| `evaluate(fen)`               | FEN string              | `number` (centipawns)                                                |
+| `bestMove(fen, depth)`        | FEN string, depth 1-30  | `{ bestMove, score, depth, pv, nodes, timeMs }`                      |
+| `makeMove(fen, move)`         | FEN, move (e.g. "e2e4") | `{ fen, isCheck, isCheckmate, isStalemate, isInsufficientMaterial }` |
+| `isCheckmate(fen)`            | FEN string              | `boolean`                                                            |
+| `isStalemate(fen)`            | FEN string              | `boolean`                                                            |
+| `isCheck(fen)`                | FEN string              | `boolean`                                                            |
+| `isInsufficientMaterial(fen)` | FEN string              | `boolean`                                                            |
+| `boardToAscii(fen)`           | FEN string              | `string`                                                             |
 
 ### Game management
 
