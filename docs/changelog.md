@@ -2,6 +2,35 @@
 
 All notable changes to CheckAI are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-03-05
+
+### Added
+
+- **Modern TypeScript Web UI** — Complete modular rewrite with @bquery/bquery v1.4, Tailwind CSS v4, and Vite v7
+  - 12 modular TypeScript source files with reactive signal-driven architecture
+  - SVG chess board with click selection, legal move indicators, check highlight, board flip
+  - Analysis panel with real-time polling and score formatting (including mate detection)
+  - Promotion dialog, FEN/PGN toolbar tools, WebSocket indicator with auto-reconnect
+  - Vite-built SPA embedded into the Rust binary via dual `rust-embed` (DistAssets + WebAssets fallback)
+- **FEN/PGN API endpoints**
+  - `GET /api/games/{id}/fen` — Export full 6-field FEN
+  - `POST /api/games/fen` — Create game from FEN string
+  - `GET /api/games/{id}/pgn` — Export PGN with Seven Tag Roster
+- **King safety evaluation** — Pawn shield, open file penalties, enemy piece tropism
+- **Piece mobility evaluation** — Per-phase square counts for knights, bishops, rooks, queens
+- **Static Exchange Evaluation (SEE)** — Filters bad captures at low depth
+- **Futility pruning** — Skips quiet moves when static eval is far below alpha
+- **Bun** as frontend package manager (replaces Node.js/npm)
+
+### Changed
+
+- `rust-embed` uses `include-exclude` feature to exclude TS source from legacy embed
+- VitePress documentation updated for all new features
+
+### Fixed
+
+- Clippy warnings: collapsed nested ifs, `RangeInclusive::contains`
+
 ## [0.3.1] — 2026-03-02
 
 ### Added

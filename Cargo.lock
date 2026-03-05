@@ -475,7 +475,7 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "checkai"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "actix",
  "actix-cors",
@@ -1827,6 +1827,7 @@ version = "8.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5bcdef0be6fe7f6fa333b1073c949729274b05f123a0ad7efcb8efd878e5c3b1"
 dependencies = [
+ "globset",
  "sha2",
  "walkdir",
 ]

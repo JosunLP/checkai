@@ -16,8 +16,9 @@ following the **FIDE 2023 Laws of Chess**.
 - **Deep Game Analysis** — Asynchronous analysis engine with a minimum search
   depth of 30 plies. Classifies every move as Best / Excellent / Good /
   Inaccuracy / Mistake / Blunder with centipawn loss and principal variation.
-  Includes PeSTO evaluation, alpha-beta search with PVS, transposition table,
-  null-move pruning, LMR, killer/history heuristics, and quiescence search.
+  Includes PeSTO evaluation with king safety and piece mobility, alpha-beta
+  search with PVS, transposition table, null-move pruning, LMR, SEE pruning,
+  futility pruning, killer/history heuristics, and quiescence search.
 
 - **Opening Book & Endgame Tablebases** — Polyglot `.bin` opening book support
   and Syzygy endgame tablebase detection with limited analytical evaluation
@@ -40,6 +41,11 @@ following the **FIDE 2023 Laws of Chess**.
 
 - **Terminal Interface** — Colored board display with interactive move input
   for local two-player games.
+
+- **Modern Web UI** — TypeScript single-page application built with
+  @bquery/bquery, Tailwind CSS v4, and Vite. Features interactive SVG board,
+  analysis panel, FEN/PGN tools, promotion dialog, and WebSocket auto-reconnect.
+  Compiled into the binary via `rust-embed`.
 
 - **Docker Support** — Multi-stage Dockerfile and docker-compose.yml for
   containerized deployment with volume mounts for game data, opening books,
@@ -135,6 +141,9 @@ cargo run -- play
 | `POST`   | `/api/games/{id}/action` | Submit a special action |
 | `GET`    | `/api/games/{id}/moves`  | Get all legal moves     |
 | `GET`    | `/api/games/{id}/board`  | Get ASCII board display |
+| `GET`    | `/api/games/{id}/fen`    | Export FEN notation     |
+| `POST`   | `/api/games/fen`         | Import game from FEN    |
+| `GET`    | `/api/games/{id}/pgn`    | Export PGN notation     |
 | `GET`    | `/ws`                    | WebSocket endpoint      |
 
 ### Analysis API
@@ -361,7 +370,12 @@ checkai/
 │   ├── api/            # API reference (REST, WebSocket, Analysis)
 │   ├── agent/          # Agent protocol docs (rules, schema, examples)
 │   └── AGENT.md        # Chess rules and JSON protocol for AI agents
-├── web/                # Browser-based game UI
+├── web/                # Browser-based game UI (TypeScript / bQuery / Tailwind / Vite)
+│   ├── src/            # TypeScript source modules
+│   ├── dist/           # Vite production build output (embedded into binary)
+│   ├── index.vite.html # Vite HTML entry point
+│   ├── vite.config.ts  # Vite + Tailwind configuration
+│   └── package.json    # Frontend dependencies (bun)
 └── src/
     ├── main.rs         # Entry point, CLI parsing, server setup
     ├── types.rs        # Core types (pieces, board, squares, JSON protocol)
@@ -375,8 +389,8 @@ checkai/
     ├── terminal.rs     # Terminal interface with colored output
     ├── i18n.rs         # Internationalization helpers
     ├── zobrist.rs      # Zobrist hashing (compile-time key generation)
-    ├── eval.rs         # PeSTO position evaluation (midgame + endgame)
-    ├── search.rs       # Alpha-beta search engine (PVS, TT, LMR, NMP)
+    ├── eval.rs         # PeSTO evaluation + king safety + piece mobility
+    ├── search.rs       # Alpha-beta search (PVS, TT, LMR, NMP, SEE, futility)
     ├── opening_book.rs # Polyglot opening book reader
     ├── tablebase.rs    # Syzygy endgame tablebase interface
     ├── analysis.rs     # Analysis orchestrator (async job queue, pipeline)

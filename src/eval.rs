@@ -298,6 +298,39 @@ const PASSED_PAWN_BONUS_EG: [i32; 8] = [
 ];
 
 // ---------------------------------------------------------------------------
+// King safety
+// ---------------------------------------------------------------------------
+
+/// Penalty per missing pawn in the king's pawn shield (files around the king).
+const KING_PAWN_SHIELD_PENALTY_MG: i32 = -10;
+
+/// Penalty when an adjacent file to the king is open (no pawns from either side).
+const KING_OPEN_FILE_PENALTY_MG: i32 = -20;
+
+/// Penalty per enemy piece on a square within 2 squares of the king (tropism).
+const KING_TROPISM_PENALTY_MG: i32 = -3;
+
+// ---------------------------------------------------------------------------
+// Piece mobility
+// ---------------------------------------------------------------------------
+
+/// Mobility bonus per pseudo-legal square a knight can reach.
+const KNIGHT_MOBILITY_MG: i32 = 4;
+const KNIGHT_MOBILITY_EG: i32 = 3;
+
+/// Mobility bonus per pseudo-legal square a bishop can reach.
+const BISHOP_MOBILITY_MG: i32 = 5;
+const BISHOP_MOBILITY_EG: i32 = 4;
+
+/// Mobility bonus per pseudo-legal square a rook can reach.
+const ROOK_MOBILITY_MG: i32 = 2;
+const ROOK_MOBILITY_EG: i32 = 3;
+
+/// Mobility bonus per pseudo-legal square a queen can reach.
+const QUEEN_MOBILITY_MG: i32 = 1;
+const QUEEN_MOBILITY_EG: i32 = 2;
+
+// ---------------------------------------------------------------------------
 // Evaluation constants
 // ---------------------------------------------------------------------------
 
@@ -463,6 +496,19 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
         }
     }
 
+    // King safety (midgame only)
+    let (w_king_mg, b_king_mg) =
+        king_safety_score(board, &white_pawns_per_file, &black_pawns_per_file);
+    mg_white += w_king_mg;
+    mg_black += b_king_mg;
+
+    // Piece mobility
+    let (w_mob_mg, w_mob_eg, b_mob_mg, b_mob_eg) = mobility_score(board);
+    mg_white += w_mob_mg;
+    eg_white += w_mob_eg;
+    mg_black += b_mob_mg;
+    eg_black += b_mob_eg;
+
     (mg_white, eg_white, mg_black, eg_black, phase)
 }
 
@@ -513,6 +559,283 @@ fn pawn_structure_score(
     }
 
     (mg, eg)
+}
+
+/// Evaluates king safety for both sides (midgame only).
+///
+/// Considers the pawn shield around the king and open files near the king.
+/// Returns `(white_mg, black_mg)`.
+fn king_safety_score(
+    board: &Board,
+    white_pawns_per_file: &[u8; 8],
+    black_pawns_per_file: &[u8; 8],
+) -> (i32, i32) {
+    let mut w_mg = 0i32;
+    let mut b_mg = 0i32;
+
+    // White king safety
+    if let Some(wk) = board.find_king(Color::White) {
+        let king_file = wk.file as usize;
+        let shield_rank = 1u8; // White's pawn shield is on rank 2 (index 1)
+
+        // Check pawn shield on king's file and adjacent files
+        let files_to_check: &[usize] = if king_file == 0 {
+            &[0, 1]
+        } else if king_file == 7 {
+            &[6, 7]
+        } else {
+            &[king_file - 1, king_file, king_file + 1]
+        };
+
+        for &f in files_to_check {
+            // Penalty if no friendly pawn on this file near the king
+            let has_shield = (0..8u8).any(|r| {
+                r <= shield_rank + 1
+                    && board
+                        .get(Square::new(f as u8, r))
+                        .is_some_and(|p| p.kind == PieceKind::Pawn && p.color == Color::White)
+            });
+            if !has_shield {
+                w_mg += KING_PAWN_SHIELD_PENALTY_MG;
+            }
+
+            // Penalty if the file is completely open
+            if white_pawns_per_file[f] == 0 && black_pawns_per_file[f] == 0 {
+                w_mg += KING_OPEN_FILE_PENALTY_MG;
+            }
+        }
+
+        // King tropism: count enemy pieces within Chebyshev distance 2
+        for dr in -2..=2i8 {
+            for df in -2..=2i8 {
+                if dr == 0 && df == 0 {
+                    continue;
+                }
+                if let Some(sq) = wk.offset(df, dr)
+                    && let Some(piece) = board.get(sq)
+                    && piece.color == Color::Black
+                    && piece.kind != PieceKind::Pawn
+                {
+                    w_mg += KING_TROPISM_PENALTY_MG;
+                }
+            }
+        }
+    }
+
+    // Black king safety
+    if let Some(bk) = board.find_king(Color::Black) {
+        let king_file = bk.file as usize;
+        let shield_rank = 6u8; // Black's pawn shield is on rank 7 (index 6)
+
+        let files_to_check: &[usize] = if king_file == 0 {
+            &[0, 1]
+        } else if king_file == 7 {
+            &[6, 7]
+        } else {
+            &[king_file - 1, king_file, king_file + 1]
+        };
+
+        for &f in files_to_check {
+            let has_shield = (0..8u8).any(|r| {
+                r >= shield_rank - 1
+                    && board
+                        .get(Square::new(f as u8, r))
+                        .is_some_and(|p| p.kind == PieceKind::Pawn && p.color == Color::Black)
+            });
+            if !has_shield {
+                b_mg += KING_PAWN_SHIELD_PENALTY_MG;
+            }
+
+            if white_pawns_per_file[f] == 0 && black_pawns_per_file[f] == 0 {
+                b_mg += KING_OPEN_FILE_PENALTY_MG;
+            }
+        }
+
+        for dr in -2..=2i8 {
+            for df in -2..=2i8 {
+                if dr == 0 && df == 0 {
+                    continue;
+                }
+                if let Some(sq) = bk.offset(df, dr)
+                    && let Some(piece) = board.get(sq)
+                    && piece.color == Color::White
+                    && piece.kind != PieceKind::Pawn
+                {
+                    b_mg += KING_TROPISM_PENALTY_MG;
+                }
+            }
+        }
+    }
+
+    (w_mg, b_mg)
+}
+
+/// Evaluates piece mobility for both sides.
+///
+/// Counts the number of pseudo-legal squares each piece can reach.
+/// Returns `(white_mg, white_eg, black_mg, black_eg)`.
+fn mobility_score(board: &Board) -> (i32, i32, i32, i32) {
+    let mut w_mg = 0i32;
+    let mut w_eg = 0i32;
+    let mut b_mg = 0i32;
+    let mut b_eg = 0i32;
+
+    let knight_offsets: [(i8, i8); 8] = [
+        (-2, -1),
+        (-2, 1),
+        (-1, -2),
+        (-1, 2),
+        (1, -2),
+        (1, 2),
+        (2, -1),
+        (2, 1),
+    ];
+    let bishop_dirs: [(i8, i8); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
+    let rook_dirs: [(i8, i8); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
+
+    for rank in 0..8u8 {
+        for file in 0..8u8 {
+            let sq = Square::new(file, rank);
+            let Some(piece) = board.get(sq) else { continue };
+
+            let mut moves = 0i32;
+
+            match piece.kind {
+                PieceKind::Knight => {
+                    for &(df, dr) in &knight_offsets {
+                        if let Some(to) = sq.offset(df, dr) {
+                            let blocked = board.get(to).is_some_and(|p| p.color == piece.color);
+                            if !blocked {
+                                moves += 1;
+                            }
+                        }
+                    }
+                    match piece.color {
+                        Color::White => {
+                            w_mg += moves * KNIGHT_MOBILITY_MG;
+                            w_eg += moves * KNIGHT_MOBILITY_EG;
+                        }
+                        Color::Black => {
+                            b_mg += moves * KNIGHT_MOBILITY_MG;
+                            b_eg += moves * KNIGHT_MOBILITY_EG;
+                        }
+                    }
+                }
+                PieceKind::Bishop => {
+                    for &(df, dr) in &bishop_dirs {
+                        let mut cur = sq;
+                        loop {
+                            match cur.offset(df, dr) {
+                                None => break,
+                                Some(to) => {
+                                    match board.get(to) {
+                                        None => {
+                                            moves += 1;
+                                        }
+                                        Some(p) if p.color != piece.color => {
+                                            moves += 1;
+                                            break;
+                                        }
+                                        _ => break,
+                                    }
+                                    cur = to;
+                                }
+                            }
+                        }
+                    }
+                    match piece.color {
+                        Color::White => {
+                            w_mg += moves * BISHOP_MOBILITY_MG;
+                            w_eg += moves * BISHOP_MOBILITY_EG;
+                        }
+                        Color::Black => {
+                            b_mg += moves * BISHOP_MOBILITY_MG;
+                            b_eg += moves * BISHOP_MOBILITY_EG;
+                        }
+                    }
+                }
+                PieceKind::Rook => {
+                    for &(df, dr) in &rook_dirs {
+                        let mut cur = sq;
+                        loop {
+                            match cur.offset(df, dr) {
+                                None => break,
+                                Some(to) => {
+                                    match board.get(to) {
+                                        None => {
+                                            moves += 1;
+                                        }
+                                        Some(p) if p.color != piece.color => {
+                                            moves += 1;
+                                            break;
+                                        }
+                                        _ => break,
+                                    }
+                                    cur = to;
+                                }
+                            }
+                        }
+                    }
+                    match piece.color {
+                        Color::White => {
+                            w_mg += moves * ROOK_MOBILITY_MG;
+                            w_eg += moves * ROOK_MOBILITY_EG;
+                        }
+                        Color::Black => {
+                            b_mg += moves * ROOK_MOBILITY_MG;
+                            b_eg += moves * ROOK_MOBILITY_EG;
+                        }
+                    }
+                }
+                PieceKind::Queen => {
+                    let all_dirs: [(i8, i8); 8] = [
+                        (-1, -1),
+                        (-1, 0),
+                        (-1, 1),
+                        (0, -1),
+                        (0, 1),
+                        (1, -1),
+                        (1, 0),
+                        (1, 1),
+                    ];
+                    for &(df, dr) in &all_dirs {
+                        let mut cur = sq;
+                        loop {
+                            match cur.offset(df, dr) {
+                                None => break,
+                                Some(to) => {
+                                    match board.get(to) {
+                                        None => {
+                                            moves += 1;
+                                        }
+                                        Some(p) if p.color != piece.color => {
+                                            moves += 1;
+                                            break;
+                                        }
+                                        _ => break,
+                                    }
+                                    cur = to;
+                                }
+                            }
+                        }
+                    }
+                    match piece.color {
+                        Color::White => {
+                            w_mg += moves * QUEEN_MOBILITY_MG;
+                            w_eg += moves * QUEEN_MOBILITY_EG;
+                        }
+                        Color::Black => {
+                            b_mg += moves * QUEEN_MOBILITY_MG;
+                            b_eg += moves * QUEEN_MOBILITY_EG;
+                        }
+                    }
+                }
+                _ => {} // King and Pawn mobility not scored
+            }
+        }
+    }
+
+    (w_mg, w_eg, b_mg, b_eg)
 }
 
 /// Quick material-only evaluation for simple endgame detection.

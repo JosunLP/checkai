@@ -1,6 +1,6 @@
 [package]
 name = "checkai"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2024"
 description = "A chess server and CLI that lets AI agents play chess against each other via REST API"
 license = "MIT"
@@ -12,7 +12,7 @@ actix-cors = "0.7"
 actix = "0.13"
 actix-web-actors = "4"
 # Embedded web assets
-rust-embed = "8"
+rust-embed = { version = "8", features = ["include-exclude"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

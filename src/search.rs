@@ -42,6 +42,10 @@ const INFINITY: i32 = MATE_SCORE + 1;
 /// Aspiration window initial width (centipawns).
 const ASPIRATION_WINDOW: i32 = 50;
 
+/// Futility pruning margins (indexed by depth remaining).
+/// At depth 1 we can prune if eval + margin < alpha.
+const FUTILITY_MARGINS: [i32; 4] = [0, 200, 400, 600];
+
 // ---------------------------------------------------------------------------
 // Transposition table
 // ---------------------------------------------------------------------------
@@ -718,6 +722,15 @@ impl SearchEngine {
             }
         }
 
+        // Futility pruning: if the static eval is far below alpha at low depths,
+        // we can skip quiet moves (captures are always searched).
+        let static_eval = eval::evaluate(&pos.board, pos.turn);
+        let futile = !in_check
+            && !is_pv
+            && (1..=3).contains(&depth)
+            && static_eval + FUTILITY_MARGINS[depth as usize] <= alpha
+            && alpha.abs() < MATE_THRESHOLD;
+
         // Generate and order moves
         let moves = pos.legal_moves();
 
@@ -744,6 +757,21 @@ impl SearchEngine {
             let child = pos.make_move(&mv);
             let is_capture = pos.board.get(mv.to).is_some() || mv.is_en_passant;
             let gives_check = child.is_in_check();
+
+            // Futility pruning: skip quiet moves at frontier/pre-frontier nodes
+            if futile && !is_capture && mv.promotion.is_none() && !gives_check && i > 0 {
+                continue;
+            }
+
+            // SEE pruning: skip bad captures (losing exchanges) at low depth
+            if depth <= 3
+                && !is_pv
+                && is_capture
+                && !see_capture_is_good(&pos.board, mv.from, mv.to)
+                && i > 0
+            {
+                continue;
+            }
 
             let mut score;
 
@@ -957,6 +985,54 @@ fn has_non_pawn_material(pos: &SearchPosition) -> bool {
         }
     }
     false
+}
+
+/// SEE piece values for exchange evaluation.
+const SEE_VALUES: [i32; 6] = [100, 325, 335, 500, 975, 20000];
+
+/// Returns the SEE value of a piece kind.
+fn see_piece_value(kind: PieceKind) -> i32 {
+    match kind {
+        PieceKind::Pawn => SEE_VALUES[0],
+        PieceKind::Knight => SEE_VALUES[1],
+        PieceKind::Bishop => SEE_VALUES[2],
+        PieceKind::Rook => SEE_VALUES[3],
+        PieceKind::Queen => SEE_VALUES[4],
+        PieceKind::King => SEE_VALUES[5],
+    }
+}
+
+/// Static Exchange Evaluation — determines if a capture is likely good.
+///
+/// Returns `true` if the capture on `to` by the piece on `from` is
+/// estimated to win material (SEE >= 0).
+fn see_capture_is_good(board: &Board, from: Square, to: Square) -> bool {
+    let attacker = match board.get(from) {
+        Some(p) => p,
+        None => return false,
+    };
+
+    let victim_value = match board.get(to) {
+        Some(p) => see_piece_value(p.kind),
+        None => 0, // en passant or non-capture — treat as 0
+    };
+
+    // If capturing with a less valuable piece than the victim, it's always good
+    let attacker_value = see_piece_value(attacker.kind);
+    if attacker_value <= victim_value {
+        return true;
+    }
+
+    // Simple heuristic: if we're trading a major piece for a much less valuable
+    // one, check if there might be defenders. For simplicity we use the
+    // "optimistic" approach: the exchange is good if after the initial capture,
+    // the attacker's value minus the victim value doesn't result in a large loss.
+    // A full SEE would simulate all exchanges, but this fast approximation
+    // catches the most common cases.
+    //
+    // gain = victim - attacker (worst case: opponent recaptures immediately)
+    // If gain >= 0 when assuming opponent recaptures, still fine.
+    victim_value - attacker_value >= 0
 }
 
 // ---------------------------------------------------------------------------
