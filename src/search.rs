@@ -799,7 +799,14 @@ impl SearchEngine {
         } else {
             None
         };
-        let mut scored = score_moves(&moves, &pos.board, tt_move.as_ref(), killers, counter, &self.history);
+        let mut scored = score_moves(
+            &moves,
+            &pos.board,
+            tt_move.as_ref(),
+            killers,
+            counter,
+            &self.history,
+        );
         sort_moves(&mut scored);
 
         let mut best_score = -INFINITY;
@@ -922,7 +929,8 @@ impl SearchEngine {
                             // Update counter-move table: record this move as
                             // a good reply to the previous move (if any).
                             if let Some(prev_mv) = best_move {
-                                self.counter_moves[prev_mv.from.index()][prev_mv.to.index()] = Some(mv);
+                                self.counter_moves[prev_mv.from.index()][prev_mv.to.index()] =
+                                    Some(mv);
                             }
                         }
 

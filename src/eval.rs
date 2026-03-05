@@ -567,12 +567,20 @@ fn pawn_structure_score(
             let rank = most_advanced_rank[file];
             let behind_rank_ok = match color {
                 Color::White => {
-                    (file > 0 && own_pawns[file - 1] > 0 && most_advanced_rank.get(file - 1).copied().unwrap_or(0) >= rank)
-                    || (file < 7 && own_pawns[file + 1] > 0 && most_advanced_rank.get(file + 1).copied().unwrap_or(0) >= rank)
+                    (file > 0
+                        && own_pawns[file - 1] > 0
+                        && most_advanced_rank.get(file - 1).copied().unwrap_or(0) >= rank)
+                        || (file < 7
+                            && own_pawns[file + 1] > 0
+                            && most_advanced_rank.get(file + 1).copied().unwrap_or(0) >= rank)
                 }
                 Color::Black => {
-                    (file > 0 && own_pawns[file - 1] > 0 && most_advanced_rank.get(file - 1).copied().unwrap_or(7) <= rank)
-                    || (file < 7 && own_pawns[file + 1] > 0 && most_advanced_rank.get(file + 1).copied().unwrap_or(7) <= rank)
+                    (file > 0
+                        && own_pawns[file - 1] > 0
+                        && most_advanced_rank.get(file - 1).copied().unwrap_or(7) <= rank)
+                        || (file < 7
+                            && own_pawns[file + 1] > 0
+                            && most_advanced_rank.get(file + 1).copied().unwrap_or(7) <= rank)
                 }
             };
             if !behind_rank_ok {
@@ -602,7 +610,10 @@ fn pawn_structure_score(
     for rank in start_rank..=end_rank {
         for file_idx in 0..8u8 {
             let sq = Square::new(file_idx, rank);
-            if board.get(sq).is_some_and(|p| p.kind == PieceKind::Pawn && p.color == color) {
+            if board
+                .get(sq)
+                .is_some_and(|p| p.kind == PieceKind::Pawn && p.color == color)
+            {
                 // Check if defended by a friendly pawn on adjacent file behind
                 let behind_rank = (rank as i8 - dir) as u8;
                 if behind_rank < 8 {
@@ -632,7 +643,10 @@ fn pawn_structure_score(
     for rank in space_ranks {
         for file_idx in 2..=5u8 {
             let sq = Square::new(file_idx, rank);
-            if board.get(sq).is_some_and(|p| p.kind == PieceKind::Pawn && p.color == color) {
+            if board
+                .get(sq)
+                .is_some_and(|p| p.kind == PieceKind::Pawn && p.color == color)
+            {
                 space += 1;
             }
         }
