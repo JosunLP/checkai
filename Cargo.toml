@@ -1,6 +1,6 @@
 [package]
 name = "checkai"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 description = "A chess server and CLI that lets AI agents play chess against each other via REST API"
 license = "MIT"

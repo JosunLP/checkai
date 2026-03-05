@@ -56,15 +56,17 @@ Binary game storage with [zstd](https://facebook.github.io/zstd/) compression fo
 
 ## Tech Stack
 
-| Component        | Technology                 |
-| ---------------- | -------------------------- |
-| Language         | Rust (Edition 2024)        |
-| Web Framework    | Actix Web 4                |
-| WebSocket        | Actix Web Actors           |
-| Serialization    | serde / serde_json         |
-| API Docs         | utoipa + utoipa-swagger-ui |
-| CLI              | clap 4                     |
-| Compression      | zstd                       |
-| i18n             | rust-i18n                  |
-| Asset Embedding  | rust-embed                 |
-| Containerization | Docker + docker-compose    |
+| Component        | Technology                         |
+| ---------------- | ---------------------------------- |
+| Language         | Rust (Edition 2024)                |
+| Web Framework    | Actix Web 4                        |
+| WebSocket        | Actix Web Actors                   |
+| Serialization    | serde / serde_json                 |
+| API Docs         | utoipa + utoipa-swagger-ui         |
+| CLI              | clap 4                             |
+| Compression      | zstd                               |
+| i18n             | rust-i18n                          |
+| Asset Embedding  | rust-embed                         |
+| Containerization | Docker + docker-compose            |
+| WASM             | wasm-pack + wasm-bindgen           |
+| npm Package      | @josunlp/checkai (GitHub Packages) |

@@ -40,6 +40,7 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 - **Docker Support** — Multi-stage Dockerfile and docker-compose.yml with volume mounts for game data, opening books, and tablebases
 - **Internationalization** — 8 languages (EN, DE, FR, ES, ZH, JA, PT, RU) with auto-detection and per-request API selection
 - **Self-Update** — Automatic version checks and `checkai update` for in-place binary updates
+- **npm Package** — [`@josunlp/checkai`](https://github.com/JosunLP/checkai/packages) on GitHub Packages — the full chess engine compiled to WebAssembly, usable as a Node.js CLI or JavaScript library
 
 ## Quick Start
 
@@ -93,6 +94,31 @@ docker compose up -d             # Build and start
 docker compose logs -f           # Follow logs
 docker compose down              # Stop
 ```
+
+### npm Package (WebAssembly)
+
+The chess engine is also available as a Node.js package via **GitHub Packages**:
+
+```bash
+# Configure GitHub Packages registry
+echo "@josunlp:registry=https://npm.pkg.github.com" >> ~/.npmrc
+
+# Install as CLI
+npm install -g @josunlp/checkai
+checkai fen
+checkai search "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1" --depth 15
+
+# Or use as library
+npm install @josunlp/checkai
+```
+
+```javascript
+import { engine } from "@josunlp/checkai";
+const moves = engine.legalMoves(engine.startingFen());
+const result = engine.bestMove(engine.startingFen(), 10);
+```
+
+See the [npm README](npm/README.md) for the full API reference.
 
 ### Terminal Mode
 
@@ -251,6 +277,16 @@ checkai/
 │   └── uninstall.ps1     # Uninstaller (Windows)
 ├── docs/                 # VitePress documentation site
 ├── locales/              # i18n YAML files (8 languages)
+├── wasm/                 # WebAssembly crate (wasm-pack)
+│   ├── Cargo.toml        # WASM crate manifest
+│   └── src/
+│       ├── lib.rs        # WASM bindings (game mgmt, export, board)
+│       └── search.rs     # Search with web-time::Instant
+├── npm/                  # npm package (@josunlp/checkai)
+│   ├── package.json      # Scoped to GitHub Packages
+│   ├── bin/checkai.mjs   # Node.js CLI entry point
+│   ├── src/index.mjs     # Library API exports
+│   └── README.md         # npm package documentation
 ├── web/                  # TypeScript Web UI (bQuery + Tailwind + Vite)
 │   ├── src/              # 12 TypeScript source modules
 │   ├── dist/             # Vite production build (embedded into binary)
@@ -289,6 +325,7 @@ Full documentation at **<https://josunlp.github.io/checkai/>**
 | [Agent Protocol](https://josunlp.github.io/checkai/agent/overview)         | JSON protocol for AI agents          |
 | [Chess Rules](https://josunlp.github.io/checkai/agent/chess-rules)         | FIDE 2023 rule reference             |
 | [Architecture](https://josunlp.github.io/checkai/guide/architecture)       | Module overview and design decisions |
+| [npm Package](npm/README.md)                                               | WASM npm package API reference       |
 
 The raw agent protocol specification is also available at [`docs/AGENT.md`](docs/AGENT.md).
 
