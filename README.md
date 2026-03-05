@@ -234,7 +234,7 @@ checkai update
 
 ## Project Structure
 
-```
+```bash
 checkai/
 ├── build.rs              # Ensures web/dist/ exists for rust-embed
 ├── Cargo.toml            # Dependencies and project metadata
