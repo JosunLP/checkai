@@ -994,8 +994,12 @@ mod tests {
         let board = Board::starting_position();
         let w = evaluate(&board, Color::White);
         let b = evaluate(&board, Color::Black);
-        // Should be opposite signs (or both near 0)
-        assert_eq!(w, -b, "Eval should be symmetric");
+        // Both sides get the same tempo bonus, so from a symmetric position
+        // both evaluations should be equal (each side sees itself as slightly ahead).
+        assert_eq!(
+            w, b,
+            "Eval should be symmetric (both sides get tempo bonus)"
+        );
     }
 
     #[test]
