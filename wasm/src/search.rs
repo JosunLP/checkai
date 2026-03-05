@@ -359,7 +359,7 @@ impl SearchPosition {
             castling: self.castling,
             en_passant: None,
             hash: new_hash,
-            halfmove_clock: self.halfmove_clock + 1,
+            halfmove_clock: self.halfmove_clock,
         }
     }
 
