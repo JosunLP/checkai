@@ -151,7 +151,7 @@ export function showPromotionDialog(): void {
     : { Q: '♛', R: '♜', B: '♝', N: '♞' };
 
   dialog.querySelectorAll<HTMLElement>('.promotion-btn').forEach((btn) => {
-    const p = btn.dataset.piece!;
+    const p = btn.dataset.promote!;
     const span = btn.querySelector('.promo-piece');
     if (span) span.textContent = promoMap[p] || '';
   });
