@@ -20,6 +20,7 @@ All notable changes to CheckAI are documented here. The format follows [Keep a C
 - **Piece mobility evaluation** — Per-phase square counts for knights, bishops, rooks, queens
 - **Static Exchange Evaluation (SEE)** — Filters bad captures at low depth
 - **Futility pruning** — Skips quiet moves when static eval is far below alpha
+- **Build script** (`build.rs`) — Ensures `web/dist/` exists at compile time so `rust-embed` works without a prior web build
 - **Bun** as frontend package manager (replaces Node.js/npm)
 
 ### Changed
@@ -29,6 +30,8 @@ All notable changes to CheckAI are documented here. The format follows [Keep a C
 
 ### Fixed
 
+- Promotion dialog not showing piece symbols (read wrong `data-` attribute)
+- CI compile error when `web/dist/` missing — added `build.rs` to ensure the directory exists
 - Clippy warnings: collapsed nested ifs, `RangeInclusive::contains`
 
 ## [0.3.1] — 2026-03-02

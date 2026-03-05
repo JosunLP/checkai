@@ -7,6 +7,7 @@ CheckAI is structured as a modular Rust application with a modern TypeScript web
 ### Rust Backend
 
 ```bash
+build.rs             # Ensures web/dist/ exists for rust-embed at compile time
 src/
 ├── main.rs          # Entry point, CLI parsing, server setup
 ├── types.rs         # Core types: pieces, board, squares, JSON protocol

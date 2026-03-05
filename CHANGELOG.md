@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Static Exchange Evaluation (SEE)** — Filters bad captures at low depth (≤ 3) to reduce search explosion
 - **Futility pruning** — Skips quiet moves when static evaluation plus margin is far below alpha at depth ≤ 3
 - **Bun** as the frontend package manager and script runner (replaces Node.js/npm)
+- **Build script** (`build.rs`) — Ensures `web/dist/` exists at compile time so `rust-embed` compiles without a prior web build (fixes CI for clippy/test jobs)
 
 ### Changed
 
@@ -44,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Promotion dialog: piece symbols were not displayed because `dataset.piece` was read instead of `dataset.promote` — now correctly reads the `data-promote` attribute from the HTML buttons
+- CI build: `#[derive(RustEmbed)]` failed when `web/dist/` did not exist; added `build.rs` to auto-create the directory so `cargo clippy` and `cargo test` work without a prior web build
 - Collapsed nested `if` statements in king tropism evaluation (clippy `collapsible_if`)
 - Replaced manual range check with `RangeInclusive::contains` in futility pruning (clippy `manual_range_contains`)
 
