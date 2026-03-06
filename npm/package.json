@@ -43,7 +43,7 @@
     "build:wasm": "cd ../wasm && wasm-pack build --target nodejs --out-dir ../npm/pkg --out-name checkai",
     "build": "npm run build:wasm && node ./scripts/prepare-pkg.mjs",
     "verify:pkg": "node ./scripts/prepare-pkg.mjs",
-    "prepack": "npm run build && npm run verify:pkg",
+    "prepack": "npm run verify:pkg",
     "prepublishOnly": "npm run verify:pkg"
   }
 }
