@@ -20,11 +20,11 @@ bun add --global @josunlp/checkai  # CLI tool
 bun add @josunlp/checkai           # library
 ```
 
-The published package includes both the generated Node.js glue code and the compiled WebAssembly binary under `pkg/`. If you need the raw artifacts directly, they are exported as `@josunlp/checkai/raw` and `@josunlp/checkai/wasm`.
+The published package includes both the generated Node.js glue code and the compiled WebAssembly binary under `pkg/`. `@josunlp/checkai/raw` exposes the generated JS glue module, and `@josunlp/checkai/wasm` exposes a small JS helper that returns the resolved filesystem path / file URL for `checkai_bg.wasm`.
 
 ## CLI Usage
 
-### API: Position analysis
+### CLI: Position analysis
 
 ```bash
 # Show the starting position FEN
@@ -46,7 +46,7 @@ checkai move "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" e2e4
 checkai board "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
 ```
 
-### API: Game management
+### CLI: Game management
 
 ```bash
 # Create a new game (returns game ID)
@@ -71,7 +71,7 @@ checkai game list
 checkai game delete <ID>
 ```
 
-### API: Export
+### CLI: Export
 
 ```bash
 checkai export <ID> pgn
@@ -138,6 +138,25 @@ const text = engine.gameToText(gameId);
 engine.deleteGame(gameId);
 const allGames = engine.listGames();
 ```
+
+## WASM Path Helper
+
+```javascript
+import wasmPath, {
+  getWasmFileUrl,
+  getWasmPath,
+  wasmFileUrl,
+  wasmUrl,
+} from "@josunlp/checkai/wasm";
+
+console.log(wasmPath);
+console.log(getWasmPath());
+console.log(wasmUrl);
+console.log(wasmFileUrl.href);
+console.log(getWasmFileUrl().href);
+```
+
+Use this helper if you need to pass the packaged `.wasm` file to another loader. Importing `@josunlp/checkai/wasm` as a WebAssembly module directly is intentionally avoided because plain `.wasm` subpath imports are not portable across Node.js and Bun.
 
 ## API Reference
 

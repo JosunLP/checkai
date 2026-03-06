@@ -27,7 +27,7 @@
   "exports": {
     ".": "./src/index.mjs",
     "./raw": "./pkg/checkai.js",
-    "./wasm": "./pkg/checkai_bg.wasm",
+    "./wasm": "./src/wasm.mjs",
     "./package.json": "./package.json"
   },
   "type": "module",
