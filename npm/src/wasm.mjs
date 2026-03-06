@@ -5,7 +5,7 @@ const wasmUrl = wasmFileUrl.href;
 const wasmPath = fileURLToPath(wasmFileUrl);
 
 export function getWasmFileUrl() {
-  return wasmFileUrl;
+  return new URL(wasmFileUrl);
 }
 
 export function getWasmPath() {

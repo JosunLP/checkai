@@ -156,6 +156,8 @@ console.log(wasmFileUrl.href);
 console.log(getWasmFileUrl().href);
 ```
 
+`getWasmFileUrl()` returns a fresh `URL` instance on each call, while `wasmUrl` exposes the immutable string form.
+
 Use this helper if you need to pass the packaged `.wasm` file to another loader. Importing `@josunlp/checkai/wasm` as a WebAssembly module directly is intentionally avoided because plain `.wasm` subpath imports are not portable across Node.js and Bun.
 
 ## API Reference

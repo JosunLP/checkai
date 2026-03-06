@@ -181,10 +181,10 @@ jobs:
       - name: Install wasm-pack
         run: cargo install wasm-pack --locked --version 0.12.1
 
-      - name: Build WASM package
+      - name: Build and prepare WASM package
         run: |
-          cd wasm
-          wasm-pack build --target nodejs --out-dir ../npm/pkg --out-name checkai
+          cd npm
+          bun run build
 
       - name: Set package version
         run: |
@@ -195,7 +195,7 @@ jobs:
       - name: Create package tarball with Bun
         run: |
           cd npm
-          bun pm pack --filename "checkai-wasm-${{ needs.create-release.outputs.version }}.tgz"
+          bun pm pack --ignore-scripts --filename "checkai-wasm-${{ needs.create-release.outputs.version }}.tgz"
           mv "checkai-wasm-${{ needs.create-release.outputs.version }}.tgz" ..
 
       - name: Upload WASM release asset
@@ -211,7 +211,7 @@ jobs:
           cd npm
           echo "@josunlp:registry=https://npm.pkg.github.com" > .npmrc
           echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> .npmrc
-          bun publish
+          bun publish --ignore-scripts
           rm -f .npmrc
 
   # Build and push Docker image to GHCR

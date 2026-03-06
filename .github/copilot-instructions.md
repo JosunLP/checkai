@@ -1,16 +1,16 @@
 # CheckAI Workspace Instructions
 
-## Architektur
+## Architecture
 
-- `src/` enthält den Rust-Kern: Engine, REST-/WebSocket-API, Analyse, Export, Storage und CLI.
-- `web/` ist die TypeScript/Vite-SPA. Das Build landet in `web/dist/` und wird vom Rust-Binary per `rust-embed` eingebettet.
-- `wasm/` ist ein separates Crate für WebAssembly und teilt sich Kernlogik per `#[path = "../../src/..."]` mit dem Rust-Hauptprojekt. Änderungen an gemeinsamen Engine-Dateien können daher zugleich Server, Terminalmodus und npm/WASM-Paket beeinflussen.
-- `npm/` verpackt das WASM-Ergebnis für Node.js. `docs/` ist die VitePress-Dokumentation.
-- Die externe Agent-/Protokollreferenz liegt in `docs/AGENT.md`. Änderungen an API- oder Protokollstrukturen sollten damit konsistent bleiben.
+- `src/` contains the Rust core: engine, REST/WebSocket API, analysis, export, storage, and CLI.
+- `web/` is the TypeScript/Vite SPA. Its build output goes to `web/dist/` and is embedded into the Rust binary via `rust-embed`.
+- `wasm/` is a separate WebAssembly crate and shares core logic with the main Rust project via `#[path = "../../src/..."]`. Changes to shared engine files can therefore affect the server, terminal mode, and the npm/WASM package at the same time.
+- `npm/` packages the WASM output for Node.js. `docs/` contains the VitePress documentation.
+- The external agent/protocol reference lives in `docs/AGENT.md`. Keep API or protocol structure changes consistent with that document.
 
-## Bauen und Prüfen
+## Build and Validation
 
-- Rust-Checks:
+- Rust checks:
   - `cargo fmt --all -- --check`
   - `cargo clippy --all-targets --all-features`
   - `cargo test --all-features`
@@ -19,26 +19,26 @@
   - `bun install --frozen-lockfile`
   - `bun run check`
   - `bun run build`
-- Dokumentation (`docs/`):
+- Documentation (`docs/`):
   - `bun install --frozen-lockfile`
   - `bun run docs:build`
 - npm/WASM (`npm/`):
   - `bun run build`
-- Wenn du `web/src/` änderst und das eingebettete UI verifizieren willst, baue `web/` neu, bevor du das Rust-Binary oder Release-Artefakte validierst.
+- If you change `web/src/` and want to validate the embedded UI, rebuild `web/` before validating the Rust binary or release artifacts.
 
-## Konventionen
+## Conventions
 
-- Halte Änderungen klein und zielgerichtet. Dieses Repository kombiniert Rust-Backend, eingebettetes Frontend, WASM und Dokumentation; prüfe immer, welche Bereiche von einer Änderung mitbetroffen sind.
-- `src/storage.rs` definiert ein versionsgebundenes Binärformat für Spielstände. Wenn sich das Format absichtlich ändert, braucht es eine klare Versionsanhebung und Migrationsstrategie.
-- Bei dateibasierten Scans oder optionalen Datenquellen lieber Einzelfehler protokollieren und mit Teilresultaten weitermachen, wenn das Gesamtfeature trotzdem nutzbar bleibt.
-- Die Codebasis verwendet in API-Pfaden häufig `Mutex<...>` mit `lock().unwrap()`. Halte Lock-Dauern kurz und vermeide zusätzliche Arbeit innerhalb kritischer Abschnitte.
-- Für nutzersichtbare Texte gelten die Locale-Dateien in `locales/`. Wenn du sichtbare Rust- oder Web-Texte änderst, prüfe, ob Übersetzungen oder zumindest der englische Fallback angepasst werden müssen.
-- Im Frontend gelten strenge TypeScript- und Lint-Regeln. Nutze die bestehenden Aliase und Patterns aus `web/src/`, statt neue Strukturkonventionen einzuführen.
-- Verändere generierte oder Build-Ausgaben wie `target/`, `web/dist/` oder `npm/pkg/` nur, wenn die Aufgabe explizit Artefakte oder Release-Inhalte betrifft.
+- Keep changes small and targeted. This repository combines a Rust backend, embedded frontend, WASM, and documentation; always check which areas are affected by a change.
+- `src/storage.rs` defines a versioned binary save format. If the format changes intentionally, it needs a clear version bump and migration strategy.
+- For file-based scans or optional data sources, prefer logging per-entry errors and continuing with partial results when the overall feature remains useful.
+- The codebase often uses `Mutex<...>` with `lock().unwrap()` in API paths. Keep lock durations short and avoid additional work inside critical sections.
+- User-facing text belongs to the locale files in `locales/`. If you change visible Rust or web text, check whether translations or at least the English fallback should also be updated.
+- The frontend uses strict TypeScript and lint rules. Reuse the existing aliases and patterns from `web/src/` instead of introducing new structural conventions.
+- Do not modify generated or build output such as `target/`, `web/dist/`, or `npm/pkg/` unless the task explicitly concerns artifacts or release contents.
 
-## Projektspezifische Stolperfallen
+## Project-Specific Pitfalls
 
-- `build.rs` stellt sicher, dass `web/dist/` existiert, aber ohne Frontend-Build kann das eingebettete UI trotzdem leer oder veraltet sein.
-- Die Tablebase-Unterstützung darf aktuell nicht als vollständiges binäres Syzygy-Probing beschrieben werden; die Implementierung arbeitet laut Repo-Notizen derzeit mit analytischen/heuristischen Fallbacks statt echter `.rtbw`/`.rtbz`-Abfragen.
-- Änderungen an gemeinsam genutzten Engine-Modulen wie `src/types.rs`, `src/game.rs`, `src/movegen.rs`, `src/eval.rs` oder `src/search.rs` sollten immer auch auf WASM-/npm-Auswirkungen geprüft werden.
-- Wenn du Protokoll-, Analyse- oder Bewertungslogik änderst, halte Code, README und `docs/AGENT.md` synchron, damit externe Agenten nicht gegen veraltete Regeln integrieren.
+- `build.rs` ensures that `web/dist/` exists, but without a frontend build the embedded UI can still be empty or outdated.
+- Tablebase support must not currently be described as full binary Syzygy probing; according to the repository notes, the implementation currently uses analytical/heuristic fallbacks instead of real `.rtbw`/`.rtbz` probing.
+- Changes to shared engine modules such as `src/types.rs`, `src/game.rs`, `src/movegen.rs`, `src/eval.rs`, or `src/search.rs` should always be checked for WASM/npm impact as well.
+- If you change protocol, analysis, or evaluation logic, keep the code, `README.md`, and `docs/AGENT.md` in sync so external agents do not integrate against outdated rules.

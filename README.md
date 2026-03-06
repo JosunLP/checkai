@@ -2,14 +2,14 @@
 
 # CheckAI
 
-**Chess Server for AI Agents**
+**_Chess Server for AI Agents_**
 
 A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs — following FIDE 2023 rules.
 
 [![CI](https://github.com/JosunLP/checkai/actions/workflows/ci.yml/badge.svg)](https://github.com/JosunLP/checkai/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE.md)
 [![Rust](https://img.shields.io/badge/Rust-edition_2024-orange.svg)](https://www.rust-lang.org/)
-[![Github All Releases](https://img.shields.io/github/downloads/josunlp/checkai/total.svg?label=Downloads)]()
+[![Github All Releases](https://img.shields.io/github/downloads/josunlp/checkai/total.svg?label=Downloads)](https://github.com/JosunLP/checkai/releases)
 
 [Documentation](https://josunlp.github.io/checkai/) | [Changelog](CHANGELOG.md) | [Releases](https://github.com/JosunLP/checkai/releases)
 
@@ -210,7 +210,7 @@ curl -X POST http://localhost:8080/api/analysis/game/{game_id} \
 curl http://localhost:8080/api/analysis/jobs/{job_id}
 ```
 
-### WebSocket
+### WebSocket and Real-Time Events
 
 ```javascript
 const ws = new WebSocket("ws://localhost:8080/ws");
