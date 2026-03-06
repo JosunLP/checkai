@@ -20,9 +20,11 @@ npm install -g @josunlp/checkai    # CLI tool
 npm install @josunlp/checkai       # library
 ```
 
+The published package includes both the generated Node.js glue code and the compiled WebAssembly binary under `pkg/`. If you need the raw artifacts directly, they are exported as `@josunlp/checkai/raw` and `@josunlp/checkai/wasm`.
+
 ## CLI Usage
 
-### Position analysis
+### API: Position analysis
 
 ```bash
 # Show the starting position FEN
@@ -44,7 +46,7 @@ checkai move "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" e2e4
 checkai board "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
 ```
 
-### Game management
+### API: Game management
 
 ```bash
 # Create a new game (returns game ID)
@@ -69,7 +71,7 @@ checkai game list
 checkai game delete <ID>
 ```
 
-### Export
+### API: Export
 
 ```bash
 checkai export <ID> pgn

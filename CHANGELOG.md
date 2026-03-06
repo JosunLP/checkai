@@ -1,11 +1,22 @@
 # Changelog
 
+<!-- markdownlint-disable MD024 -->
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.5.1] - 2026-03-06
+
+### Fixed
+
+- **npm/WASM package contents** — Fixed the published `@josunlp/checkai` package so the compiled WebAssembly binary is included in release tarballs instead of only the generated glue JavaScript
+  - Added a `prepack` packaging guard so `npm pack` and `npm publish` always verify the generated `pkg/` artifacts before release
+  - Removed the generated `pkg/.gitignore` during packaging, which previously caused `npm pack` to omit `pkg/checkai.js` and `pkg/checkai_bg.wasm`
+  - Added explicit npm subpath exports for the raw generated artifacts (`@josunlp/checkai/raw` and `@josunlp/checkai/wasm`)
 
 ## [0.5.0] - 2026-03-05
 
@@ -195,7 +206,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Game archiving with zstd compression
 - Web UI for browser-based game viewing
 
-[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/JosunLP/checkai/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/JosunLP/checkai/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/JosunLP/checkai/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/JosunLP/checkai/compare/v0.3.0...v0.3.1

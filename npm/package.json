@@ -1,6 +1,6 @@
 {
   "name": "@josunlp/checkai",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "CheckAI chess engine — FIDE 2023 rules, move generation, evaluation, search, game management, and export via WebAssembly",
   "license": "MIT",
   "repository": {
@@ -23,6 +23,12 @@
     "checkai": "./bin/checkai.mjs"
   },
   "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./raw": "./pkg/checkai.js",
+    "./wasm": "./pkg/checkai_bg.wasm",
+    "./package.json": "./package.json"
+  },
   "type": "module",
   "files": [
     "bin/",
@@ -34,7 +40,10 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "cd ../wasm && wasm-pack build --target nodejs --out-dir ../npm/pkg --out-name checkai",
-    "prepublishOnly": "npm run build"
+    "build:wasm": "cd ../wasm && wasm-pack build --target nodejs --out-dir ../npm/pkg --out-name checkai",
+    "build": "npm run build:wasm && node ./scripts/prepare-pkg.mjs",
+    "verify:pkg": "node ./scripts/prepare-pkg.mjs",
+    "prepack": "npm run build && npm run verify:pkg",
+    "prepublishOnly": "npm run verify:pkg"
   }
 }
