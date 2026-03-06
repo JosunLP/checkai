@@ -45,6 +45,6 @@
     "build": "bun run build:wasm && bun ./scripts/prepare-pkg.mjs",
     "verify:pkg": "bun ./scripts/prepare-pkg.mjs",
     "prepack": "bun run build && bun run verify:pkg",
-    "prepublishOnly": "bun run verify:pkg"
+    "prepublishOnly": "bun run build && bun run verify:pkg"
   }
 }
