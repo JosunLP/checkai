@@ -23,7 +23,7 @@
   - `bun install --frozen-lockfile`
   - `bun run docs:build`
 - npm/WASM (`npm/`):
-  - `npm run build`
+  - `bun run build`
 - Wenn du `web/src/` änderst und das eingebettete UI verifizieren willst, baue `web/` neu, bevor du das Rust-Binary oder Release-Artefakte validierst.
 
 ## Konventionen

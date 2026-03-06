@@ -6,7 +6,7 @@ Implements complete FIDE 2023 chess rules with move generation, position evaluat
 
 ## Installation
 
-This package is published on **GitHub Packages**. Configure your `.npmrc` first:
+This package is published on **GitHub Packages**. Configure the registry first (`bun` reads `.npmrc`):
 
 ```bash
 echo "@josunlp:registry=https://npm.pkg.github.com" >> ~/.npmrc
@@ -15,9 +15,9 @@ echo "@josunlp:registry=https://npm.pkg.github.com" >> ~/.npmrc
 Then install:
 
 ```bash
-npm install -g @josunlp/checkai    # CLI tool
+bun add --global @josunlp/checkai  # CLI tool
 # or
-npm install @josunlp/checkai       # library
+bun add @josunlp/checkai           # library
 ```
 
 The published package includes both the generated Node.js glue code and the compiled WebAssembly binary under `pkg/`. If you need the raw artifacts directly, they are exported as `@josunlp/checkai/raw` and `@josunlp/checkai/wasm`.

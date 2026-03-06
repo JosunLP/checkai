@@ -41,14 +41,14 @@ wasm/
 
 The WASM crate re-uses core source files from the parent crate via `#[path = "../../src/..."]` directives, ensuring zero code duplication for `types`, `movegen`, `eval`, `zobrist`, and `polyglot_keys`.
 
-### npm Package
+### JavaScript Package
 
 ```bash
 npm/
-├── package.json     # @josunlp/checkai (GitHub Packages)
+├── package.json     # @josunlp/checkai (GitHub Packages, Bun-managed)
 ├── bin/checkai.mjs  # Node.js CLI entry point
 ├── src/index.mjs    # ESM library API
-└── README.md        # npm package documentation
+└── README.md        # package documentation
 ```
 
 ### TypeScript Web UI

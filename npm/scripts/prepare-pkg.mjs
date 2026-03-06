@@ -22,8 +22,8 @@ const missingFiles = requiredFiles.filter(
 );
 
 if (missingFiles.length > 0) {
-  console.error(`Missing npm package artifacts: ${missingFiles.join(', ')}`);
+  console.error(`Missing package artifacts: ${missingFiles.join(', ')}`);
   process.exit(1);
 }
 
-console.log(`Prepared npm package artifacts in ${pkgDir}`);
+console.log(`Prepared package artifacts in ${pkgDir}`);

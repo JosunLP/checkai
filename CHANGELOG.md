@@ -13,9 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **npm/WASM package contents** — Fixed the published `@josunlp/checkai` package so the compiled WebAssembly binary is included in release tarballs instead of only the generated glue JavaScript
-  - Added a `prepack` packaging guard so `npm pack` and `npm publish` always verify the generated `pkg/` artifacts before release
-  - Removed the generated `pkg/.gitignore` during packaging, which previously caused `npm pack` to omit `pkg/checkai.js` and `pkg/checkai_bg.wasm`
+- **Bun/WASM package contents** — Fixed the published `@josunlp/checkai` package so the compiled WebAssembly binary is included in release tarballs instead of only the generated glue JavaScript
+  - Added a `prepack` packaging guard so Bun packaging and publishing always verify the generated `pkg/` artifacts before release
+  - Removed the generated `pkg/.gitignore` during packaging, which previously caused package tarballs to omit `pkg/checkai.js` and `pkg/checkai_bg.wasm`
   - Added explicit npm subpath exports for the raw generated artifacts (`@josunlp/checkai/raw` and `@josunlp/checkai/wasm`)
 
 ## [0.5.0] - 2026-03-05

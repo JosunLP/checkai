@@ -69,4 +69,4 @@ Binary game storage with [zstd](https://facebook.github.io/zstd/) compression fo
 | Asset Embedding  | rust-embed                         |
 | Containerization | Docker + docker-compose            |
 | WASM             | wasm-pack + wasm-bindgen           |
-| npm Package      | @josunlp/checkai (GitHub Packages) |
+| JS Package       | @josunlp/checkai (GitHub Packages) |
