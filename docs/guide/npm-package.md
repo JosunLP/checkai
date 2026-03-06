@@ -1,6 +1,6 @@
-# npm Package (WebAssembly)
+# JavaScript Package (WebAssembly)
 
-The CheckAI chess engine is available as a Node.js package compiled to WebAssembly. It runs at near-native speed and provides the full engine feature set — position analysis, game management, export, and board display.
+The CheckAI chess engine is available as a Bun/Node.js package compiled to WebAssembly. It runs at near-native speed and provides the full engine feature set — position analysis, game management, export, and board display.
 
 ## Installation
 
@@ -16,10 +16,10 @@ echo "@josunlp:registry=https://npm.pkg.github.com" >> ~/.npmrc
 
 ```bash
 # As a global CLI tool
-npm install -g @josunlp/checkai
+bun add --global @josunlp/checkai
 
 # As a project dependency
-npm install @josunlp/checkai
+bun add @josunlp/checkai
 ```
 
 ## CLI Usage
@@ -152,4 +152,4 @@ The search uses iterative deepening with aspiration windows, Principal Variation
 ## Requirements
 
 - Node.js ≥ 18 (WASM support required)
-- GitHub Packages authentication (for `npm install`)
+- GitHub Packages authentication (for `bun add`)

@@ -1,6 +1,17 @@
 # Changelog
 
+<!-- markdownlint-disable MD024 -->
+
 All notable changes to CheckAI are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/).
+
+## [0.5.1] — 2026-03-06
+
+### Fixed
+
+- **Bun/WASM package contents** — Fixed the published `@josunlp/checkai` package so release tarballs include the compiled WebAssembly binary instead of only the generated glue JavaScript
+  - Added a `prepack` safeguard to verify generated `pkg/` artifacts before Bun packaging / publishing
+  - Removed the generated `pkg/.gitignore` during packaging so `pkg/checkai.js` and `pkg/checkai_bg.wasm` are no longer filtered out
+  - Added explicit npm subpath exports for the raw generated artifacts: `@josunlp/checkai/raw` and `@josunlp/checkai/wasm`
 
 ## [0.5.0] — 2026-03-05
 

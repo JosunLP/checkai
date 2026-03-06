@@ -175,7 +175,7 @@ try {
     }
 
     case 'version': {
-      console.log('checkai 0.5.0 (wasm)');
+      console.log('checkai 0.5.1 (wasm)');
       break;
     }
 
