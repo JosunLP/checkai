@@ -78,8 +78,7 @@ Returns all analysis jobs with their current status.
       "id": "b2c3d4e5-...",
       "game_id": "661f9511-...",
       "status": { "InProgress": { "moves_analyzed": 18, "total_moves": 30 } },
-      "created_at": 1709337650,
-      "completed_at": null
+      "created_at": 1709337650
     }
   ],
   "count": 2
@@ -113,9 +112,7 @@ While a job is still running, the response shape looks like this:
   "id": "a1b2c3d4-...",
   "game_id": "550e8400-...",
   "status": { "InProgress": { "moves_analyzed": 18, "total_moves": 30 } },
-  "result": null,
-  "created_at": 1709337600,
-  "completed_at": null
+  "created_at": 1709337600
 }
 ```
 

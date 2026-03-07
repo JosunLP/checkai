@@ -191,7 +191,7 @@ export type AnalysisStatus =
 
 export interface AnalysisJob {
   id: string;
-  game_id?: string;
+  game_id: string | null;
   status: AnalysisStatus;
   result?: AnalysisResultPayload;
   created_at: number;

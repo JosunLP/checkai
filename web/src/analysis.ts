@@ -267,7 +267,7 @@ export function renderAnalysis(): void {
         ? `
       <div class="analysis-pv">
         <span class="analysis-label">${t('analysis.failed')}</span>
-        <span class="analysis-pv-line mono">${result.errorMessage}</span>
+        <span class="analysis-pv-line mono" data-analysis-error-message></span>
       </div>
     `
         : ''
@@ -305,6 +305,13 @@ export function renderAnalysis(): void {
         : ''
     }
   `;
+
+  if (result.errorMessage) {
+    const errorLine = panel.querySelector<HTMLElement>('[data-analysis-error-message]');
+    if (errorLine) {
+      errorLine.textContent = result.errorMessage;
+    }
+  }
 }
 
 /** Bind analysis panel events. */
