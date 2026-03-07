@@ -9,7 +9,10 @@ import { store } from './store';
 import type { AnalysisJob, AnalysisPanelState, AnalysisStatus } from './types';
 import { showToast } from './ui';
 
-let pollTimer: ReturnType<typeof setInterval> | null = null;
+const POLL_DELAY_MS = 500;
+
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
+let activePollToken = 0;
 
 /** Start engine analysis for the current game. */
 export async function startAnalysis(): Promise<void> {
@@ -80,30 +83,60 @@ export function resetAnalysisState(): void {
 
 function startPolling(jobId: string): void {
   stopPolling();
-  pollTimer = setInterval(async () => {
-    try {
-      const job = await api.getAnalysis(jobId);
-      store.analysisResult.value = toPanelState(job);
-      renderAnalysis();
-
-      if (isTerminalStatus(job.status)) {
-        store.analysisRunning.value = false;
-        stopPolling();
-        renderAnalysis();
-      }
-    } catch {
-      stopPolling();
-      store.analysisRunning.value = false;
-      renderAnalysis();
-    }
-  }, 500);
+  const pollToken = ++activePollToken;
+  void pollAnalysisJob(jobId, pollToken);
 }
 
 function stopPolling(): void {
+  activePollToken += 1;
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;
   }
+}
+
+async function pollAnalysisJob(jobId: string, pollToken: number): Promise<void> {
+  try {
+    const job = await api.getAnalysis(jobId);
+
+    if (!isActivePoll(jobId, pollToken)) {
+      return;
+    }
+
+    batch(() => {
+      store.analysisResult.value = toPanelState(job);
+      if (isTerminalStatus(job.status)) {
+        store.analysisRunning.value = false;
+      }
+    });
+    renderAnalysis();
+
+    if (isTerminalStatus(job.status)) {
+      stopPolling();
+      renderAnalysis();
+      return;
+    }
+
+    scheduleNextPoll(jobId, pollToken);
+  } catch {
+    if (!isActivePoll(jobId, pollToken)) {
+      return;
+    }
+
+    stopPolling();
+    store.analysisRunning.value = false;
+    renderAnalysis();
+  }
+}
+
+function scheduleNextPoll(jobId: string, pollToken: number): void {
+  pollTimer = setTimeout(() => {
+    void pollAnalysisJob(jobId, pollToken);
+  }, POLL_DELAY_MS);
+}
+
+function isActivePoll(jobId: string, pollToken: number): boolean {
+  return pollToken === activePollToken && store.analysisJobId.value === jobId;
 }
 
 function isTerminalStatus(status: AnalysisStatus): boolean {
@@ -266,7 +299,7 @@ export function renderAnalysis(): void {
         ? `
       <div class="analysis-pv">
         <span class="analysis-label">${t('analysis.summary')}</span>
-        <span class="analysis-pv-line mono">Best ${result.counts.best} · Excellent ${result.counts.excellent} · Good ${result.counts.good} · Inaccuracies ${result.counts.inaccuracies} · Mistakes ${result.counts.mistakes} · Blunders ${result.counts.blunders} · Book ${result.counts.book}</span>
+        <span class="analysis-pv-line mono">${t('analysis.summary.best')} ${result.counts.best} · ${t('analysis.summary.excellent')} ${result.counts.excellent} · ${t('analysis.summary.good')} ${result.counts.good} · ${t('analysis.summary.inaccuracies')} ${result.counts.inaccuracies} · ${t('analysis.summary.mistakes')} ${result.counts.mistakes} · ${t('analysis.summary.blunders')} ${result.counts.blunders} · ${t('analysis.summary.book')} ${result.counts.book}</span>
       </div>
     `
         : ''
