@@ -90,7 +90,7 @@ function startPolling(jobId: string): void {
 function stopPolling(): void {
   activePollToken += 1;
   if (pollTimer) {
-    clearInterval(pollTimer);
+    clearTimeout(pollTimer);
     pollTimer = null;
   }
 }
