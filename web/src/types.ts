@@ -175,7 +175,64 @@ export interface AnalysisMoveSummary {
   black_avg_cp_loss: number;
 }
 
+export type AnalysisMoveQuality =
+  | 'Best'
+  | 'Excellent'
+  | 'Good'
+  | 'Inaccuracy'
+  | 'Mistake'
+  | 'Blunder'
+  | 'Book';
+
+export type AnalysisWdl = 'Win' | 'Draw' | 'Loss' | 'CursedWin' | 'BlessedLoss';
+
+export interface AnalysisMoveJson {
+  from: SquareName;
+  to: SquareName;
+  promotion: string | null;
+}
+
+export interface AnalysisBookMoveEntry {
+  notation: string;
+  weight: number;
+  probability: number;
+}
+
+export interface AnalysisBookInfo {
+  is_book_move: boolean;
+  weight: number;
+  total_weight: number;
+  book_moves: AnalysisBookMoveEntry[];
+  opening_name: string | null;
+}
+
+export interface AnalysisTablebaseInfo {
+  is_tablebase_position: boolean;
+  wdl: AnalysisWdl | null;
+  dtz: number | null;
+  configuration: string;
+  source: string;
+}
+
+export interface AnalysisMoveAnnotation {
+  move_number: number;
+  side: PieceColor;
+  played_move: AnalysisMoveJson;
+  best_move: AnalysisMoveJson;
+  played_eval: number;
+  best_eval: number;
+  centipawn_loss: number;
+  quality: AnalysisMoveQuality;
+  is_book_move: boolean;
+  is_tablebase_position: boolean;
+  book_info?: AnalysisBookInfo;
+  tablebase_info?: AnalysisTablebaseInfo;
+  search_depth: number;
+  principal_variation: string[];
+}
+
 export interface AnalysisResultPayload {
+  annotations: AnalysisMoveAnnotation[];
   summary: AnalysisMoveSummary;
   depth: number;
   book_available: boolean;
