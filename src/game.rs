@@ -1417,6 +1417,18 @@ mod tests {
     }
 
     #[test]
+    fn test_game_state_json_includes_position_history() {
+        let mut game = Game::new();
+        game.make_move(&mv("e2", "e4")).unwrap();
+
+        let state = game.to_game_state_json();
+
+        assert_eq!(state.position_history, game.position_history);
+        assert_eq!(state.fullmove_number, game.fullmove_number);
+        assert_eq!(state.halfmove_clock, game.halfmove_clock);
+    }
+
+    #[test]
     fn test_threefold_repetition_claim() {
         // Play moves that return to the same position three times:
         // 1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 Ng8 (pos repeats)

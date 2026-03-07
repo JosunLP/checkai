@@ -30,7 +30,7 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 ### APIs & Interfaces
 
 - **REST API** — JSON-based endpoints for game management, moves, draw claims, resignation, FEN/PGN import/export ([Agent Protocol](docs/AGENT.md))
-- **Analysis API** — Separate `/api/analysis/*` endpoints for deep game analysis with real-time progress tracking
+- **Analysis API** — Separate `/api/analysis/*` endpoints for asynchronous game review with job progress, completed summaries, and per-move annotations
 - **WebSocket API** — Full real-time API at `/ws` mirroring REST endpoints with push notifications and game subscriptions
 - **Swagger/OpenAPI** — Auto-generated interactive API docs at `/swagger-ui/`
 - **Terminal Interface** — Colored board display with interactive move input for local two-player games
@@ -50,13 +50,20 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 **Linux / macOS:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | sh
+VERSION="0.5.2"
+curl -fsSL -o install.sh \
+  "https://raw.githubusercontent.com/JosunLP/checkai/v${VERSION}/scripts/install.sh"
+sh install.sh
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.ps1 | iex
+$Version = "0.5.2"
+Invoke-WebRequest `
+  -Uri "https://raw.githubusercontent.com/JosunLP/checkai/v$Version/scripts/install.ps1" `
+  -OutFile install.ps1
+.\install.ps1
 ```
 
 > **Tip:** For production use, download and verify the script before running it.

@@ -14,6 +14,8 @@ At the moment, CheckAI does **not** perform binary probing of `.rtbw`/`.rtbz` fi
 - If matching Syzygy files are present for a position, CheckAI currently logs that binary probing is not implemented, then falls back to a material-based heuristic WDL estimate (source: `heuristic`).
 - Heuristic fallback results are **not** treated as true tablebase hits (`is_tablebase_position = false`).
 
+In other words: external Syzygy files currently improve **coverage metadata** and future readiness, but they do **not** yet provide perfect-play WDL/DTZ probing inside CheckAI.
+
 ## Analytical Probing
 
 CheckAI includes built-in analytical probing for common endgames. This is applied when a tablebase path is configured (via `--tablebase-path`) for positions where analytical results are provably correct, even if no corresponding `.rtbw`/`.rtbz` file is present:

@@ -1,6 +1,6 @@
 [package]
 name = "checkai-wasm"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2024"
 description = "CheckAI chess engine compiled to WebAssembly — use as a Node.js CLI or library"
 license = "MIT"

@@ -2,9 +2,11 @@
 // CheckAI Web UI — Analysis Panel
 // ============================================================================
 
+import { batch } from '@bquery/bquery/reactive';
 import * as api from './api';
 import { t } from './i18n';
 import { store } from './store';
+import type { AnalysisJob, AnalysisPanelState, AnalysisStatus } from './types';
 import { showToast } from './ui';
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -15,11 +17,28 @@ export async function startAnalysis(): Promise<void> {
   if (!gameId || store.analysisRunning.value) return;
 
   try {
-    const res = await api.startAnalysis(gameId, { depth: 20 });
-    store.analysisJobId.value = res.job_id;
-    store.analysisRunning.value = true;
+    const res = await api.startAnalysis(gameId, { depth: 30 });
+    batch(() => {
+      store.analysisJobId.value = res.job_id;
+      store.analysisRunning.value = true;
+      store.analysisResult.value = {
+        statusText: t('analysis.queued'),
+        progressText: null,
+        errorMessage: null,
+        depth: null,
+        totalMoves: null,
+        averageCpLoss: null,
+        whiteAccuracy: null,
+        blackAccuracy: null,
+        whiteAverageCpLoss: null,
+        blackAverageCpLoss: null,
+        bookAvailable: null,
+        tablebaseAvailable: null,
+        counts: null,
+      };
+    });
     renderAnalysis();
-    startPolling(gameId, res.job_id);
+    startPolling(res.job_id);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     showToast(t('toast.error', { error: msg }), 'error');
@@ -28,37 +47,46 @@ export async function startAnalysis(): Promise<void> {
 
 /** Stop running analysis. */
 export async function stopAnalysis(): Promise<void> {
-  const gameId = store.currentGameId.value;
   const jobId = store.analysisJobId.value;
-  if (!gameId || !jobId) return;
+  if (!jobId) return;
 
   stopPolling();
   try {
-    await api.cancelAnalysis(gameId, jobId);
+    await api.cancelAnalysis(jobId);
   } catch {
     /* ignore */
   }
-  store.analysisRunning.value = false;
+  batch(() => {
+    store.analysisRunning.value = false;
+    if (store.analysisResult.value) {
+      store.analysisResult.value = {
+        ...store.analysisResult.value,
+        statusText: t('analysis.cancelled'),
+      };
+    }
+  });
   renderAnalysis();
 }
 
-function startPolling(gameId: string, jobId: string): void {
+/** Reset analysis UI state and stop background polling. */
+export function resetAnalysisState(): void {
+  stopPolling();
+  batch(() => {
+    store.analysisJobId.value = null;
+    store.analysisResult.value = null;
+    store.analysisRunning.value = false;
+  });
+}
+
+function startPolling(jobId: string): void {
   stopPolling();
   pollTimer = setInterval(async () => {
     try {
-      const result = await api.getAnalysis(gameId, jobId);
-      store.analysisResult.value = {
-        depth: result.depth,
-        score: result.score,
-        bestMove: result.best_move,
-        pv: result.pv,
-        nodes: result.nodes,
-        nps: result.nps,
-        timeMs: result.time_ms,
-      };
+      const job = await api.getAnalysis(jobId);
+      store.analysisResult.value = toPanelState(job);
       renderAnalysis();
 
-      if (result.status === 'completed' || result.status === 'cancelled') {
+      if (isTerminalStatus(job.status)) {
         store.analysisRunning.value = false;
         stopPolling();
         renderAnalysis();
@@ -78,19 +106,81 @@ function stopPolling(): void {
   }
 }
 
-/** Format centipawn score as human-readable evaluation. */
-function formatScore(cp: number): string {
-  if (Math.abs(cp) > 29000) {
-    const mateIn = Math.ceil((30000 - Math.abs(cp)) / 2);
-    return cp > 0 ? `M${mateIn}` : `-M${mateIn}`;
-  }
-  const sign = cp >= 0 ? '+' : '';
-  return `${sign}${(cp / 100).toFixed(2)}`;
+function isTerminalStatus(status: AnalysisStatus): boolean {
+  return status === 'Completed' || status === 'Cancelled' || 'Failed' in Object(status);
 }
 
-/** Format large numbers with separators. */
-function formatNum(n: number): string {
-  return n.toLocaleString('en-US');
+function getStatusLabel(status: AnalysisStatus): string {
+  if (status === 'Queued') return t('analysis.queued');
+  if (status === 'Completed') return t('analysis.completed');
+  if (status === 'Cancelled') return t('analysis.cancelled');
+  if ('Failed' in status) return t('analysis.failed');
+  return t('analysis.running');
+}
+
+function getProgressLabel(status: AnalysisStatus): string | null {
+  if ('InProgress' in Object(status)) {
+    const { moves_analyzed, total_moves } = (
+      status as Extract<
+        AnalysisStatus,
+        { InProgress: { moves_analyzed: number; total_moves: number } }
+      >
+    ).InProgress;
+    return `${moves_analyzed}/${total_moves}`;
+  }
+  return null;
+}
+
+function getFailureMessage(status: AnalysisStatus): string | null {
+  if ('Failed' in Object(status)) {
+    return (status as Extract<AnalysisStatus, { Failed: { error: string } }>).Failed.error;
+  }
+  return null;
+}
+
+function toPanelState(job: AnalysisJob): AnalysisPanelState {
+  const summary = job.result?.summary;
+
+  return {
+    statusText: getStatusLabel(job.status),
+    progressText: getProgressLabel(job.status),
+    errorMessage: getFailureMessage(job.status),
+    depth: job.result?.depth ?? null,
+    totalMoves: summary?.total_moves ?? null,
+    averageCpLoss: summary?.average_centipawn_loss ?? null,
+    whiteAccuracy: summary?.white_accuracy ?? null,
+    blackAccuracy: summary?.black_accuracy ?? null,
+    whiteAverageCpLoss: summary?.white_avg_cp_loss ?? null,
+    blackAverageCpLoss: summary?.black_avg_cp_loss ?? null,
+    bookAvailable: job.result?.book_available ?? null,
+    tablebaseAvailable: job.result?.tablebase_available ?? null,
+    counts: summary
+      ? {
+          best: summary.best_moves,
+          excellent: summary.excellent_moves,
+          good: summary.good_moves,
+          inaccuracies: summary.inaccuracies,
+          mistakes: summary.mistakes,
+          blunders: summary.blunders,
+          book: summary.book_moves,
+        }
+      : null,
+  };
+}
+
+function formatDecimal(value: number | null): string {
+  if (value === null) return '—';
+  return value.toFixed(1);
+}
+
+function formatPercent(value: number | null): string {
+  if (value === null) return '—';
+  return `${value.toFixed(1)}%`;
+}
+
+function formatBool(value: boolean | null): string {
+  if (value === null) return '—';
+  return value ? t('analysis.available') : t('analysis.unavailable');
 }
 
 /** Render the analysis panel content. */
@@ -115,36 +205,68 @@ export function renderAnalysis(): void {
   panel.innerHTML = `
     <div class="analysis-grid">
       <div class="analysis-item">
-        <span class="analysis-label">${t('analysis.score')}</span>
-        <span class="analysis-value analysis-score">${formatScore(result.score)}</span>
+        <span class="analysis-label">${t('analysis.status')}</span>
+        <span class="analysis-value">${result.statusText}</span>
+      </div>
+      <div class="analysis-item">
+        <span class="analysis-label">${t('analysis.progress')}</span>
+        <span class="analysis-value">${result.progressText ?? '—'}</span>
       </div>
       <div class="analysis-item">
         <span class="analysis-label">${t('analysis.depth')}</span>
-        <span class="analysis-value">${result.depth}${running ? '…' : ''}</span>
+        <span class="analysis-value">${result.depth ?? '—'}${running ? '…' : ''}</span>
       </div>
       <div class="analysis-item">
-        <span class="analysis-label">${t('analysis.best_move')}</span>
-        <span class="analysis-value mono">${result.bestMove || '—'}</span>
+        <span class="analysis-label">${t('analysis.total_moves')}</span>
+        <span class="analysis-value">${result.totalMoves ?? '—'}</span>
       </div>
       <div class="analysis-item">
-        <span class="analysis-label">${t('analysis.nodes')}</span>
-        <span class="analysis-value">${formatNum(result.nodes)}</span>
+        <span class="analysis-label">${t('analysis.avg_cp_loss')}</span>
+        <span class="analysis-value">${formatDecimal(result.averageCpLoss)}</span>
       </div>
       <div class="analysis-item">
-        <span class="analysis-label">${t('analysis.nps')}</span>
-        <span class="analysis-value">${formatNum(result.nps)}</span>
-      </div>
-      <div class="analysis-item">
-        <span class="analysis-label">${t('analysis.time')}</span>
-        <span class="analysis-value">${(result.timeMs / 1000).toFixed(1)}s</span>
+        <span class="analysis-label">${t('analysis.white_accuracy')}</span>
+        <span class="analysis-value">${formatPercent(result.whiteAccuracy)}</span>
       </div>
     </div>
     ${
-      result.pv.length > 0
+      result.errorMessage
         ? `
       <div class="analysis-pv">
-        <span class="analysis-label">${t('analysis.pv')}</span>
-        <span class="analysis-pv-line mono">${result.pv.join(' ')}</span>
+        <span class="analysis-label">${t('analysis.failed')}</span>
+        <span class="analysis-pv-line mono">${result.errorMessage}</span>
+      </div>
+    `
+        : ''
+    }
+    <div class="analysis-grid">
+      <div class="analysis-item">
+        <span class="analysis-label">${t('analysis.black_accuracy')}</span>
+        <span class="analysis-value">${formatPercent(result.blackAccuracy)}</span>
+      </div>
+      <div class="analysis-item">
+        <span class="analysis-label">${t('analysis.white_avg_cp_loss')}</span>
+        <span class="analysis-value">${formatDecimal(result.whiteAverageCpLoss)}</span>
+      </div>
+      <div class="analysis-item">
+        <span class="analysis-label">${t('analysis.black_avg_cp_loss')}</span>
+        <span class="analysis-value">${formatDecimal(result.blackAverageCpLoss)}</span>
+      </div>
+      <div class="analysis-item">
+        <span class="analysis-label">${t('analysis.book_available')}</span>
+        <span class="analysis-value">${formatBool(result.bookAvailable)}</span>
+      </div>
+      <div class="analysis-item">
+        <span class="analysis-label">${t('analysis.tablebase_available')}</span>
+        <span class="analysis-value">${formatBool(result.tablebaseAvailable)}</span>
+      </div>
+    </div>
+    ${
+      result.counts
+        ? `
+      <div class="analysis-pv">
+        <span class="analysis-label">${t('analysis.summary')}</span>
+        <span class="analysis-pv-line mono">Best ${result.counts.best} · Excellent ${result.counts.excellent} · Good ${result.counts.good} · Inaccuracies ${result.counts.inaccuracies} · Mistakes ${result.counts.mistakes} · Blunders ${result.counts.blunders} · Book ${result.counts.book}</span>
       </div>
     `
         : ''

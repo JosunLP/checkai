@@ -34,6 +34,7 @@ export interface GameState {
   en_passant: string | null;
   halfmove_clock: number;
   fullmove_number: number;
+  position_history: string[];
 }
 
 /** A legal move returned by the API */
@@ -41,7 +42,6 @@ export interface LegalMove {
   from: SquareName;
   to: SquareName;
   promotion?: string;
-  notation: string;
 }
 
 /** Move history entry */
@@ -140,34 +140,86 @@ export interface MoveSubmission {
 
 /** Action submission */
 export interface ActionSubmission {
-  action: 'resign' | 'offer_draw' | 'claim_draw';
+  action: 'resign' | 'offer_draw' | 'accept_draw' | 'claim_draw';
   reason?: string;
 }
 
 /** Move response from the API */
 export interface MoveResponse {
+  success: boolean;
   message: string;
+  state: GameState;
   is_over: boolean;
+  result: GameResult;
+  end_reason: EndReason | null;
+  is_check: boolean;
 }
 
-/** Analysis result from the API */
-export interface AnalysisResult {
-  job_id: string;
-  game_id: string;
-  status: 'completed' | 'running' | 'cancelled';
-  depth: number;
-  score: number;
-  best_move: string | null;
-  pv: string[];
-  nodes: number;
-  time_ms: number;
-  nps: number;
-}
-
-/** Analysis request */
 export interface AnalysisRequest {
   depth?: number;
-  time_limit_ms?: number;
+}
+
+export interface AnalysisMoveSummary {
+  total_moves: number;
+  best_moves: number;
+  excellent_moves: number;
+  good_moves: number;
+  inaccuracies: number;
+  mistakes: number;
+  blunders: number;
+  book_moves: number;
+  average_centipawn_loss: number;
+  white_accuracy: number;
+  black_accuracy: number;
+  white_avg_cp_loss: number;
+  black_avg_cp_loss: number;
+}
+
+export interface AnalysisResultPayload {
+  summary: AnalysisMoveSummary;
+  depth: number;
+  book_available: boolean;
+  tablebase_available: boolean;
+}
+
+export type AnalysisStatus =
+  | 'Queued'
+  | 'Completed'
+  | 'Cancelled'
+  | { InProgress: { moves_analyzed: number; total_moves: number } }
+  | { Failed: { error: string } };
+
+export interface AnalysisJob {
+  id: string;
+  game_id?: string;
+  status: AnalysisStatus;
+  result?: AnalysisResultPayload;
+  created_at: number;
+  completed_at?: number | null;
+}
+
+export interface AnalysisPanelState {
+  statusText: string;
+  progressText: string | null;
+  errorMessage: string | null;
+  depth: number | null;
+  totalMoves: number | null;
+  averageCpLoss: number | null;
+  whiteAccuracy: number | null;
+  blackAccuracy: number | null;
+  whiteAverageCpLoss: number | null;
+  blackAverageCpLoss: number | null;
+  bookAvailable: boolean | null;
+  tablebaseAvailable: boolean | null;
+  counts: {
+    best: number;
+    excellent: number;
+    good: number;
+    inaccuracies: number;
+    mistakes: number;
+    blunders: number;
+    book: number;
+  } | null;
 }
 
 // ============================================================================

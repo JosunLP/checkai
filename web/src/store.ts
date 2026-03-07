@@ -4,6 +4,7 @@
 
 import { signal } from '@bquery/bquery/reactive';
 import type {
+  AnalysisPanelState,
   ArchivedGameSummary,
   Game,
   GameSummary,
@@ -50,14 +51,6 @@ export const store = {
 
   // ── Analysis ─────────────────────────────────────────────────────────────
   analysisJobId: signal<string | null>(null),
-  analysisResult: signal<{
-    depth: number;
-    score: number;
-    bestMove: string | null;
-    pv: string[];
-    nodes: number;
-    nps: number;
-    timeMs: number;
-  } | null>(null),
+  analysisResult: signal<AnalysisPanelState | null>(null),
   analysisRunning: signal(false),
 };

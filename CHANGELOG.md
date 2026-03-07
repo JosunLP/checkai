@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-03-07
+
+### Fixed
+
+- **Web analysis UI contract drift** — Fixed the TypeScript analysis client so it now submits jobs to `/api/analysis/game/{game_id}` and polls `/api/analysis/jobs/{job_id}` instead of outdated `/api/games/*` paths
+  - Reworked the analysis panel to render the actual job-based backend payload (status, progress, completed summary, failure state) instead of assuming live search telemetry fields that were never returned by the API
+  - Reset analysis polling cleanly when switching games so stale background polling does not leak across views
+- **Frontend API typing alignment** — Synced the web UI's TypeScript models with the Rust API contract
+  - Added `position_history` to the web `GameState` type
+  - Expanded move/action response typing to match the real server payloads
+  - Replaced stale analysis result typing with explicit job/result summary types
+- **Documentation and version metadata** — Updated OpenAPI metadata, README installation snippets, changelog entries, and analysis/tablebase docs so published docs match current behavior
+  - Clarified that the analysis API is job-based game review, not a live score/nodes stream
+  - Clarified current Syzygy support as analytical / heuristic scaffolding rather than full binary probing
+
+### Added
+
+- **Regression coverage** — Added tests for move-quality threshold boundaries and `GameStateJson` position-history export consistency
+
 ## [0.5.1] - 2026-03-06
 
 ### Fixed
@@ -206,7 +225,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Game archiving with zstd compression
 - Web UI for browser-based game viewing
 
-[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/JosunLP/checkai/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/JosunLP/checkai/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/JosunLP/checkai/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/JosunLP/checkai/compare/v0.3.1...v0.4.0
