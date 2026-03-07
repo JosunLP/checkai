@@ -1159,6 +1159,19 @@ mod tests {
     }
 
     #[test]
+    fn test_move_quality_classification_boundaries() {
+        assert_eq!(MoveQuality::from_cp_loss(1), MoveQuality::Excellent);
+        assert_eq!(MoveQuality::from_cp_loss(10), MoveQuality::Excellent);
+        assert_eq!(MoveQuality::from_cp_loss(11), MoveQuality::Good);
+        assert_eq!(MoveQuality::from_cp_loss(25), MoveQuality::Good);
+        assert_eq!(MoveQuality::from_cp_loss(26), MoveQuality::Inaccuracy);
+        assert_eq!(MoveQuality::from_cp_loss(50), MoveQuality::Inaccuracy);
+        assert_eq!(MoveQuality::from_cp_loss(51), MoveQuality::Mistake);
+        assert_eq!(MoveQuality::from_cp_loss(100), MoveQuality::Mistake);
+        assert_eq!(MoveQuality::from_cp_loss(101), MoveQuality::Blunder);
+    }
+
+    #[test]
     fn test_summary_empty() {
         let summary = compute_summary(&[]);
         assert_eq!(summary.total_moves, 0);

@@ -41,7 +41,7 @@ pub struct AppState {
 #[openapi(
     info(
         title = "CheckAI — Chess API for AI Agents",
-        version = "0.1.0",
+        version = "0.5.2",
         description = "A REST API that allows AI agents to play chess against each other. \
             Follows FIDE 2023 Laws of Chess. Agents communicate using JSON \
             game states and move objects as defined in the AGENT.md protocol.",

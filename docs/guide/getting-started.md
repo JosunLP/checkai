@@ -9,7 +9,7 @@
 | RAM                      | 128 MB (+ transposition table size, default 64 MB) |
 | Disk                     | ~20 MB for the binary                              |
 | Rust (build from source) | 1.85.0+ (edition 2024)                             |
-| Node.js (web UI dev)     | 18+                                                |
+| Bun (web UI build)       | 1.3.10+                                            |
 
 ## Installation
 
@@ -21,7 +21,7 @@ Download the install script for a **pinned release**, verify its checksum, then 
 
 ```bash [Linux / macOS]
 # 1. Set the version you want to install
-VERSION="0.5.1"
+VERSION="0.5.2"
 
 # 2. Download the install script from the pinned release tag
 curl -fsSL -o install.sh \
@@ -41,7 +41,7 @@ sh install.sh
 
 ```powershell [Windows]
 # 1. Set the version you want to install
-$Version = "0.5.1"
+$Version = "0.5.2"
 
 # 2. Download the install script from the pinned release tag
 Invoke-WebRequest `
@@ -71,11 +71,19 @@ Get-Content install.ps1 | Out-Host -Paging
 
 ### Build from Source
 
-You need [Rust](https://www.rust-lang.org/tools/install) installed (edition 2024).
+You need [Rust](https://www.rust-lang.org/tools/install) and [Bun](https://bun.sh/) installed.
 
 ```bash
 git clone https://github.com/JosunLP/checkai.git
 cd checkai
+
+# Build the embedded web UI first
+cd web
+bun install --frozen-lockfile
+bun run build
+cd ..
+
+# Then build the Rust server/CLI
 cargo build --release
 ```
 
@@ -135,7 +143,7 @@ This starts an interactive two-player game with a colored board display. Type `h
 
 ```bash [Linux / macOS]
 # 1. Set the version that was installed
-VERSION="0.5.1"
+VERSION="0.5.2"
 
 # 2. Download the uninstall script from the pinned release tag
 curl -fsSL -o uninstall.sh \
@@ -153,7 +161,7 @@ sh uninstall.sh
 
 ```powershell [Windows]
 # 1. Set the version that was installed
-$Version = "0.5.1"
+$Version = "0.5.2"
 
 # 2. Download the uninstall script from the pinned release tag
 Invoke-WebRequest `

@@ -4,8 +4,8 @@
 
 import type {
   ActionSubmission,
+  AnalysisJob,
   AnalysisRequest,
-  AnalysisResult,
   ArchivedGameSummary,
   Game,
   GameSummary,
@@ -99,15 +99,15 @@ export function getStorageStats(): Promise<StorageStats> {
 // ── Analysis ─────────────────────────────────────────────────────────────────
 
 export function startAnalysis(id: string, opts?: AnalysisRequest): Promise<{ job_id: string }> {
-  return request('POST', `/games/${encodeURIComponent(id)}/analyze`, opts ?? {});
+  return request('POST', `/analysis/game/${encodeURIComponent(id)}`, opts ?? {});
 }
 
-export function getAnalysis(id: string, jobId: string): Promise<AnalysisResult> {
-  return request('GET', `/games/${encodeURIComponent(id)}/analyze/${encodeURIComponent(jobId)}`);
+export function getAnalysis(jobId: string): Promise<AnalysisJob> {
+  return request('GET', `/analysis/jobs/${encodeURIComponent(jobId)}`);
 }
 
-export function cancelAnalysis(id: string, jobId: string): Promise<void> {
-  return request('DELETE', `/games/${encodeURIComponent(id)}/analyze/${encodeURIComponent(jobId)}`);
+export function cancelAnalysis(jobId: string): Promise<void> {
+  return request('DELETE', `/analysis/jobs/${encodeURIComponent(jobId)}`);
 }
 
 // ── FEN Import/Export ────────────────────────────────────────────────────────

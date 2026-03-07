@@ -10,6 +10,16 @@ These endpoints are architecturally isolated from the player-facing game API.
 http://localhost:8080/api/analysis
 ```
 
+## What the API Returns
+
+The analysis API is **game-review oriented**, not a live search-info stream.
+
+- While a job is running, you receive the job `status` only.
+- When the job completes, `result` contains per-move annotations and a summary.
+- The API does **not** expose live `score`, `nodes`, `nps`, `time_ms`, or a rolling principal variation while the job is in progress.
+
+That distinction matters for web clients: poll the job endpoint for status, then read `result.summary` and `result.annotations` after completion.
+
 ## Endpoints
 
 ### Submit Game for Analysis
@@ -68,8 +78,7 @@ Returns all analysis jobs with their current status.
       "id": "b2c3d4e5-...",
       "game_id": "661f9511-...",
       "status": { "InProgress": { "moves_analyzed": 18, "total_moves": 30 } },
-      "created_at": 1709337650,
-      "completed_at": null
+      "created_at": 1709337650
     }
   ],
   "count": 2
@@ -95,6 +104,17 @@ GET /api/analysis/jobs/{job_id}
 ```
 
 Returns the full analysis job, including results when the job is completed.
+
+While a job is still running, the response shape looks like this:
+
+```json
+{
+  "id": "a1b2c3d4-...",
+  "game_id": "550e8400-...",
+  "status": { "InProgress": { "moves_analyzed": 18, "total_moves": 30 } },
+  "created_at": 1709337600
+}
+```
 
 **Response** `200 OK` (completed):
 
@@ -187,6 +207,8 @@ Cancels an in-progress job or deletes a completed one.
 | Mistake        | 51–100 cp      | ?      |
 | Blunder        | > 100 cp       | ??     |
 | Book           | n/a            | 📖      |
+
+`Book` is emitted when the played move matches the configured opening book and is therefore not graded against deep search.
 
 ## Workflow
 

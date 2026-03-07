@@ -4,6 +4,18 @@
 
 All notable changes to CheckAI are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.2] — 2026-03-07
+
+### Fixed
+
+- **Web analysis UI contract drift** — Fixed the TypeScript analysis client so it now uses the real `/api/analysis/*` endpoints and renders job status / summary data instead of assuming a live search telemetry payload
+- **Frontend API typing alignment** — Synced the web UI's TypeScript models with the Rust API contract, including `position_history`, move/action responses, and explicit analysis job/result types
+- **Documentation and version metadata** — Updated OpenAPI metadata, installation snippets, and docs so the published documentation matches current server behavior
+
+### Added
+
+- **Regression coverage** — Added tests for move-quality threshold boundaries and `GameStateJson` position-history export consistency
+
 ## [0.5.1] — 2026-03-06
 
 ### Fixed

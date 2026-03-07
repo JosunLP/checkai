@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { batch } from '@bquery/bquery/reactive';
+import { resetAnalysisState } from './analysis';
 import * as api from './api';
 import { renderCurrentBoard } from './board';
 import { t } from './i18n';
@@ -50,7 +51,10 @@ export async function refreshCurrentGame(): Promise<void> {
 
 export async function loadGame(gameId: string): Promise<void> {
   const prev = store.currentGameId.value;
-  if (prev && prev !== gameId) wsUnsubscribe(prev);
+  if (prev && prev !== gameId) {
+    wsUnsubscribe(prev);
+    resetAnalysisState();
+  }
 
   batch(() => {
     store.currentGameId.value = gameId;
@@ -58,9 +62,6 @@ export async function loadGame(gameId: string): Promise<void> {
     store.selectedSquare.value = null;
     store.legalTargets.value = [];
     store.lastMove.value = null;
-    store.analysisResult.value = null;
-    store.analysisRunning.value = false;
-    store.analysisJobId.value = null;
   });
 
   navigateTo('game');
