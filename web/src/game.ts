@@ -51,8 +51,10 @@ export async function refreshCurrentGame(): Promise<void> {
 
 export async function loadGame(gameId: string): Promise<void> {
   const prev = store.currentGameId.value;
-  if (prev && prev !== gameId) wsUnsubscribe(prev);
-  resetAnalysisState();
+  if (prev && prev !== gameId) {
+    wsUnsubscribe(prev);
+    resetAnalysisState();
+  }
 
   batch(() => {
     store.currentGameId.value = gameId;
