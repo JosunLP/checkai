@@ -62,6 +62,7 @@ export default defineConfig({
             { text: 'Docker', link: '/guide/docker' },
             { text: 'Configuration', link: '/guide/configuration' },
             { text: 'Web UI', link: '/guide/web-ui' },
+            { text: 'Desktop UI', link: '/guide/desktop-ui' },
             { text: 'npm Package (WASM)', link: '/guide/npm-package' },
           ],
         },

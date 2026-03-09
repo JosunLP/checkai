@@ -1,0 +1,16 @@
+appId: io.github.josunlp.checkai.desktop
+productName: CheckAI Desktop
+directories:
+  output: release
+files:
+  - dist/**/*
+  - dist-electron/**/*
+mac:
+  category: public.app-category.developer-tools
+linux:
+  target:
+    - AppImage
+    - tar.gz
+win:
+  target:
+    - nsis

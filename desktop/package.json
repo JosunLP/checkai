@@ -1,0 +1,27 @@
+{
+  "name": "@checkai/desktop",
+  "version": "0.5.2",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/electron-main.js",
+  "packageManager": "npm@11.9.0",
+  "scripts": {
+    "build": "npm run build:renderer && npm run build:electron",
+    "build:renderer": "vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit && vite build",
+    "start": "npm run build && electron .",
+    "pack": "npm run build && electron-builder --config electron-builder.yml --dir",
+    "dist": "npm run build && electron-builder --config electron-builder.yml"
+  },
+  "dependencies": {
+    "@bquery/bquery": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "electron": "^36.0.0",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
