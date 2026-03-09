@@ -5,14 +5,21 @@
   "type": "module",
   "main": "dist-electron/electron-main.js",
   "packageManager": "npm@11.9.0",
+  "description": "Dedicated Electron desktop app for CheckAI",
+  "author": "JosunLP",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JosunLP/checkai.git"
+  },
   "scripts": {
     "build": "npm run build:renderer && npm run build:electron",
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit && vite build",
     "start": "npm run build && electron .",
-    "pack": "npm run build && electron-builder --config electron-builder.yml --dir",
-    "dist": "npm run build && electron-builder --config electron-builder.yml"
+    "pack": "npm run build && electron-builder --config electron-builder.yml --dir --publish never",
+    "dist": "npm run build && electron-builder --config electron-builder.yml --publish never"
   },
   "dependencies": {
     "@bquery/bquery": "^1.4.0"

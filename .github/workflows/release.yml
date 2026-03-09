@@ -214,6 +214,47 @@ jobs:
           bun publish --ignore-scripts
           rm -f .npmrc
 
+  desktop:
+    name: Desktop ${{ matrix.label }}
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Linux
+            os: ubuntu-latest
+            build_command: npx electron-builder --config electron-builder.yml --publish never --linux AppImage
+            artifact_glob: desktop/release/checkai-desktop-*.AppImage
+          - label: macOS
+            os: macos-latest
+            build_command: npx electron-builder --config electron-builder.yml --publish never --mac zip
+            artifact_glob: desktop/release/checkai-desktop-*.zip
+          - label: Windows
+            os: windows-latest
+            build_command: npx electron-builder --config electron-builder.yml --publish never --win portable
+            artifact_glob: desktop/release/checkai-desktop-*.exe
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm install
+
+      - name: Build desktop release artifact
+        working-directory: desktop
+        run: ${{ matrix.build_command }}
+
+      - name: Upload desktop release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: ${{ matrix.artifact_glob }}
+
   # Build and push Docker image to GHCR
   docker:
     name: Docker image
