@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +27,25 @@ interface BackendStatusPayload {
   lastError: string | null;
 }
 
+interface UpdateStatusPayload {
+  supported: boolean;
+  currentVersion: string;
+  state:
+    | 'idle'
+    | 'unsupported'
+    | 'checking'
+    | 'available'
+    | 'downloading'
+    | 'downloaded'
+    | 'up-to-date'
+    | 'error';
+  availableVersion: string | null;
+  percent: number | null;
+  transferredBytes: number | null;
+  totalBytes: number | null;
+  message: string | null;
+}
+
 const DEFAULT_STATE: DesktopState = {
   backendUrl: 'http://127.0.0.1:8080',
   autoStartBackend: false,
@@ -49,6 +69,18 @@ let backendStatus: BackendStatusPayload = {
   startedAt: null,
   exitCode: null,
   lastError: null,
+};
+let updateStatus: UpdateStatusPayload = {
+  supported: app.isPackaged,
+  currentVersion: app.getVersion(),
+  state: app.isPackaged ? 'idle' : 'unsupported',
+  availableVersion: null,
+  percent: null,
+  transferredBytes: null,
+  totalBytes: null,
+  message: app.isPackaged
+    ? 'Ready to check for desktop updates.'
+    : 'Desktop updates are available in packaged builds.',
 };
 
 function stateFilePath(): string {
@@ -90,6 +122,10 @@ function appendBackendLogs(chunk: string): void {
   mainWindow?.webContents.send('checkai:backend-logs', backendLogs);
 }
 
+function pushUpdateStatus(): void {
+  mainWindow?.webContents.send('checkai:update-status', updateStatus);
+}
+
 function splitArgs(value: string): string[] {
   const matches = value.match(/"[^"]*"|'[^']*'|\S+/g);
   return (matches ?? []).map((part) => part.replace(/^['"]|['"]$/g, ''));
@@ -119,6 +155,188 @@ function buildBackendArgs(state: DesktopState): string[] {
 function notify(title: string, body: string): void {
   if (!Notification.isSupported()) return;
   new Notification({ title, body }).show();
+}
+
+function configureAutoUpdater(): void {
+  if (!app.isPackaged) {
+    updateStatus = {
+      ...updateStatus,
+      supported: false,
+      state: 'unsupported',
+      message: 'Desktop updates are available in packaged builds.',
+    };
+    return;
+  }
+
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    updateStatus = {
+      ...updateStatus,
+      supported: true,
+      currentVersion: app.getVersion(),
+      state: 'checking',
+      availableVersion: null,
+      percent: null,
+      transferredBytes: null,
+      totalBytes: null,
+      message: 'Checking GitHub Releases for a newer desktop build…',
+    };
+    pushUpdateStatus();
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    updateStatus = {
+      ...updateStatus,
+      supported: true,
+      state: 'available',
+      availableVersion: info.version,
+      percent: 0,
+      transferredBytes: null,
+      totalBytes: null,
+      message: `Version ${info.version} is available for download.`,
+    };
+    pushUpdateStatus();
+    notify('CheckAI Desktop', `Desktop update ${info.version} is available.`);
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    updateStatus = {
+      ...updateStatus,
+      supported: true,
+      state: 'up-to-date',
+      availableVersion: null,
+      percent: null,
+      transferredBytes: null,
+      totalBytes: null,
+      message: `CheckAI Desktop ${app.getVersion()} is up to date.`,
+    };
+    pushUpdateStatus();
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    updateStatus = {
+      ...updateStatus,
+      supported: true,
+      state: 'downloading',
+      percent: progress.percent,
+      transferredBytes: progress.transferred,
+      totalBytes: progress.total,
+      message: `Downloading version ${updateStatus.availableVersion ?? 'update'}…`,
+    };
+    pushUpdateStatus();
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    updateStatus = {
+      ...updateStatus,
+      supported: true,
+      state: 'downloaded',
+      availableVersion: info.version,
+      percent: 100,
+      transferredBytes: updateStatus.totalBytes,
+      totalBytes: updateStatus.totalBytes,
+      message: `Version ${info.version} is ready to install. Restart the app to finish updating.`,
+    };
+    pushUpdateStatus();
+    notify('CheckAI Desktop', `Update ${info.version} is ready to install.`);
+  });
+
+  autoUpdater.on('error', (error) => {
+    updateStatus = {
+      ...updateStatus,
+      supported: true,
+      state: 'error',
+      percent: null,
+      transferredBytes: null,
+      totalBytes: null,
+      message: error instanceof Error ? error.message : String(error),
+    };
+    pushUpdateStatus();
+  });
+}
+
+async function checkForUpdates(): Promise<UpdateStatusPayload> {
+  if (!app.isPackaged) {
+    updateStatus = {
+      ...updateStatus,
+      supported: false,
+      state: 'unsupported',
+      message: 'Desktop updates are available in packaged builds.',
+    };
+    pushUpdateStatus();
+    return updateStatus;
+  }
+
+  try {
+    await autoUpdater.checkForUpdates();
+  } catch (error) {
+    updateStatus = {
+      ...updateStatus,
+      supported: true,
+      state: 'error',
+      message: error instanceof Error ? error.message : String(error),
+    };
+    pushUpdateStatus();
+  }
+  return updateStatus;
+}
+
+async function downloadUpdate(): Promise<UpdateStatusPayload> {
+  if (!app.isPackaged) {
+    return checkForUpdates();
+  }
+
+  if (updateStatus.state !== 'available') {
+    updateStatus = {
+      ...updateStatus,
+      state: updateStatus.state === 'downloaded' ? 'downloaded' : 'error',
+      message:
+        updateStatus.state === 'downloaded'
+          ? updateStatus.message
+          : 'No downloadable desktop update is currently available.',
+    };
+    pushUpdateStatus();
+    return updateStatus;
+  }
+
+  updateStatus = {
+    ...updateStatus,
+    supported: true,
+    state: 'downloading',
+    percent: 0,
+    transferredBytes: 0,
+    totalBytes: null,
+    message: `Downloading version ${updateStatus.availableVersion ?? 'update'}…`,
+  };
+  pushUpdateStatus();
+
+  try {
+    await autoUpdater.downloadUpdate();
+  } catch (error) {
+    updateStatus = {
+      ...updateStatus,
+      supported: true,
+      state: 'error',
+      percent: null,
+      transferredBytes: null,
+      totalBytes: null,
+      message: error instanceof Error ? error.message : String(error),
+    };
+    pushUpdateStatus();
+  }
+  return updateStatus;
+}
+
+function installUpdate(): void {
+  if (updateStatus.state !== 'downloaded') {
+    return;
+  }
+
+  setImmediate(() => {
+    autoUpdater.quitAndInstall();
+  });
 }
 
 function startBackend(state: DesktopState): BackendStatusPayload {
@@ -245,15 +463,20 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  configureAutoUpdater();
   ipcMain.handle('checkai:get-state', () => loadState());
   ipcMain.handle('checkai:save-state', (_event, state: DesktopState) => saveState(state));
   ipcMain.handle('checkai:get-backend-status', () => backendStatus);
   ipcMain.handle('checkai:get-backend-logs', () => backendLogs);
+  ipcMain.handle('checkai:get-update-status', () => updateStatus);
   ipcMain.handle('checkai:start-backend', (_event, state: DesktopState) => {
     const saved = saveState(state);
     return startBackend(saved);
   });
   ipcMain.handle('checkai:stop-backend', () => stopBackend());
+  ipcMain.handle('checkai:check-for-updates', () => checkForUpdates());
+  ipcMain.handle('checkai:download-update', () => downloadUpdate());
+  ipcMain.handle('checkai:install-update', () => installUpdate());
   ipcMain.handle('checkai:pick-file', () => selectPath('file'));
   ipcMain.handle('checkai:pick-directory', () => selectPath('directory'));
   ipcMain.handle('checkai:open-path', (_event, target: string) => shell.openPath(target));
@@ -266,6 +489,8 @@ app.whenReady().then(() => {
   if (state.autoStartBackend) {
     startBackend(state);
   }
+
+  void checkForUpdates();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

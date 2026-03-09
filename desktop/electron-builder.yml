@@ -1,6 +1,11 @@
 appId: io.github.josunlp.checkai.desktop
 productName: CheckAI Desktop
 artifactName: checkai-desktop-${version}-${os}-${arch}.${ext}
+publish:
+  provider: github
+  owner: JosunLP
+  repo: checkai
+  releaseType: release
 directories:
   output: release
 files:

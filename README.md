@@ -38,7 +38,7 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 ### Web & Deployment
 
 - **Modern Web UI** — TypeScript SPA with @bquery/bquery, Tailwind CSS v4, Vite — interactive SVG board, analysis panel, FEN/PGN tools, promotion dialog, WebSocket auto-reconnect. Compiled into the binary via `rust-embed`
-- **Desktop UI** — Electron workspace built with @bquery/bquery — dedicated desktop shell with persistent sessions, native file pickers, local backend launch controls, embedded live engine UI, and inline log inspection
+- **Desktop UI** — Electron workspace built with @bquery/bquery — dedicated desktop shell with persistent sessions, native file pickers, local backend launch controls, embedded live engine UI, inline log inspection, and packaged-app self-updates
 - **Docker Support** — Multi-stage Dockerfile and docker-compose.yml with volume mounts for game data, opening books, and tablebases
 - **Internationalization** — 8 languages (EN, DE, FR, ES, ZH, JA, PT, RU) with auto-detection and per-request API selection
 - **Self-Update** — Automatic version checks and `checkai update` for in-place binary updates
@@ -90,12 +90,12 @@ The repository now also includes a dedicated Electron desktop shell in `desktop/
 ```bash
 cd desktop
 corepack enable
-npm install
+npm ci
 npm run build
 npm run start
 ```
 
-By default the desktop app targets `http://127.0.0.1:8080`, can persist backend launch settings between sessions, and can start a local `checkai serve` process for you. The embedded live workspace is intentionally limited to loopback URLs for safety; non-local targets can still be opened in your browser.
+By default the desktop app targets `http://127.0.0.1:8080`, can persist backend launch settings between sessions, and can start a local `checkai serve` process for you. The embedded live workspace is intentionally limited to loopback URLs for safety; non-local targets can still be opened in your browser. Packaged desktop releases can also check GitHub Releases for updates, download them, and prompt for restart-based installation from inside the app.
 
 ### Start the Server
 

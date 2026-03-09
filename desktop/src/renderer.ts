@@ -24,13 +24,36 @@ interface BackendStatusPayload {
   lastError: string | null;
 }
 
+interface UpdateStatusPayload {
+  supported: boolean;
+  currentVersion: string;
+  state:
+    | 'idle'
+    | 'unsupported'
+    | 'checking'
+    | 'available'
+    | 'downloading'
+    | 'downloaded'
+    | 'up-to-date'
+    | 'error';
+  availableVersion: string | null;
+  percent: number | null;
+  transferredBytes: number | null;
+  totalBytes: number | null;
+  message: string | null;
+}
+
 interface DesktopApi {
   getState(): Promise<DesktopState>;
   saveState(state: DesktopState): Promise<DesktopState>;
   getBackendStatus(): Promise<BackendStatusPayload>;
   getBackendLogs(): Promise<string>;
+  getUpdateStatus(): Promise<UpdateStatusPayload>;
   startBackend(state: DesktopState): Promise<BackendStatusPayload>;
   stopBackend(): Promise<BackendStatusPayload>;
+  checkForUpdates(): Promise<UpdateStatusPayload>;
+  downloadUpdate(): Promise<UpdateStatusPayload>;
+  installUpdate(): Promise<void>;
   pickFile(): Promise<string | null>;
   pickDirectory(): Promise<string | null>;
   openPath(path: string): Promise<void>;
@@ -38,6 +61,7 @@ interface DesktopApi {
   notify(title: string, body: string): Promise<void>;
   onBackendStatus(callback: (status: BackendStatusPayload) => void): () => void;
   onBackendLogs(callback: (logs: string) => void): () => void;
+  onUpdateStatus(callback: (status: UpdateStatusPayload) => void): () => void;
 }
 
 declare global {
@@ -83,6 +107,25 @@ const fallbackApi: DesktopApi = {
   async stopBackend() {
     return this.getBackendStatus();
   },
+  async getUpdateStatus() {
+    return {
+      supported: false,
+      currentVersion: 'dev',
+      state: 'unsupported',
+      availableVersion: null,
+      percent: null,
+      transferredBytes: null,
+      totalBytes: null,
+      message: 'Desktop updates are available in packaged builds.',
+    };
+  },
+  async checkForUpdates() {
+    return this.getUpdateStatus();
+  },
+  async downloadUpdate() {
+    return this.getUpdateStatus();
+  },
+  async installUpdate() {},
   async pickFile() {
     return null;
   },
@@ -96,6 +139,9 @@ const fallbackApi: DesktopApi = {
     return () => undefined;
   },
   onBackendLogs() {
+    return () => undefined;
+  },
+  onUpdateStatus() {
     return () => undefined;
   },
 };
@@ -113,6 +159,16 @@ const backendStatus = signal<BackendStatusPayload>({
   lastError: null,
 });
 const backendLogs = signal('');
+const updateStatus = signal<UpdateStatusPayload>({
+  supported: false,
+  currentVersion: 'dev',
+  state: 'unsupported',
+  availableVersion: null,
+  percent: null,
+  transferredBytes: null,
+  totalBytes: null,
+  message: 'Desktop updates are available in packaged builds.',
+});
 const paletteOpen = signal(false);
 const liveReloadToken = signal(Date.now());
 const message = signal<string | null>(null);
@@ -214,6 +270,18 @@ async function chooseTablebase(): Promise<void> {
   }
 }
 
+async function checkForDesktopUpdates(): Promise<void> {
+  updateStatus.value = await desktop.checkForUpdates();
+}
+
+async function downloadDesktopUpdate(): Promise<void> {
+  updateStatus.value = await desktop.downloadUpdate();
+}
+
+async function installDesktopUpdate(): Promise<void> {
+  await desktop.installUpdate();
+}
+
 function openLiveInBrowser(): void {
   const url = desktopState.value.backendUrl.trim();
   if (!url) return;
@@ -239,6 +307,7 @@ function renderCommandPalette(): string {
           <button class="palette-action" data-palette-action="stop">Stop local backend</button>
           <button class="palette-action" data-palette-action="reload">Reload live workspace</button>
           <button class="palette-action" data-palette-action="logs">Open logs view</button>
+          <button class="palette-action" data-palette-action="check-updates">Check desktop updates</button>
           <button class="palette-action" data-palette-action="browser">Open engine UI in browser</button>
         </div>
       </div>
@@ -473,6 +542,45 @@ function renderHelpView(): string {
           <li><strong>Escape</strong> — Close the command palette</li>
         </ul>
       </article>
+
+      <article class="card">
+        <div class="card-header">
+          <div>
+            <h2>Desktop updates</h2>
+            <p>Packaged builds can discover, download, and install new desktop releases from GitHub.</p>
+          </div>
+          <span class="badge ${updateStatus.value.state === 'downloaded' ? 'badge-success' : 'badge-muted'}">
+            ${escapeHtml(updateStatus.value.currentVersion)}
+          </span>
+        </div>
+        <div class="callout">
+          <strong>Status:</strong>
+          <span>${escapeHtml(updateStatus.value.message ?? 'Ready to check for updates.')}</span>
+        </div>
+        ${
+          updateStatus.value.percent !== null
+            ? `
+              <div class="progress-meta">
+                <strong>${Math.round(updateStatus.value.percent)}%</strong>
+                <span>${escapeHtml(`${updateStatus.value.transferredBytes ?? 0} / ${updateStatus.value.totalBytes ?? 0} bytes`)}</span>
+              </div>
+            `
+            : ''
+        }
+        <div class="button-row">
+          <button class="btn btn-secondary" data-action="check-updates">Check for updates</button>
+          ${
+            updateStatus.value.state === 'available'
+              ? '<button class="btn btn-primary" data-action="download-update">Download update</button>'
+              : ''
+          }
+          ${
+            updateStatus.value.state === 'downloaded'
+              ? '<button class="btn btn-primary" data-action="install-update">Restart to install</button>'
+              : ''
+          }
+        </div>
+      </article>
     </section>
   `;
 }
@@ -490,6 +598,25 @@ function renderMainContent(): string {
     case 'help':
       return renderHelpView();
   }
+}
+
+function renderUpdateActionButton(): string {
+  const action =
+    updateStatus.value.state === 'downloaded'
+      ? 'install-update'
+      : updateStatus.value.state === 'available'
+        ? 'download-update'
+        : 'check-updates';
+  const label =
+    updateStatus.value.state === 'downloaded'
+      ? 'Restart to update'
+      : updateStatus.value.state === 'available'
+        ? 'Download update'
+        : updateStatus.value.state === 'downloading'
+          ? 'Downloading…'
+          : 'Check updates';
+
+  return `<button class="btn btn-secondary" data-action="${action}">${label}</button>`;
 }
 
 function renderApp(): string {
@@ -538,7 +665,17 @@ function renderApp(): string {
               <strong>${backendStatus.value.running ? 'Running' : 'Stopped'}</strong>
               <span class="status-subtle">${escapeHtml(backendStatus.value.command ?? 'Waiting for launch')}</span>
             </div>
+            <div class="status-card">
+              <span class="status-title">Desktop update</span>
+              <strong>${
+                updateStatus.value.availableVersion
+                  ? `v${escapeHtml(updateStatus.value.availableVersion)} ready`
+                  : escapeHtml(updateStatus.value.currentVersion)
+              }</strong>
+              <span class="status-subtle">${escapeHtml(updateStatus.value.message ?? 'Ready to check for updates.')}</span>
+            </div>
             <button class="btn btn-secondary" data-action="toggle-palette">Quick actions</button>
+            ${renderUpdateActionButton()}
             <button class="btn btn-primary" data-action="start">Start</button>
           </div>
         </header>
@@ -568,6 +705,9 @@ async function handleAction(action: string): Promise<void> {
   if (action === 'open-browser') openLiveInBrowser();
   if (action === 'reload-live') reloadLiveView();
   if (action === 'refresh-logs') await refreshLogs();
+  if (action === 'check-updates') await checkForDesktopUpdates();
+  if (action === 'download-update') await downloadDesktopUpdate();
+  if (action === 'install-update') await installDesktopUpdate();
   if (action === 'pick-executable') await chooseExecutable();
   if (action === 'pick-working-directory') await chooseWorkingDirectory();
   if (action === 'pick-opening-book') await chooseOpeningBook();
@@ -674,12 +814,16 @@ async function init(): Promise<void> {
   currentView.value = desktopState.value.lastView;
   backendStatus.value = await desktop.getBackendStatus();
   backendLogs.value = await desktop.getBackendLogs();
+  updateStatus.value = await desktop.getUpdateStatus();
 
   desktop.onBackendStatus((status) => {
     backendStatus.value = status;
   });
   desktop.onBackendLogs((logs) => {
     backendLogs.value = logs;
+  });
+  desktop.onUpdateStatus((status) => {
+    updateStatus.value = status;
   });
 
   registerKeyboardShortcuts();
