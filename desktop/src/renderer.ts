@@ -617,8 +617,10 @@ function renderMainContent(): string {
 }
 
 function renderUpdateActionButton(): string {
-  const action =
-    updateStatus.value.state === 'downloaded'
+  const disabled = updateStatus.value.state === 'checking' || updateStatus.value.state === 'downloading';
+  const action = disabled
+    ? ''
+    : updateStatus.value.state === 'downloaded'
       ? 'install-update'
       : updateStatus.value.state === 'available'
         ? 'download-update'
@@ -626,13 +628,15 @@ function renderUpdateActionButton(): string {
   const label =
     updateStatus.value.state === 'downloaded'
       ? 'Restart to update'
+      : updateStatus.value.state === 'checking'
+        ? 'Checking…'
       : updateStatus.value.state === 'available'
         ? 'Download update'
         : updateStatus.value.state === 'downloading'
           ? 'Downloading…'
           : 'Check updates';
 
-  return `<button class="btn btn-secondary" data-action="${action}">${label}</button>`;
+  return `<button class="btn btn-secondary" ${action ? `data-action="${action}"` : 'disabled'}>${label}</button>`;
 }
 
 function renderApp(): string {
