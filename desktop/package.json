@@ -6,7 +6,7 @@
   "main": "dist-electron/electron-main.js",
   "packageManager": "npm@11.9.0",
   "description": "Dedicated Electron desktop app for CheckAI",
-  "author": "JosunLP",
+  "author": "JosunLP <20913954+JosunLP@users.noreply.github.com>",
   "license": "MIT",
   "repository": {
     "type": "git",

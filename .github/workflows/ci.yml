@@ -115,7 +115,7 @@ jobs:
 
       - name: Install desktop dependencies
         working-directory: desktop
-        run: npm install
+        run: npm ci
 
       - name: Validate desktop app
         working-directory: desktop
