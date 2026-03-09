@@ -630,18 +630,24 @@ function getUpdatePrimaryAction(): { action: string; label: string; disabled: bo
   return { action, label, disabled };
 }
 
-function renderUpdateActionButton(): string {
+function renderUpdateButton(
+  variant: 'primary' | 'secondary',
+  options: { hideWhenDefaultCheck?: boolean } = {},
+): string {
   const primary = getUpdatePrimaryAction();
-  return `<button class="btn btn-secondary" ${primary.action ? `data-action="${primary.action}"` : 'disabled'}>${primary.label}</button>`;
-}
-
-function renderUpdatePrimaryButton(): string {
-  const primary = getUpdatePrimaryAction();
-  if (primary.label === 'Check updates') {
+  if (options.hideWhenDefaultCheck && primary.action === 'check-updates') {
     return '';
   }
 
-  return `<button class="btn btn-primary" ${primary.action ? `data-action="${primary.action}"` : 'disabled'}>${primary.label}</button>`;
+  return `<button class="btn btn-${variant}" ${primary.action ? `data-action="${primary.action}"` : 'disabled'}>${primary.label}</button>`;
+}
+
+function renderUpdateActionButton(): string {
+  return renderUpdateButton('secondary');
+}
+
+function renderUpdatePrimaryButton(): string {
+  return renderUpdateButton('primary', { hideWhenDefaultCheck: true });
 }
 
 function renderApp(): string {
