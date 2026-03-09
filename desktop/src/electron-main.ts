@@ -490,6 +490,10 @@ app.whenReady().then(() => {
 
   void checkForUpdates().catch((error) => {
     console.error('Failed to check for desktop updates at startup:', error);
+    notify(
+      'CheckAI Desktop',
+      'Automatic desktop update check failed. Open Help and retry the update check.',
+    );
   });
 
   app.on('activate', () => {

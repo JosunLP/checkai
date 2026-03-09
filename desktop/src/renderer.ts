@@ -585,16 +585,7 @@ function renderHelpView(): string {
         }
         <div class="button-row">
           <button class="btn btn-secondary" data-action="check-updates">Check for updates</button>
-          ${
-            updateStatus.value.state === 'available'
-              ? '<button class="btn btn-primary" data-action="download-update">Download update</button>'
-              : ''
-          }
-          ${
-            updateStatus.value.state === 'downloaded'
-              ? '<button class="btn btn-primary" data-action="install-update">Restart to install</button>'
-              : ''
-          }
+          ${renderUpdatePrimaryButton()}
         </div>
       </article>
     </section>
@@ -616,7 +607,7 @@ function renderMainContent(): string {
   }
 }
 
-function renderUpdateActionButton(): string {
+function getUpdatePrimaryAction(): { action: string; label: string; disabled: boolean } {
   const disabled = updateStatus.value.state === 'checking' || updateStatus.value.state === 'downloading';
   const action = disabled
     ? ''
@@ -636,7 +627,21 @@ function renderUpdateActionButton(): string {
           ? 'Downloading…'
           : 'Check updates';
 
-  return `<button class="btn btn-secondary" ${action ? `data-action="${action}"` : 'disabled'}>${label}</button>`;
+  return { action, label, disabled };
+}
+
+function renderUpdateActionButton(): string {
+  const primary = getUpdatePrimaryAction();
+  return `<button class="btn btn-secondary" ${primary.action ? `data-action="${primary.action}"` : 'disabled'}>${primary.label}</button>`;
+}
+
+function renderUpdatePrimaryButton(): string {
+  const primary = getUpdatePrimaryAction();
+  if (primary.label === 'Check updates') {
+    return '';
+  }
+
+  return `<button class="btn btn-primary" ${primary.action ? `data-action="${primary.action}"` : 'disabled'}>${primary.label}</button>`;
 }
 
 function renderApp(): string {
