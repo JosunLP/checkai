@@ -488,7 +488,9 @@ app.whenReady().then(() => {
     startBackend(state);
   }
 
-  void checkForUpdates();
+  void checkForUpdates().catch((error) => {
+    console.error('Failed to check for desktop updates at startup:', error);
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
