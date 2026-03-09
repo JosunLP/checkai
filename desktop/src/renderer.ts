@@ -200,6 +200,22 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+function formatBytes(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—';
+  if (value < 1024) return `${value} B`;
+
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let size = value / 1024;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
 function setMessage(value: string | null): void {
   message.value = value;
   if (!value) return;
@@ -562,7 +578,7 @@ function renderHelpView(): string {
             ? `
               <div class="progress-meta">
                 <strong>${Math.round(updateStatus.value.percent)}%</strong>
-                <span>${escapeHtml(`${updateStatus.value.transferredBytes ?? 0} / ${updateStatus.value.totalBytes ?? 0} bytes`)}</span>
+                <span>${escapeHtml(`${formatBytes(updateStatus.value.transferredBytes)} / ${formatBytes(updateStatus.value.totalBytes)}`)}</span>
               </div>
             `
             : ''

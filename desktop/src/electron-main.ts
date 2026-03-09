@@ -334,9 +334,7 @@ function installUpdate(): void {
     return;
   }
 
-  setImmediate(() => {
-    autoUpdater.quitAndInstall();
-  });
+  autoUpdater.quitAndInstall();
 }
 
 function startBackend(state: DesktopState): BackendStatusPayload {
