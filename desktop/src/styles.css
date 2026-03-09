@@ -187,6 +187,10 @@ button {
   align-items: center;
 }
 
+.center-row {
+  justify-content: center;
+}
+
 .status-card,
 .card,
 .flash-message,

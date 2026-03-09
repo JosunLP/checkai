@@ -89,12 +89,13 @@ The repository now also includes a dedicated Electron desktop shell in `desktop/
 
 ```bash
 cd desktop
+corepack enable
 npm install
 npm run build
 npm run start
 ```
 
-By default the desktop app targets `http://127.0.0.1:8080`, can persist backend launch settings between sessions, and can start a local `checkai serve` process for you.
+By default the desktop app targets `http://127.0.0.1:8080`, can persist backend launch settings between sessions, and can start a local `checkai serve` process for you. The embedded live workspace is intentionally limited to loopback URLs for safety; non-local targets can still be opened in your browser.
 
 ### Start the Server
 

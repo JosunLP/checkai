@@ -123,6 +123,18 @@ const liveUrl = computed(() => {
   return base ? `${base}/?desktop=1&t=${token}` : '';
 });
 
+const canEmbedLiveView = computed(() => {
+  try {
+    const url = new URL(desktopState.value.backendUrl);
+    return (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      ['127.0.0.1', 'localhost', '::1'].includes(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+});
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -147,10 +159,16 @@ function updateState(patch: Partial<DesktopState>): void {
 }
 
 async function saveSettings(): Promise<void> {
+  await persistState(true);
+}
+
+async function persistState(announce: boolean): Promise<void> {
   const state = { ...desktopState.value, lastView: currentView.value };
   desktopState.value = await desktop.saveState(state);
-  setMessage('Desktop settings saved.');
-  await desktop.notify('CheckAI Desktop', 'Desktop settings saved.');
+  if (announce) {
+    setMessage('Desktop settings saved.');
+    await desktop.notify('CheckAI Desktop', 'Desktop settings saved.');
+  }
 }
 
 async function refreshLogs(): Promise<void> {
@@ -296,6 +314,24 @@ function renderLiveView(): string {
     `;
   }
 
+  if (!canEmbedLiveView.value) {
+    return `
+      <article class="card empty-card">
+        <div>
+          <h2>Embedded live view is limited to local backends</h2>
+          <p>
+            For safety, the Electron workspace only embeds loopback URLs. You can still open the configured
+            backend in your external browser.
+          </p>
+          <div class="button-row center-row">
+            <button class="btn btn-secondary" data-action="open-browser">Open in browser</button>
+            <button class="btn btn-secondary" data-action="reload-live">Reload URL</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
   return `
     <article class="card live-card">
       <div class="card-header">
@@ -309,7 +345,11 @@ function renderLiveView(): string {
         </div>
       </div>
       <div class="iframe-shell">
-        <iframe src="${escapeHtml(liveUrl.value)}" title="CheckAI engine workspace"></iframe>
+        <iframe
+          src="${escapeHtml(liveUrl.value)}"
+          title="CheckAI engine workspace"
+          sandbox="allow-downloads allow-forms allow-popups allow-same-origin allow-scripts"
+        ></iframe>
       </div>
     </article>
   `;
@@ -521,99 +561,87 @@ function renderApp(): string {
   `;
 }
 
-function bindEvents(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('[data-view]').forEach((button) => {
-    button.addEventListener('click', () => {
-      currentView.value = button.dataset.view as DesktopView;
-      updateState({ lastView: currentView.value });
-      void saveSettings();
-    });
-  });
-
-  root.querySelector<HTMLElement>('[data-action="toggle-palette"]')?.addEventListener('click', () => {
-    paletteOpen.value = true;
-  });
-
-  root.querySelectorAll<HTMLElement>('[data-close-palette]').forEach((button) => {
-    button.addEventListener('click', () => {
-      paletteOpen.value = false;
-    });
-  });
-
-  root.querySelectorAll<HTMLElement>('[data-palette-action]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      const action = button.dataset.paletteAction;
-      paletteOpen.value = false;
-      if (action === 'start') await startBackend();
-      if (action === 'stop') await stopBackend();
-      if (action === 'reload') reloadLiveView();
-      if (action === 'logs') currentView.value = 'logs';
-      if (action === 'browser') openLiveInBrowser();
-    });
-  });
-
-  root.querySelector<HTMLElement>('[data-action="save"]')?.addEventListener('click', () => {
-    void saveSettings();
-  });
-  root.querySelectorAll<HTMLElement>('[data-action="start"]').forEach((button) => {
-    button.addEventListener('click', () => void startBackend());
-  });
-  root.querySelectorAll<HTMLElement>('[data-action="stop"]').forEach((button) => {
-    button.addEventListener('click', () => void stopBackend());
-  });
-  root.querySelector<HTMLElement>('[data-action="open-browser"]')?.addEventListener('click', openLiveInBrowser);
-  root.querySelector<HTMLElement>('[data-action="reload-live"]')?.addEventListener('click', reloadLiveView);
-  root.querySelector<HTMLElement>('[data-action="refresh-logs"]')?.addEventListener('click', () => void refreshLogs());
-  root.querySelector<HTMLElement>('[data-action="pick-executable"]')?.addEventListener('click', () => void chooseExecutable());
-  root
-    .querySelector<HTMLElement>('[data-action="pick-working-directory"]')
-    ?.addEventListener('click', () => void chooseWorkingDirectory());
-  root
-    .querySelector<HTMLElement>('[data-action="pick-opening-book"]')
-    ?.addEventListener('click', () => void chooseOpeningBook());
-  root
-    .querySelector<HTMLElement>('[data-action="pick-tablebase"]')
-    ?.addEventListener('click', () => void chooseTablebase());
-  root.querySelector<HTMLElement>('[data-action="live"]')?.addEventListener('click', () => {
-    currentView.value = 'live';
-  });
-  root.querySelector<HTMLElement>('[data-action="logs"]')?.addEventListener('click', () => {
-    currentView.value = 'logs';
-  });
-  root.querySelector<HTMLElement>('[data-action="open-working-directory"]')?.addEventListener('click', () => {
+async function handleAction(action: string): Promise<void> {
+  if (action === 'save') await saveSettings();
+  if (action === 'start') await startBackend();
+  if (action === 'stop') await stopBackend();
+  if (action === 'open-browser') openLiveInBrowser();
+  if (action === 'reload-live') reloadLiveView();
+  if (action === 'refresh-logs') await refreshLogs();
+  if (action === 'pick-executable') await chooseExecutable();
+  if (action === 'pick-working-directory') await chooseWorkingDirectory();
+  if (action === 'pick-opening-book') await chooseOpeningBook();
+  if (action === 'pick-tablebase') await chooseTablebase();
+  if (action === 'live') currentView.value = 'live';
+  if (action === 'logs') currentView.value = 'logs';
+  if (action === 'toggle-palette') paletteOpen.value = true;
+  if (action === 'open-working-directory') {
     const path = desktopState.value.backendWorkingDirectory.trim();
     if (path) {
-      void desktop.openPath(path);
+      await desktop.openPath(path);
+    }
+  }
+}
+
+function bindRootEvents(root: HTMLElement): void {
+  root.addEventListener('click', (event) => {
+    const target = (event.target as HTMLElement).closest<HTMLElement>(
+      '[data-view], [data-action], [data-palette-action], [data-close-palette]',
+    );
+    if (!target) return;
+
+    if (target.hasAttribute('data-close-palette')) {
+      paletteOpen.value = false;
+      return;
+    }
+
+    const view = target.dataset.view as DesktopView | undefined;
+    if (view) {
+      currentView.value = view;
+      updateState({ lastView: view });
+      void persistState(false);
+      return;
+    }
+
+    const paletteAction = target.dataset.paletteAction;
+    if (paletteAction) {
+      paletteOpen.value = false;
+      void handleAction(
+        paletteAction === 'reload'
+          ? 'reload-live'
+          : paletteAction === 'browser'
+            ? 'open-browser'
+            : paletteAction,
+      );
+      return;
+    }
+
+    const action = target.dataset.action;
+    if (action) {
+      void handleAction(action);
     }
   });
 
-  root.querySelector<HTMLInputElement>('#backend-url')?.addEventListener('input', (event) => {
-    const target = event.currentTarget as HTMLInputElement;
-    updateState({ backendUrl: target.value });
+  root.addEventListener('input', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    if (target.id === 'backend-url') updateState({ backendUrl: target.value });
+    if (target.id === 'backend-executable') updateState({ backendExecutable: target.value });
+    if (target.id === 'backend-args') updateState({ backendArgs: target.value });
+    if (target.id === 'backend-working-directory')
+      updateState({ backendWorkingDirectory: target.value });
+    if (target.id === 'opening-book-path') updateState({ openingBookPath: target.value });
+    if (target.id === 'tablebase-path') updateState({ tablebasePath: target.value });
   });
-  root.querySelector<HTMLInputElement>('#auto-start')?.addEventListener('change', (event) => {
-    const target = event.currentTarget as HTMLInputElement;
-    updateState({ autoStartBackend: target.checked });
-  });
-  root.querySelector<HTMLInputElement>('#backend-executable')?.addEventListener('input', (event) => {
-    const target = event.currentTarget as HTMLInputElement;
-    updateState({ backendExecutable: target.value });
-  });
-  root.querySelector<HTMLInputElement>('#backend-args')?.addEventListener('input', (event) => {
-    const target = event.currentTarget as HTMLInputElement;
-    updateState({ backendArgs: target.value });
-  });
-  root.querySelector<HTMLInputElement>('#backend-working-directory')?.addEventListener('input', (event) => {
-    const target = event.currentTarget as HTMLInputElement;
-    updateState({ backendWorkingDirectory: target.value });
-  });
-  root.querySelector<HTMLInputElement>('#opening-book-path')?.addEventListener('input', (event) => {
-    const target = event.currentTarget as HTMLInputElement;
-    updateState({ openingBookPath: target.value });
-  });
-  root.querySelector<HTMLInputElement>('#tablebase-path')?.addEventListener('input', (event) => {
-    const target = event.currentTarget as HTMLInputElement;
-    updateState({ tablebasePath: target.value });
+
+  root.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    if (target.id === 'auto-start') {
+      updateState({ autoStartBackend: target.checked });
+    }
   });
 }
 
@@ -630,6 +658,8 @@ function registerKeyboardShortcuts(): void {
       event.preventDefault();
       const order: DesktopView[] = ['workspace', 'live', 'engine', 'logs', 'help'];
       currentView.value = order[Number(event.key) - 1] ?? 'workspace';
+      updateState({ lastView: currentView.value });
+      void persistState(false);
       return;
     }
 
@@ -660,9 +690,10 @@ if (!appRoot) {
   throw new Error('Missing #app root element');
 }
 
+bindRootEvents(appRoot);
+
 effect(() => {
   appRoot.innerHTML = renderApp();
-  bindEvents(appRoot);
 });
 
 void init();

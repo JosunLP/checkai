@@ -12,6 +12,7 @@ The desktop app keeps the full engine workspace available while adding desktop-n
 - **Inline log inspection** for backend stdout/stderr
 - **Dedicated multi-panel layout** with workspace, live engine, engine configuration, logs, and help views
 - **Keyboard shortcuts** including a quick-action palette (`⌘/Ctrl + K`)
+- **Loopback-only embedded live view** so only local backends are rendered inside the Electron shell; non-local targets can still be opened externally
 
 ## Technology Stack
 
@@ -26,6 +27,7 @@ The desktop app keeps the full engine workspace available while adding desktop-n
 
 ```bash
 cd desktop
+corepack enable
 npm install
 npm run build
 npm run start
@@ -50,5 +52,5 @@ npm run dist   # installable artifacts
 ## Notes
 
 - The desktop app complements the existing web UI; it does not replace it.
-- The embedded live workspace points at the configured backend URL, so remote or local backends can both be used.
+- The embedded live workspace is intentionally limited to loopback URLs (`localhost`, `127.0.0.1`, `::1`). Non-local targets can still be opened in your external browser.
 - Saved desktop state is stored in Electron's user data directory.

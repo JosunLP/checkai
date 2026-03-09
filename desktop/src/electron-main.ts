@@ -106,7 +106,7 @@ function buildBackendArgs(state: DesktopState): string[] {
 
   try {
     const url = new URL(state.backendUrl);
-    if (url.port && !args.includes('--port')) {
+    if (/^\d+$/.test(url.port) && !args.includes('--port')) {
       args.push('--port', url.port);
     }
   } catch {
@@ -144,7 +144,6 @@ function startBackend(state: DesktopState): BackendStatusPayload {
     backendProcess = spawn(executable, args, {
       cwd: state.backendWorkingDirectory.trim() || undefined,
       stdio: 'pipe',
-      shell: process.platform === 'win32',
     });
   } catch (error) {
     backendStatus = {
