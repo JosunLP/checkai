@@ -4,6 +4,23 @@
 
 All notable changes to CheckAI are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — 2026-03-09
+
+### Added
+
+- **Electron desktop app** — Added a dedicated `@bquery/bquery`-based Electron workspace alongside the web UI
+  - Includes persistent desktop sessions, native file/folder pickers, local backend launch controls, inline logs, and a multi-view workspace shell
+  - Packaged desktop builds can check GitHub Releases for updates, download them, and install on restart
+- **Native desktop installers** — Release automation now publishes platform-native Electron installers in addition to updater-compatible artifacts
+  - Linux releases include `.deb` alongside AppImage
+  - macOS releases include `.dmg` alongside updater-compatible `.zip`
+  - Windows releases include `.msi` alongside NSIS for in-app update compatibility
+- **Desktop CI and release automation** — GitHub Actions now validate the Electron app on Ubuntu, macOS, and Windows and publish desktop release assets with dependency review coverage
+
+### Changed
+
+- **Version metadata** — Updated project/package version references, install snippets, OpenAPI metadata, and documentation to align with the 0.6.0 desktop release
+
 ## [0.5.2] — 2026-03-07
 
 ### Fixed

@@ -51,7 +51,7 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 **Linux / macOS:**
 
 ```bash
-VERSION="0.5.2"
+VERSION="0.6.0"
 curl -fsSL -o install.sh \
   "https://raw.githubusercontent.com/JosunLP/checkai/v${VERSION}/scripts/install.sh"
 sh install.sh
@@ -60,7 +60,7 @@ sh install.sh
 **Windows (PowerShell):**
 
 ```powershell
-$Version = "0.5.2"
+$Version = "0.6.0"
 Invoke-WebRequest `
   -Uri "https://raw.githubusercontent.com/JosunLP/checkai/v$Version/scripts/install.ps1" `
   -OutFile install.ps1

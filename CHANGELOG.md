@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-09
+
+### Added
+
+- **Electron desktop app** — Added a dedicated `@bquery/bquery`-based Electron workspace alongside the web UI
+  - Includes persistent desktop sessions, native file/folder pickers, local backend launch controls, inline logs, and a multi-view workspace shell
+  - Packaged desktop builds can check GitHub Releases for updates, download them, and install on restart
+- **Native desktop installers** — Release automation now publishes platform-native Electron installers in addition to updater-compatible artifacts
+  - Linux releases include `.deb` alongside AppImage
+  - macOS releases include `.dmg` alongside updater-compatible `.zip`
+  - Windows releases include `.msi` alongside NSIS for in-app update compatibility
+- **Desktop CI and release automation** — GitHub Actions now validate the Electron app on Ubuntu, macOS, and Windows and publish desktop release assets with dependency review coverage
+
+### Changed
+
+- **Version metadata** — Updated project/package version references, install snippets, OpenAPI metadata, and documentation to align with the 0.6.0 desktop release
+
 ## [0.5.2] - 2026-03-07
 
 ### Fixed
@@ -225,7 +242,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Game archiving with zstd compression
 - Web UI for browser-based game viewing
 
-[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/JosunLP/checkai/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/JosunLP/checkai/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/JosunLP/checkai/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/JosunLP/checkai/compare/v0.4.0...v0.5.0
