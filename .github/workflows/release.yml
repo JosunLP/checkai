@@ -224,23 +224,26 @@ jobs:
         include:
           - label: Linux
             os: ubuntu-latest
-            build_command: npx electron-builder --config electron-builder.yml --publish never --linux AppImage
+            build_command: npx electron-builder --config electron-builder.yml --publish never --linux AppImage deb
             artifact_glob: |
               desktop/release/checkai-desktop-*.AppImage
+              desktop/release/checkai-desktop-*.deb
               desktop/release/latest-linux.yml
           - label: macOS
             os: macos-latest
-            build_command: npx electron-builder --config electron-builder.yml --publish never --mac zip
+            build_command: npx electron-builder --config electron-builder.yml --publish never --mac zip dmg
             artifact_glob: |
+              desktop/release/checkai-desktop-*.dmg
               desktop/release/checkai-desktop-*.zip
               desktop/release/checkai-desktop-*.zip.blockmap
               desktop/release/latest-mac.yml
           - label: Windows
             os: windows-latest
-            build_command: npx electron-builder --config electron-builder.yml --publish never --win nsis
+            build_command: npx electron-builder --config electron-builder.yml --publish never --win nsis msi
             artifact_glob: |
               desktop/release/checkai-desktop-*.exe
               desktop/release/checkai-desktop-*.exe.blockmap
+              desktop/release/checkai-desktop-*.msi
               desktop/release/latest.yml
     steps:
       - uses: actions/checkout@v4

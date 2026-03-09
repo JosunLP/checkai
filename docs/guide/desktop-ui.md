@@ -57,4 +57,5 @@ npm run dist   # installable artifacts
 - The embedded live workspace is intentionally limited to loopback URLs (`localhost`, `127.0.0.1`, `::1`). Non-local targets can still be opened in your external browser.
 - Saved desktop state is stored in Electron's user data directory.
 - Desktop self-updates are available only in packaged builds; development runs keep the update controls visible but report that packaged builds are required.
-- Windows release builds use the updater-compatible NSIS installer rather than a portable executable so in-app desktop updates can be applied consistently.
+- Release automation publishes updater-compatible desktop artifacts alongside native installers for each platform (`.deb` on Linux, `.dmg` on macOS, `.msi` on Windows).
+- Windows release builds keep the updater-compatible NSIS installer in addition to the MSI package so in-app desktop updates can still be applied consistently.

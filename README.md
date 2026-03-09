@@ -95,7 +95,7 @@ npm run build
 npm run start
 ```
 
-By default the desktop app targets `http://127.0.0.1:8080`, can persist backend launch settings between sessions, and can start a local `checkai serve` process for you. The embedded live workspace is intentionally limited to loopback URLs for safety; non-local targets can still be opened in your browser. Packaged desktop releases can also check GitHub Releases for updates, download them, and prompt for restart-based installation from inside the app. To keep Windows desktop updates working, release builds now ship the installer-based NSIS package instead of a portable `.exe`.
+By default the desktop app targets `http://127.0.0.1:8080`, can persist backend launch settings between sessions, and can start a local `checkai serve` process for you. The embedded live workspace is intentionally limited to loopback URLs for safety; non-local targets can still be opened in your browser. Packaged desktop releases can also check GitHub Releases for updates, download them, and prompt for restart-based installation from inside the app. Release automation now publishes updater-compatible artifacts (AppImage/zip/NSIS) together with native installer packages per platform (`.deb`, `.dmg`, `.msi`). To keep Windows desktop updates working, release builds continue to ship the updater-compatible NSIS package alongside the MSI installer.
 
 ### Start the Server
 

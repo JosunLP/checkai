@@ -13,10 +13,15 @@ files:
   - dist-electron/**/*
 mac:
   category: public.app-category.developer-tools
+  target:
+    - zip
+    - dmg
 linux:
   target:
     - AppImage
+    - deb
     - tar.gz
 win:
   target:
     - nsis
+    - msi
