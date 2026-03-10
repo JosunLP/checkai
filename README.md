@@ -313,9 +313,11 @@ checkai/
 │   ├── package.json      # Desktop build + packaging scripts
 │   ├── index.html        # Renderer entry point
 │   └── src/
-│       ├── renderer.ts   # Desktop workspace shell UI
+│       ├── shared-types.ts   # Shared IPC contract (main, preload, renderer)
+│       ├── renderer.ts       # Desktop workspace shell UI
 │       ├── electron-main.ts
 │       └── preload.ts
+│       └── styles.css        # Desktop-specific styles
 ├── web/                  # TypeScript Web UI (bQuery + Tailwind + Vite)
 │   ├── src/              # 12 TypeScript source modules
 │   ├── dist/             # Vite production build (embedded into binary)
