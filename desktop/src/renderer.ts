@@ -601,7 +601,7 @@ function getUpdatePrimaryAction(): { action: string; label: string; disabled: bo
       ? 'Restart to update'
       : updateStatus.value.state === 'checking'
         ? 'Checking…'
-      : updateStatus.value.state === 'available'
+        : updateStatus.value.state === 'available'
         ? 'Download update'
         : updateStatus.value.state === 'downloading'
           ? 'Downloading…'
