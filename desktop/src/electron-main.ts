@@ -261,7 +261,7 @@ function configureAutoUpdater(): void {
       supported: true,
       state: 'available',
       availableVersion: info.version,
-      percent: 0,
+      percent: null,
       transferredBytes: null,
       totalBytes: null,
       message: `Version ${info.version} is available for download.`,
@@ -549,6 +549,7 @@ function stopBackend(): BackendStatusPayload {
   try {
     processRef.kill();
   } catch (error) {
+    backendProcess = null;
     backendStopRequested = false;
     backendStatus = {
       ...backendStatus,
