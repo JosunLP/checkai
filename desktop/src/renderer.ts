@@ -602,7 +602,7 @@ function getUpdatePrimaryAction(): { action: string; label: string; disabled: bo
       : updateStatus.value.state === 'checking'
         ? 'Checking…'
         : updateStatus.value.state === 'available'
-        ? 'Download update'
+          ? 'Download update'
         : updateStatus.value.state === 'downloading'
           ? 'Downloading…'
           : 'Check updates';
