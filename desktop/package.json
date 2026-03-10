@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "main": "dist-electron/electron-main.js",
-  "packageManager": "npm@11.9.0",
+  "packageManager": "bun@1.3.10",
   "description": "Dedicated Electron desktop app for CheckAI",
   "author": "JosunLP <20913954+JosunLP@users.noreply.github.com>",
   "license": "MIT",
@@ -13,13 +13,13 @@
     "url": "https://github.com/JosunLP/checkai.git"
   },
   "scripts": {
-    "build": "npm run build:renderer && npm run build:electron",
+    "build": "bun run build:renderer && bun run build:electron",
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit && vite build",
-    "start": "npm run build && electron .",
-    "pack": "npm run build && electron-builder --config electron-builder.yml --dir --publish never",
-    "dist": "npm run build && electron-builder --config electron-builder.yml --publish never"
+    "start": "bun run build && bunx electron .",
+    "pack": "bun run build && bunx electron-builder --config electron-builder.yml --dir --publish never",
+    "dist": "bun run build && bunx electron-builder --config electron-builder.yml --publish never"
   },
   "dependencies": {
     "electron-updater": "^6.6.2"
