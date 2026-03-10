@@ -37,10 +37,10 @@ const fallbackApi: DesktopApi = {
     return 'Electron preload bridge unavailable. Open this build inside Electron to use native features.';
   },
   async startBackend() {
-    return this.getBackendStatus();
+    return fallbackApi.getBackendStatus();
   },
   async stopBackend() {
-    return this.getBackendStatus();
+    return fallbackApi.getBackendStatus();
   },
   async getUpdateStatus() {
     return {
@@ -55,10 +55,10 @@ const fallbackApi: DesktopApi = {
     };
   },
   async checkForUpdates() {
-    return this.getUpdateStatus();
+    return fallbackApi.getUpdateStatus();
   },
   async downloadUpdate() {
-    return this.getUpdateStatus();
+    return fallbackApi.getUpdateStatus();
   },
   async installUpdate() {},
   async pickFile() {
@@ -82,7 +82,7 @@ const fallbackApi: DesktopApi = {
 };
 
 const desktop = window.checkaiDesktop ?? fallbackApi;
-const DEFAULT_DESKTOP_VIEW: DesktopView = 'help';
+const DEFAULT_DESKTOP_VIEW: DesktopView = 'workspace';
 
 const desktopState = signal<DesktopState>({ ...DEFAULT_DESKTOP_STATE });
 const currentView = signal<DesktopView>('workspace');
@@ -110,6 +110,8 @@ const liveReloadToken = signal(Date.now());
 const message = signal<string | null>(null);
 let liveIframeElement: HTMLIFrameElement | null = null;
 let liveIframeSrc = '';
+let pendingRenderFrame: number | null = null;
+let pendingRenderMarkup: string = '';
 
 interface InputSelectionState {
   id: string;
@@ -923,12 +925,22 @@ if (!appRoot) {
 bindRootEvents(appRoot);
 
 effect(() => {
-  const focusedInputState = captureFocusedInputState(appRoot);
-  const template = document.createElement('template');
-  template.innerHTML = renderApp();
-  syncLiveIframe(template.content.querySelector('[data-live-iframe-host]'));
-  appRoot.replaceChildren(template.content);
-  restoreFocusedInputState(appRoot, focusedInputState);
+  pendingRenderMarkup = renderApp();
+
+  if (pendingRenderFrame !== null) {
+    return;
+  }
+
+  pendingRenderFrame = window.requestAnimationFrame(() => {
+    pendingRenderFrame = null;
+
+    const focusedInputState = captureFocusedInputState(appRoot);
+    const template = document.createElement('template');
+    template.innerHTML = pendingRenderMarkup;
+    syncLiveIframe(template.content.querySelector('[data-live-iframe-host]'));
+    appRoot.replaceChildren(template.content);
+    restoreFocusedInputState(appRoot, focusedInputState);
+  });
 });
 
 void init();

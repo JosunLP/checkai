@@ -138,6 +138,17 @@ function splitArgs(value: string): string[] {
   return (matches ?? []).map((part) => part.replace(/^['"]|['"]$/g, ''));
 }
 
+function defaultPortForProtocol(protocol: string): string {
+  switch (protocol) {
+    case 'http:':
+      return '80';
+    case 'https:':
+      return '443';
+    default:
+      return '';
+  }
+}
+
 function buildBackendArgs(state: DesktopState): string[] {
   const args = splitArgs(state.backendArgs);
   if (state.openingBookPath && !args.includes('--book-path')) {
@@ -149,8 +160,9 @@ function buildBackendArgs(state: DesktopState): string[] {
 
   try {
     const url = new URL(state.backendUrl);
-    if (/^\d+$/.test(url.port) && !args.includes('--port')) {
-      args.push('--port', url.port);
+    const port = url.port || defaultPortForProtocol(url.protocol);
+    if (port && /^\d+$/.test(port) && !args.includes('--port')) {
+      args.push('--port', port);
     }
   } catch {
     // Ignore invalid URLs here; the renderer validates what it stores.
@@ -202,11 +214,13 @@ function validateOpenPathTarget(target: unknown): string {
     throw new Error('Only local filesystem paths can be opened from the desktop shell.');
   }
 
-  if (!existsSync(value)) {
+  const resolvedPath = resolve(value);
+
+  if (!existsSync(resolvedPath)) {
     throw new Error('The selected path does not exist.');
   }
 
-  return value;
+  return resolvedPath;
 }
 
 function validateExternalTarget(target: unknown): string {
@@ -341,6 +355,7 @@ async function checkForUpdates(): Promise<UpdateStatusPayload> {
   try {
     await autoUpdater.checkForUpdates();
   } catch (error) {
+    console.error('Failed to check for desktop updates:', error);
     updateStatus = {
       ...updateStatus,
       supported: true,
@@ -603,8 +618,7 @@ function createWindow(): void {
   });
 }
 
-app.whenReady().then(() => {
-  configureAutoUpdater();
+function registerIpcHandlers(): void {
   ipcMain.handle('checkai:get-state', () => loadState());
   ipcMain.handle('checkai:save-state', (_event, state: unknown) => saveState(state));
   ipcMain.handle('checkai:get-backend-status', () => backendStatus);
@@ -631,7 +645,12 @@ app.whenReady().then(() => {
     shell.openExternal(validateExternalTarget(target)),
   );
   ipcMain.handle('checkai:notify', (_event, title: unknown, body: unknown) => notify(title, body));
+}
 
+registerIpcHandlers();
+
+app.whenReady().then(() => {
+  configureAutoUpdater();
   createWindow();
 
   const state = loadState();
@@ -639,13 +658,7 @@ app.whenReady().then(() => {
     startBackend(state);
   }
 
-  void checkForUpdates().catch((error) => {
-    console.error('Failed to check for desktop updates at startup:', error);
-    notify(
-      'CheckAI Desktop',
-      'Automatic desktop update check failed. Open Help and retry the update check.',
-    );
-  });
+  void checkForUpdates();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
