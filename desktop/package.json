@@ -22,10 +22,10 @@
     "dist": "npm run build && electron-builder --config electron-builder.yml --publish never"
   },
   "dependencies": {
-    "@bquery/bquery": "^1.4.0",
     "electron-updater": "^6.6.2"
   },
   "devDependencies": {
+    "@bquery/bquery": "^1.4.0",
     "@types/node": "^24.3.0",
     "electron": "^36.0.0",
     "electron-builder": "^26.0.12",

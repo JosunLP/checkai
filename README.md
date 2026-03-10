@@ -313,10 +313,10 @@ checkai/
 ├── desktop/              # Electron desktop UI (bQuery renderer + native shell)
 │   ├── package.json      # Desktop build + packaging scripts
 │   ├── index.html        # Renderer entry point
-│   ├── src/
-│   │   ├── renderer.ts   # Desktop workspace shell UI
-│   │   ├── electron-main.ts
-│   │   └── preload.ts
+│   └── src/
+│       ├── renderer.ts   # Desktop workspace shell UI
+│       ├── electron-main.ts
+│       └── preload.ts
 ├── web/                  # TypeScript Web UI (bQuery + Tailwind + Vite)
 │   ├── src/              # 12 TypeScript source modules
 │   ├── dist/             # Vite production build (embedded into binary)

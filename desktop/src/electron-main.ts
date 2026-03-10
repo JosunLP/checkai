@@ -14,12 +14,14 @@ import {
 
 const MAX_LOG_LINES = 400;
 const LOG_PUSH_DELAY_MS = 250;
+const DEFAULT_NOTIFICATION_TITLE = 'CheckAI Desktop';
 
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcessWithoutNullStreams | null = null;
 let backendExitListener:
   | ((code: number | null, signal: NodeJS.Signals | null) => void)
   | null = null;
+let backendStopRequested = false;
 let backendLogs = '';
 let backendLogsFlushTimer: NodeJS.Timeout | null = null;
 let backendStatus: BackendStatusPayload = {
@@ -157,9 +159,36 @@ function buildBackendArgs(state: DesktopState): string[] {
   return args;
 }
 
-function notify(title: string, body: string): void {
-  if (!Notification.isSupported()) return;
-  new Notification({ title, body }).show();
+function notify(title: unknown, body: unknown): void {
+  const normalizedTitle = validateNotificationTitle(title);
+  const normalizedBody = validateNotificationBody(body);
+  if (!Notification.isSupported() || !normalizedBody) return;
+  new Notification({ title: normalizedTitle, body: normalizedBody }).show();
+}
+
+function validateNotificationTitle(value: unknown): string {
+  const normalized = normalizeString(value).trim();
+  return normalized || DEFAULT_NOTIFICATION_TITLE;
+}
+
+function validateNotificationBody(value: unknown): string {
+  return normalizeString(value).trim();
+}
+
+function getBackendExitError(
+  code: number | null,
+  signal: NodeJS.Signals | null,
+  stopRequested: boolean,
+): string | null {
+  if (signal === 'SIGTERM' || code === 0) {
+    return null;
+  }
+
+  if (stopRequested) {
+    return `Backend exited with code ${code ?? -1} while stopping.`;
+  }
+
+  return `Backend exited with code ${code ?? -1}.`;
 }
 
 function validateOpenPathTarget(target: unknown): string {
@@ -378,6 +407,19 @@ function installUpdate(): void {
 }
 
 function startBackend(state: DesktopState): BackendStatusPayload {
+  if (!backendProcess && backendStopRequested) {
+    backendStopRequested = false;
+  }
+
+  if (backendProcess && backendStopRequested) {
+    backendStatus = {
+      ...backendStatus,
+      lastError: 'Waiting for the local backend to finish stopping.',
+    };
+    pushBackendStatus();
+    return backendStatus;
+  }
+
   if (backendProcess) {
     return backendStatus;
   }
@@ -398,6 +440,7 @@ function startBackend(state: DesktopState): BackendStatusPayload {
   flushBackendLogs();
 
   try {
+    backendStopRequested = false;
     backendProcess = spawn(executable, args, {
       cwd: state.backendWorkingDirectory.trim() || undefined,
       stdio: 'pipe',
@@ -446,6 +489,7 @@ function startBackend(state: DesktopState): BackendStatusPayload {
       backendExitListener = null;
     }
 
+    backendStopRequested = false;
     backendProcess = null;
     backendStatus = {
       running: false,
@@ -459,11 +503,12 @@ function startBackend(state: DesktopState): BackendStatusPayload {
     pushBackendStatus();
   });
 
-  backendExitListener = (code) => {
+  backendExitListener = (code: number | null, signal: NodeJS.Signals | null) => {
     if (backendProcess !== processRef) {
       return;
     }
 
+    const stopRequested = backendStopRequested;
     backendProcess = null;
     backendExitListener = null;
     backendStatus = {
@@ -472,10 +517,11 @@ function startBackend(state: DesktopState): BackendStatusPayload {
       command,
       startedAt,
       exitCode: code,
-      lastError: code === 0 ? null : `Backend exited with code ${code ?? -1}.`,
+      lastError: getBackendExitError(code, signal, stopRequested),
     };
     flushBackendLogs();
     pushBackendStatus();
+    backendStopRequested = false;
     notify('CheckAI Desktop', 'Local backend stopped.');
   };
   processRef.on('exit', backendExitListener);
@@ -488,15 +534,22 @@ function stopBackend(): BackendStatusPayload {
     return backendStatus;
   }
 
-  const processRef = backendProcess;
-  if (backendExitListener) {
-    processRef.removeListener('exit', backendExitListener);
-    backendExitListener = null;
+  if (backendStopRequested) {
+    backendStatus = {
+      ...backendStatus,
+      lastError: 'Backend stop already in progress.',
+    };
+    pushBackendStatus();
+    return backendStatus;
   }
+
+  const processRef = backendProcess;
+  backendStopRequested = true;
 
   try {
     processRef.kill();
   } catch (error) {
+    backendStopRequested = false;
     backendStatus = {
       ...backendStatus,
       running: false,
@@ -507,16 +560,8 @@ function stopBackend(): BackendStatusPayload {
     return backendStatus;
   }
 
-  backendProcess = null;
-  backendStatus = {
-    ...backendStatus,
-    running: false,
-    pid: null,
-    lastError: null,
-  };
-  flushBackendLogs();
+  backendStatus = { ...backendStatus, lastError: null };
   pushBackendStatus();
-  notify('CheckAI Desktop', 'Local backend stopped.');
   return backendStatus;
 }
 
@@ -584,7 +629,7 @@ app.whenReady().then(() => {
   ipcMain.handle('checkai:open-external', (_event, target: unknown) =>
     shell.openExternal(validateExternalTarget(target)),
   );
-  ipcMain.handle('checkai:notify', (_event, title: string, body: string) => notify(title, body));
+  ipcMain.handle('checkai:notify', (_event, title: unknown, body: unknown) => notify(title, body));
 
   createWindow();
 
