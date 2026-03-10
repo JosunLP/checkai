@@ -110,6 +110,13 @@ const message = signal<string | null>(null);
 let liveIframeElement: HTMLIFrameElement | null = null;
 let liveIframeSrc = '';
 
+interface InputSelectionState {
+  id: string;
+  selectionStart: number | null;
+  selectionEnd: number | null;
+  selectionDirection: 'forward' | 'backward' | 'none' | null;
+}
+
 const liveUrl = computed(() => {
   const base = desktopState.value.backendUrl.trim().replace(/\/+$/, '');
   const token = liveReloadToken.value;
@@ -621,6 +628,40 @@ function renderUpdatePrimaryButton(): string {
   return renderUpdateButton('primary', { hideWhenDefaultCheck: true });
 }
 
+function captureFocusedInputState(root: HTMLElement): InputSelectionState | null {
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLInputElement) || !root.contains(activeElement) || !activeElement.id) {
+    return null;
+  }
+
+  return {
+    id: activeElement.id,
+    selectionStart: activeElement.selectionStart,
+    selectionEnd: activeElement.selectionEnd,
+    selectionDirection: activeElement.selectionDirection,
+  };
+}
+
+function restoreFocusedInputState(root: HTMLElement, state: InputSelectionState | null): void {
+  if (!state) {
+    return;
+  }
+
+  const nextInput = root.querySelector<HTMLInputElement>(`#${CSS.escape(state.id)}`);
+  if (!nextInput) {
+    return;
+  }
+
+  nextInput.focus({ preventScroll: true });
+  if (state.selectionStart !== null && state.selectionEnd !== null) {
+    nextInput.setSelectionRange(
+      state.selectionStart,
+      state.selectionEnd,
+      state.selectionDirection ?? undefined,
+    );
+  }
+}
+
 function renderApp(): string {
   return `
     <div class="shell">
@@ -845,10 +886,12 @@ if (!appRoot) {
 bindRootEvents(appRoot);
 
 effect(() => {
+  const focusedInputState = captureFocusedInputState(appRoot);
   const template = document.createElement('template');
   template.innerHTML = renderApp();
   syncLiveIframe(template.content.querySelector('[data-live-iframe-host]'));
   appRoot.replaceChildren(template.content);
+  restoreFocusedInputState(appRoot, focusedInputState);
 });
 
 void init();
