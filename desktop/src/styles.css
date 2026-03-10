@@ -251,6 +251,10 @@ button {
   gap: 1.25rem;
 }
 
+.view-panel.hidden {
+  display: none;
+}
+
 .field {
   display: grid;
   gap: 0.45rem;

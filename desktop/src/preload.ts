@@ -55,7 +55,7 @@ const api = {
   installUpdate: (): Promise<void> => ipcRenderer.invoke('checkai:install-update'),
   pickFile: (): Promise<string | null> => ipcRenderer.invoke('checkai:pick-file'),
   pickDirectory: (): Promise<string | null> => ipcRenderer.invoke('checkai:pick-directory'),
-  openPath: (path: string): Promise<string> => ipcRenderer.invoke('checkai:open-path', path),
+  openPath: (path: string): Promise<void> => ipcRenderer.invoke('checkai:open-path', path),
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('checkai:open-external', url),
   notify: (title: string, body: string): Promise<void> => ipcRenderer.invoke('checkai:notify', title, body),
   onBackendStatus: (callback: (status: BackendStatusPayload) => void): (() => void) => {

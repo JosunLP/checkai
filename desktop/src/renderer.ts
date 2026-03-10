@@ -172,6 +172,8 @@ const updateStatus = signal<UpdateStatusPayload>({
 const paletteOpen = signal(false);
 const liveReloadToken = signal(Date.now());
 const message = signal<string | null>(null);
+let liveIframeElement: HTMLIFrameElement | null = null;
+let liveIframeSrc = '';
 
 const liveUrl = computed(() => {
   const base = desktopState.value.backendUrl.trim().replace(/\/+$/, '');
@@ -308,6 +310,38 @@ function reloadLiveView(): void {
   liveReloadToken.value = Date.now();
 }
 
+function createLiveIframe(src: string): HTMLIFrameElement {
+  const iframe = document.createElement('iframe');
+  iframe.src = src;
+  iframe.title = 'CheckAI engine workspace';
+  iframe.setAttribute(
+    'sandbox',
+    'allow-downloads allow-forms allow-popups allow-same-origin allow-scripts',
+  );
+  return iframe;
+}
+
+function syncLiveIframe(host: ParentNode | null): void {
+  if (!(host instanceof HTMLElement)) {
+    return;
+  }
+
+  if (!canEmbedLiveView.value || !liveUrl.value) {
+    host.replaceChildren();
+    return;
+  }
+
+  if (!liveIframeElement) {
+    liveIframeElement = createLiveIframe(liveUrl.value);
+    liveIframeSrc = liveUrl.value;
+  } else if (liveIframeSrc !== liveUrl.value) {
+    liveIframeElement.src = liveUrl.value;
+    liveIframeSrc = liveUrl.value;
+  }
+
+  host.replaceChildren(liveIframeElement);
+}
+
 function renderCommandPalette(): string {
   if (!paletteOpen.value) return '';
 
@@ -429,13 +463,7 @@ function renderLiveView(): string {
           <button class="btn btn-secondary" data-action="open-browser">Open in browser</button>
         </div>
       </div>
-      <div class="iframe-shell">
-        <iframe
-          src="${escapeHtml(liveUrl.value)}"
-          title="CheckAI engine workspace"
-          sandbox="allow-downloads allow-forms allow-popups allow-same-origin allow-scripts"
-        ></iframe>
-      </div>
+      <div class="iframe-shell" data-live-iframe-host></div>
     </article>
   `;
 }
@@ -593,18 +621,26 @@ function renderHelpView(): string {
 }
 
 function renderMainContent(): string {
-  switch (currentView.value) {
-    case 'workspace':
-      return renderWorkspaceView();
-    case 'live':
-      return renderLiveView();
-    case 'engine':
-      return renderEngineView();
-    case 'logs':
-      return renderLogsView();
-    case 'help':
-      return renderHelpView();
-  }
+  const viewPanelClass = (view: DesktopView): string =>
+    currentView.value === view ? 'view-panel active' : 'view-panel hidden';
+
+  return `
+    <section class="${viewPanelClass('workspace')}" data-view-panel="workspace">
+      ${renderWorkspaceView()}
+    </section>
+    <section class="${viewPanelClass('live')}" data-view-panel="live">
+      ${renderLiveView()}
+    </section>
+    <section class="${viewPanelClass('engine')}" data-view-panel="engine">
+      ${renderEngineView()}
+    </section>
+    <section class="${viewPanelClass('logs')}" data-view-panel="logs">
+      ${renderLogsView()}
+    </section>
+    <section class="${viewPanelClass('help')}" data-view-panel="help">
+      ${renderHelpView()}
+    </section>
+  `;
 }
 
 function getUpdatePrimaryAction(): { action: string; label: string; disabled: boolean } {
@@ -868,7 +904,10 @@ if (!appRoot) {
 bindRootEvents(appRoot);
 
 effect(() => {
-  appRoot.innerHTML = renderApp();
+  const template = document.createElement('template');
+  template.innerHTML = renderApp();
+  syncLiveIframe(template.content.querySelector('[data-live-iframe-host]'));
+  appRoot.replaceChildren(template.content);
 });
 
 void init();

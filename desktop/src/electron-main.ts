@@ -58,9 +58,13 @@ const DEFAULT_STATE: DesktopState = {
 };
 
 const MAX_LOG_LINES = 400;
+const DESKTOP_VIEWS: DesktopView[] = ['workspace', 'live', 'engine', 'logs', 'help'];
 
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcessWithoutNullStreams | null = null;
+let backendExitListener:
+  | ((code: number | null, signal: NodeJS.Signals | null) => void)
+  | null = null;
 let backendLogs = '';
 let backendStatus: BackendStatusPayload = {
   running: false,
@@ -87,6 +91,31 @@ function stateFilePath(): string {
   return join(app.getPath('userData'), 'desktop-state.json');
 }
 
+function normalizeString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function normalizeDesktopState(value: unknown): DesktopState {
+  const candidate = typeof value === 'object' && value !== null ? value : {};
+  const record = candidate as Record<string, unknown>;
+  const lastView = normalizeString(record.lastView, DEFAULT_STATE.lastView);
+  const normalizedLastView = DESKTOP_VIEWS.find((view) => view === lastView) ?? DEFAULT_STATE.lastView;
+
+  return {
+    backendUrl: normalizeString(record.backendUrl, DEFAULT_STATE.backendUrl),
+    autoStartBackend:
+      typeof record.autoStartBackend === 'boolean'
+        ? record.autoStartBackend
+        : DEFAULT_STATE.autoStartBackend,
+    backendExecutable: normalizeString(record.backendExecutable, DEFAULT_STATE.backendExecutable),
+    backendArgs: normalizeString(record.backendArgs, DEFAULT_STATE.backendArgs),
+    backendWorkingDirectory: normalizeString(record.backendWorkingDirectory),
+    openingBookPath: normalizeString(record.openingBookPath),
+    tablebasePath: normalizeString(record.tablebasePath),
+    lastView: normalizedLastView,
+  };
+}
+
 function loadState(): DesktopState {
   const file = stateFilePath();
   if (!existsSync(file)) {
@@ -94,21 +123,18 @@ function loadState(): DesktopState {
   }
 
   try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<DesktopState>;
-    return {
-      ...DEFAULT_STATE,
-      ...parsed,
-    };
+    return normalizeDesktopState(JSON.parse(readFileSync(file, 'utf8')) as Partial<DesktopState>);
   } catch {
     return { ...DEFAULT_STATE };
   }
 }
 
-function saveState(next: DesktopState): DesktopState {
+function saveState(next: unknown): DesktopState {
+  const sanitized = normalizeDesktopState(next);
   const file = stateFilePath();
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(next, null, 2));
-  return next;
+  writeFileSync(file, JSON.stringify(sanitized, null, 2));
+  return sanitized;
 }
 
 function pushBackendStatus(): void {
@@ -155,6 +181,41 @@ function buildBackendArgs(state: DesktopState): string[] {
 function notify(title: string, body: string): void {
   if (!Notification.isSupported()) return;
   new Notification({ title, body }).show();
+}
+
+function validateOpenPathTarget(target: unknown): string {
+  const value = normalizeString(target).trim();
+  if (!value) {
+    throw new Error('Select a local path first.');
+  }
+
+  const looksLikeWindowsDrivePath = /^[a-zA-Z]:[\\/]/.test(value);
+  if (!looksLikeWindowsDrivePath && /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)) {
+    throw new Error('Only local filesystem paths can be opened from the desktop shell.');
+  }
+
+  if (!existsSync(value)) {
+    throw new Error('The selected path does not exist.');
+  }
+
+  return value;
+}
+
+function validateExternalTarget(target: unknown): string {
+  const value = normalizeString(target).trim();
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('Enter a valid HTTP or HTTPS URL.');
+  }
+
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error('Only HTTP and HTTPS URLs can be opened externally.');
+  }
+
+  return url.toString();
 }
 
 function configureAutoUpdater(): void {
@@ -385,41 +446,93 @@ function startBackend(state: DesktopState): BackendStatusPayload {
   pushBackendStatus();
   notify('CheckAI Desktop', 'Local backend started.');
 
-  backendProcess.stdout.on('data', (chunk: Buffer) => {
+  const processRef = backendProcess;
+  const startedAt = backendStatus.startedAt;
+
+  processRef.stdout.on('data', (chunk: Buffer) => {
     appendBackendLogs(chunk.toString('utf8'));
   });
-  backendProcess.stderr.on('data', (chunk: Buffer) => {
+  processRef.stderr.on('data', (chunk: Buffer) => {
     appendBackendLogs(chunk.toString('utf8'));
   });
-  backendProcess.on('exit', (code) => {
+  processRef.on('error', (error) => {
+    if (backendProcess !== processRef) {
+      return;
+    }
+
+    if (backendExitListener) {
+      processRef.removeListener('exit', backendExitListener);
+      backendExitListener = null;
+    }
+
     backendProcess = null;
     backendStatus = {
       running: false,
       pid: null,
       command,
-      startedAt: backendStatus.startedAt,
+      startedAt,
+      exitCode: null,
+      lastError: error instanceof Error ? error.message : String(error),
+    };
+    pushBackendStatus();
+  });
+
+  backendExitListener = (code) => {
+    if (backendProcess !== processRef) {
+      return;
+    }
+
+    backendProcess = null;
+    backendExitListener = null;
+    backendStatus = {
+      running: false,
+      pid: null,
+      command,
+      startedAt,
       exitCode: code,
       lastError: code === 0 ? null : `Backend exited with code ${code ?? -1}.`,
     };
     pushBackendStatus();
     notify('CheckAI Desktop', 'Local backend stopped.');
-  });
+  };
+  processRef.on('exit', backendExitListener);
 
   return backendStatus;
 }
 
 function stopBackend(): BackendStatusPayload {
-  if (backendProcess) {
-    backendProcess.kill();
-    backendProcess = null;
+  if (!backendProcess) {
+    return backendStatus;
   }
+
+  const processRef = backendProcess;
+  if (backendExitListener) {
+    processRef.removeListener('exit', backendExitListener);
+    backendExitListener = null;
+  }
+
+  try {
+    processRef.kill();
+  } catch (error) {
+    backendStatus = {
+      ...backendStatus,
+      running: false,
+      pid: null,
+      lastError: error instanceof Error ? error.message : String(error),
+    };
+    pushBackendStatus();
+    return backendStatus;
+  }
+
+  backendProcess = null;
   backendStatus = {
     ...backendStatus,
     running: false,
     pid: null,
-    exitCode: backendStatus.exitCode,
+    lastError: null,
   };
   pushBackendStatus();
+  notify('CheckAI Desktop', 'Local backend stopped.');
   return backendStatus;
 }
 
@@ -463,11 +576,11 @@ function createWindow(): void {
 app.whenReady().then(() => {
   configureAutoUpdater();
   ipcMain.handle('checkai:get-state', () => loadState());
-  ipcMain.handle('checkai:save-state', (_event, state: DesktopState) => saveState(state));
+  ipcMain.handle('checkai:save-state', (_event, state: unknown) => saveState(state));
   ipcMain.handle('checkai:get-backend-status', () => backendStatus);
   ipcMain.handle('checkai:get-backend-logs', () => backendLogs);
   ipcMain.handle('checkai:get-update-status', () => updateStatus);
-  ipcMain.handle('checkai:start-backend', (_event, state: DesktopState) => {
+  ipcMain.handle('checkai:start-backend', (_event, state: unknown) => {
     const saved = saveState(state);
     return startBackend(saved);
   });
@@ -477,8 +590,16 @@ app.whenReady().then(() => {
   ipcMain.handle('checkai:install-update', () => installUpdate());
   ipcMain.handle('checkai:pick-file', () => selectPath('file'));
   ipcMain.handle('checkai:pick-directory', () => selectPath('directory'));
-  ipcMain.handle('checkai:open-path', (_event, target: string) => shell.openPath(target));
-  ipcMain.handle('checkai:open-external', (_event, target: string) => shell.openExternal(target));
+  ipcMain.handle('checkai:open-path', async (_event, target: unknown) => {
+    const path = validateOpenPathTarget(target);
+    const result = await shell.openPath(path);
+    if (result) {
+      throw new Error(result);
+    }
+  });
+  ipcMain.handle('checkai:open-external', (_event, target: unknown) =>
+    shell.openExternal(validateExternalTarget(target)),
+  );
   ipcMain.handle('checkai:notify', (_event, title: string, body: string) => notify(title, body));
 
   createWindow();
@@ -503,9 +624,13 @@ app.whenReady().then(() => {
   });
 });
 
+app.on('before-quit', () => {
+  stopBackend();
+});
+
 app.on('window-all-closed', () => {
+  stopBackend();
   if (process.platform !== 'darwin') {
-    stopBackend();
     app.quit();
   }
 });

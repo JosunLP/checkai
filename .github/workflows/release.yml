@@ -256,6 +256,10 @@ jobs:
         working-directory: desktop
         run: npm ci
 
+      - name: Build desktop app
+        working-directory: desktop
+        run: npm run build
+
       - name: Build desktop release artifact
         working-directory: desktop
         run: ${{ matrix.build_command }}
