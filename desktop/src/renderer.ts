@@ -1062,13 +1062,13 @@ component('cai-dashboard', {
         <div class="card hero-card">
           <div class="card-head">
             <div>
-              <h2>CheckAI Desktop</h2>
+              <h2>♔ CheckAI Desktop</h2>
               <p class="dim">
                 Workspace-first control room for the CheckAI chess engine.
               </p>
             </div>
             <span class="badge ${bs.running ? 'badge-ok' : 'badge-dim'}"
-              >${bs.running ? 'Engine online' : 'Engine offline'}</span
+              >${bs.running ? '● Engine online' : '○ Engine offline'}</span
             >
           </div>
           <div class="hero-meta">
@@ -1087,40 +1087,44 @@ component('cai-dashboard', {
           </div>
           <div class="quick-strip">
             <button class="qbtn" data-action="create-game">
-              <strong>New game</strong
+              <strong>♟ New game</strong
               ><span>Start a fresh game from the starting position</span>
             </button>
             <button class="qbtn" data-action="nav:games">
-              <strong>Active games</strong
+              <strong>♜ Active games</strong
               ><span>Browse, open, or manage running games</span>
             </button>
             <button class="qbtn" data-action="nav:archive">
-              <strong>Archive</strong
+              <strong>📦 Archive</strong
               ><span>Review completed games and replay any position</span>
             </button>
             <button class="qbtn" data-action="nav:analysis">
-              <strong>Analysis</strong
+              <strong>📊 Analysis</strong
               ><span>Deep engine analysis on any completed game</span>
             </button>
             <button class="qbtn" data-action="import-fen-file">
-              <strong>Import from file</strong
+              <strong>📂 Import from file</strong
               ><span>Load a FEN from disk with native file dialogs</span>
             </button>
             <button class="qbtn" data-action="nav:engine">
-              <strong>Workspace presets</strong
+              <strong>⚙ Workspace presets</strong
               ><span>Switch backend profiles, assets, and working folders</span>
             </button>
           </div>
         </div>
         <div class="card">
           <div class="card-head">
-            <div><h3>Backend status</h3></div>
+            <div>
+              <h3>⚡ Backend status</h3>
+              <p class="dim">
+                Local engine process health and runtime details.
+              </p>
+            </div>
+            <span class="badge ${bs.running ? 'badge-ok' : 'badge-danger'}"
+              >${bs.running ? 'Running' : 'Stopped'}</span
+            >
           </div>
           <div class="stat-grid">
-            <div class="stat">
-              <span class="stat-label">Status</span
-              ><strong>${bs.running ? 'Running' : 'Stopped'}</strong>
-            </div>
             <div class="stat">
               <span class="stat-label">PID</span
               ><strong>${bs.pid ?? '—'}</strong>
@@ -1138,19 +1142,19 @@ component('cai-dashboard', {
               ><strong>${backendUptimeLabel.value}</strong>
             </div>
           </div>
-          <div class="btn-row">
-            <button class="btn btn-primary" data-action="start-backend">
-              Start
+          <div class="btn-row" style="margin-top:1rem">
+            <button class="btn btn-primary btn-sm" data-action="start-backend">
+              ▶ Start
             </button>
-            <button class="btn btn-ghost" data-action="stop-backend">
-              Stop
+            <button class="btn btn-ghost btn-sm" data-action="stop-backend">
+              ■ Stop
             </button>
           </div>
         </div>
         <div class="card">
           <div class="card-head">
             <div>
-              <h3>Recent workspaces</h3>
+              <h3>📂 Recent workspaces</h3>
               <p class="dim">Jump between productive local setups.</p>
             </div>
           </div>
@@ -1179,11 +1183,14 @@ component('cai-dashboard', {
         <div class="card">
           <div class="card-head">
             <div>
-              <h3>Active games</h3>
+              <h3>♟ Active games</h3>
               <p class="dim">
                 ${games.length} game${games.length !== 1 ? 's' : ''} in progress
               </p>
             </div>
+            <button class="btn btn-ghost btn-sm" data-action="nav:games">
+              View all →
+            </button>
           </div>
           ${games.length === 0
             ? html`<p class="empty-text">
@@ -1214,7 +1221,10 @@ component('cai-dashboard', {
         </div>
         <div class="card">
           <div class="card-head">
-            <div><h3>Storage</h3></div>
+            <div>
+              <h3>💾 Storage</h3>
+              <p class="dim">Disk usage for active and archived games.</p>
+            </div>
           </div>
           ${stats
             ? html`<div class="stat-grid">
@@ -1240,11 +1250,14 @@ component('cai-dashboard', {
         <div class="card">
           <div class="card-head">
             <div>
-              <h3>Saved presets</h3>
+              <h3>🔖 Saved presets</h3>
               <p class="dim">
                 Reusable backend launch profiles for common workflows.
               </p>
             </div>
+            <button class="btn btn-ghost btn-sm" data-action="nav:engine">
+              Manage →
+            </button>
           </div>
           ${presets.length === 0
             ? html`<p class="empty-text">
@@ -1286,18 +1299,21 @@ component('cai-games', {
       <div class="card">
         <div class="card-head">
           <div>
-            <h2>Active games</h2>
-            <p class="dim">Create, open, or delete running games.</p>
+            <h2>♟ Active games</h2>
+            <p class="dim">
+              ${games.length} game${games.length !== 1 ? 's' : ''} loaded ·
+              Create, open, or delete running games.
+            </p>
           </div>
           <div class="btn-row">
-            <button class="btn btn-primary" data-action="create-game">
-              New game
+            <button class="btn btn-primary btn-sm" data-action="create-game">
+              ✚ New game
             </button>
-            <button class="btn btn-ghost" data-action="import-fen-file">
-              Import file
+            <button class="btn btn-sm" data-action="import-fen-file">
+              📂 Import file
             </button>
-            <button class="btn btn-ghost" data-action="refresh-games">
-              Refresh
+            <button class="btn btn-ghost btn-sm" data-action="refresh-games">
+              ↻ Refresh
             </button>
           </div>
         </div>
@@ -1310,12 +1326,13 @@ component('cai-games', {
               value="${escapeHtml(fenInput.value)}"
             />
           </label>
-          <button class="btn btn-ghost" data-action="import-fen">Import</button>
+          <button class="btn btn-sm" data-action="import-fen">Import</button>
         </div>
         <div
           class="drop-zone ${importDropActive.value ? 'drop-zone-active' : ''}"
           data-drop-zone
         >
+          <span style="font-size:1.5rem">📄</span>
           <strong>Drag & drop a FEN file</strong>
           <span class="dim"
             >Drop plain text, .fen, or .txt files anywhere in this panel.</span
@@ -1435,37 +1452,40 @@ component('cai-board', {
             ${!g.is_over
               ? html`
                   <div class="action-bar">
-                    <button class="btn btn-ghost" data-action="resign">
-                      Resign
-                    </button>
-                    <button class="btn btn-ghost" data-action="offer-draw">
-                      Offer draw
+                    <button class="btn btn-ghost btn-sm" data-action="resign">
+                      🏳 Resign
                     </button>
                     <button
-                      class="btn btn-ghost"
+                      class="btn btn-ghost btn-sm"
+                      data-action="offer-draw"
+                    >
+                      ½ Offer draw
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-sm"
                       data-action="claim-draw-threefold"
                     >
-                      Claim threefold
+                      3× Threefold
                     </button>
                     <button
-                      class="btn btn-ghost"
+                      class="btn btn-ghost btn-sm"
                       data-action="claim-draw-fifty"
                     >
-                      Claim 50-move
+                      50 Fifty-move
                     </button>
                   </div>
                 `
               : html`
                   <div class="action-bar">
                     <button
-                      class="btn btn-primary"
+                      class="btn btn-primary btn-sm"
                       data-action="analyze-game"
                       data-id="${g.game_id}"
                     >
-                      Analyze
+                      📊 Analyze
                     </button>
-                    <button class="btn btn-ghost" data-action="create-game">
-                      New game
+                    <button class="btn btn-sm" data-action="create-game">
+                      ➕ New game
                     </button>
                   </div>
                 `}
@@ -1474,7 +1494,7 @@ component('cai-board', {
         <div class="board-sidebar">
           <div class="card">
             <div class="card-head">
-              <div><h3>Info</h3></div>
+              <div><h3>ℹ Info</h3></div>
             </div>
             <div class="stat-grid">
               <div class="stat">
@@ -1518,19 +1538,19 @@ component('cai-board', {
             </div>
             <div class="btn-row" style="margin-top:0.75rem">
               <button class="btn btn-sm" data-action="export-fen">
-                Copy FEN
+                📋 Copy FEN
               </button>
               <button class="btn btn-sm" data-action="save-fen">
-                Save FEN
+                💾 Save FEN
               </button>
               <button class="btn btn-sm" data-action="export-pgn">
-                Copy PGN
+                📋 Copy PGN
               </button>
             </div>
           </div>
           <div class="card move-list-card">
             <div class="card-head">
-              <div><h3>Moves</h3></div>
+              <div><h3>📝 Moves</h3></div>
             </div>
             <div class="move-list">
               ${history.length === 0
@@ -1543,7 +1563,7 @@ component('cai-board', {
           <div class="card">
             <div class="card-head">
               <div>
-                <h3>Advanced board view</h3>
+                <h3>🔍 Advanced board view</h3>
                 <p class="dim">
                   Desktop-native debugging aids for the current position.
                 </p>
@@ -1610,7 +1630,7 @@ component('cai-archive', {
                 <div class="card-head">
                   <div>
                     <h2>
-                      Replay ·
+                      ▶ Replay ·
                       <span class="mono">${rs.game_id.slice(0, 8)}</span>
                     </h2>
                     <p class="dim">Move ${rs.at_move} / ${rs.total_moves}</p>
@@ -1628,8 +1648,11 @@ component('cai-archive', {
                     <button class="btn btn-sm" data-action="replay-end">
                       ⏭
                     </button>
-                    <button class="btn btn-sm" data-action="close-replay">
-                      Close
+                    <button
+                      class="btn btn-sm btn-ghost"
+                      data-action="close-replay"
+                    >
+                      ✕ Close
                     </button>
                   </div>
                 </div>
@@ -1650,20 +1673,22 @@ component('cai-archive', {
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Archived games</h2>
+              <h2>📦 Archived games</h2>
               <p class="dim">
                 ${list.length} completed game${list.length !== 1 ? 's' : ''} in
                 the archive
               </p>
             </div>
-            <button class="btn btn-ghost" data-action="refresh-archive">
-              Refresh
+            <button class="btn btn-ghost btn-sm" data-action="refresh-archive">
+              ↻ Refresh
             </button>
           </div>
           ${list.length === 0
-            ? html`<p class="empty-text">
-                No archived games yet. Complete a game to see it here.
-              </p>`
+            ? html`<div class="empty-card">
+                <p class="empty-text">
+                  📦 No archived games yet. Complete a game to see it here.
+                </p>
+              </div>`
             : html`<div class="table-wrap">
                 <table class="data-table">
                   <thead>
@@ -1692,14 +1717,14 @@ component('cai-archive', {
                                 data-action="replay-archived"
                                 data-id="${g.game_id}"
                               >
-                                Replay
+                                ▶ Replay
                               </button>
                               <button
                                 class="btn btn-sm"
                                 data-action="analyze-archived"
                                 data-id="${g.game_id}"
                               >
-                                Analyze
+                                📊 Analyze
                               </button>
                             </td>
                           </tr>
@@ -1740,17 +1765,17 @@ component('cai-analysis', {
                   </div>
                   ${analysisPolling.value
                     ? html`<button
-                        class="btn btn-ghost btn-danger"
+                        class="btn btn-ghost btn-sm btn-danger"
                         data-action="cancel-analysis"
                         data-id="${active.id}"
                       >
-                        Cancel
+                        ❌ Cancel
                       </button>`
                     : html`<button
-                        class="btn btn-ghost"
+                        class="btn btn-ghost btn-sm"
                         data-action="close-analysis"
                       >
-                        Close
+                        ✕ Close
                       </button>`}
                 </div>
                 ${summary
@@ -1910,7 +1935,10 @@ component('cai-analysis', {
           <div class="card-head">
             <div>
               <h2>Analysis jobs</h2>
-              <p class="dim">Submit games for deep engine analysis.</p>
+              <p class="dim">
+                Submit games for deep engine analysis · Configure depth and
+                review results.
+              </p>
             </div>
             <div class="btn-row">
               <label class="field-inline"
@@ -1923,15 +1951,21 @@ component('cai-analysis', {
                   value="${analysisDepth.value}"
                   style="width:5rem"
               /></label>
-              <button class="btn btn-ghost" data-action="refresh-analysis">
-                Refresh
+              <button
+                class="btn btn-ghost btn-sm"
+                data-action="refresh-analysis"
+              >
+                ↻ Refresh
               </button>
             </div>
           </div>
           ${jobs.length === 0
-            ? html`<p class="empty-text">
-                No analysis jobs yet. Open a game and submit it for analysis.
-              </p>`
+            ? html`<div class="empty-card">
+                <p class="empty-text">
+                  📊 No analysis jobs yet. Open a game and submit it for
+                  analysis.
+                </p>
+              </div>`
             : html`<div class="table-wrap">
                 <table class="data-table">
                   <thead>
@@ -1960,7 +1994,7 @@ component('cai-analysis', {
                                 data-action="view-analysis"
                                 data-id="${j.id}"
                               >
-                                View
+                                👁 View
                               </button>
                               ${isAnalysisActive(j)
                                 ? html`<button
@@ -1968,7 +2002,7 @@ component('cai-analysis', {
                                     data-action="cancel-analysis"
                                     data-id="${j.id}"
                                   >
-                                    Cancel
+                                    ❌ Cancel
                                   </button>`
                                 : ''}
                             </td>
@@ -2053,7 +2087,7 @@ component('cai-engine', {
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Backend configuration</h2>
+              <h2>⚙ Backend configuration</h2>
               <p class="dim">
                 Configure executable, arguments, and working directory for the
                 local backend.
@@ -2067,8 +2101,11 @@ component('cai-engine', {
                 id="cfg-executable"
                 value="${escapeHtml(ds.backendExecutable)}"
                 placeholder="checkai"
-              /><button class="btn btn-ghost" data-action="pick-executable">
-                Browse
+              /><button
+                class="btn btn-ghost btn-sm"
+                data-action="pick-executable"
+              >
+                📁 Browse
               </button>
             </div></label
           >
@@ -2087,10 +2124,10 @@ component('cai-engine', {
                 value="${escapeHtml(ds.backendWorkingDirectory)}"
                 placeholder="/path/to/project"
               /><button
-                class="btn btn-ghost"
+                class="btn btn-ghost btn-sm"
                 data-action="pick-working-directory"
               >
-                Browse
+                📁 Browse
               </button>
             </div></label
           >
@@ -2109,17 +2146,17 @@ component('cai-engine', {
             /><span>Auto-start backend on launch</span></label
           >
           <div class="btn-row">
-            <button class="btn btn-primary" data-action="start-backend">
-              Start backend
+            <button class="btn btn-primary btn-sm" data-action="start-backend">
+              ▶ Start backend
             </button>
-            <button class="btn btn-ghost" data-action="stop-backend">
-              Stop backend
+            <button class="btn btn-ghost btn-sm" data-action="stop-backend">
+              ⏹ Stop backend
             </button>
-            <button class="btn btn-ghost" data-action="save-preset">
-              Save preset
+            <button class="btn btn-ghost btn-sm" data-action="save-preset">
+              🔖 Save preset
             </button>
-            <button class="btn btn-ghost" data-action="save-settings">
-              Save
+            <button class="btn btn-ghost btn-sm" data-action="save-settings">
+              💾 Save
             </button>
           </div>
           ${bs.lastError
@@ -2131,7 +2168,7 @@ component('cai-engine', {
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Engine assets</h2>
+              <h2>📂 Engine assets</h2>
               <p class="dim">
                 Opening books and tablebases applied to backend launch.
               </p>
@@ -2144,8 +2181,11 @@ component('cai-engine', {
                 id="cfg-book"
                 value="${escapeHtml(ds.openingBookPath)}"
                 placeholder="/path/to/book.bin"
-              /><button class="btn btn-ghost" data-action="pick-opening-book">
-                Browse
+              /><button
+                class="btn btn-ghost btn-sm"
+                data-action="pick-opening-book"
+              >
+                📁 Browse
               </button>
             </div></label
           >
@@ -2156,8 +2196,11 @@ component('cai-engine', {
                 id="cfg-tablebase"
                 value="${escapeHtml(ds.tablebasePath)}"
                 placeholder="/path/to/tablebases"
-              /><button class="btn btn-ghost" data-action="pick-tablebase">
-                Browse
+              /><button
+                class="btn btn-ghost btn-sm"
+                data-action="pick-tablebase"
+              >
+                📁 Browse
               </button>
             </div></label
           >
@@ -2173,7 +2216,7 @@ component('cai-engine', {
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Workspace session</h2>
+              <h2>🗂 Workspace session</h2>
               <p class="dim">Recent folders and persistent launch presets.</p>
             </div>
           </div>
@@ -2261,7 +2304,7 @@ component('cai-logs', {
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Diagnostics</h2>
+              <h2>🩺 Diagnostics</h2>
               <p class="dim">
                 Desktop health, live sync, and current runtime context.
               </p>
@@ -2297,17 +2340,20 @@ component('cai-logs', {
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Backend logs</h2>
+              <h2>📜 Backend logs</h2>
               <p class="dim">
                 Tail stdout/stderr from the local engine process.
               </p>
             </div>
             <div class="btn-row">
-              <button class="btn btn-ghost" data-action="refresh-logs">
-                Refresh
+              <button class="btn btn-ghost btn-sm" data-action="refresh-logs">
+                ↻ Refresh
               </button>
-              <button class="btn btn-ghost" data-action="open-working-dir">
-                Open working directory
+              <button
+                class="btn btn-ghost btn-sm"
+                data-action="open-working-dir"
+              >
+                📂 Open working directory
               </button>
             </div>
           </div>
@@ -2318,7 +2364,7 @@ ${escapeHtml(backendLogs.value || 'No logs captured yet.')}</pre
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Board ASCII</h2>
+              <h2>♟ Board ASCII</h2>
               <p class="dim">
                 CLI-style board snapshot for debugging and support.
               </p>
@@ -2346,7 +2392,10 @@ component('cai-settings', {
       <div class="view-grid">
         <div class="card">
           <div class="card-head">
-            <div><h2>Desktop preferences</h2></div>
+            <div>
+              <h2>⚙ Desktop preferences</h2>
+              <p class="dim">Appearance, layout, and notification settings.</p>
+            </div>
           </div>
           <div class="stat-grid">
             <div class="stat">
@@ -2374,34 +2423,45 @@ component('cai-settings', {
             </div>
           </div>
           <div class="btn-row">
-            <button class="btn btn-ghost" data-action="toggle-theme">
-              Toggle theme
+            <button class="btn btn-ghost btn-sm" data-action="toggle-theme">
+              🎨 Toggle theme
             </button>
-            <button class="btn btn-ghost" data-action="flip-board">
-              ${boardFlipped.value ? 'Reset board' : 'Flip board'}
+            <button class="btn btn-ghost btn-sm" data-action="flip-board">
+              🔄 ${boardFlipped.value ? 'Reset board' : 'Flip board'}
             </button>
-            <button class="btn btn-ghost" data-action="toggle-notifications">
+            <button
+              class="btn btn-ghost btn-sm"
+              data-action="toggle-notifications"
+            >
+              🔔
               ${ds.notificationsEnabled
                 ? 'Mute notifications'
                 : 'Enable notifications'}
             </button>
-            <button class="btn btn-ghost" data-action="toggle-developer-mode">
-              ${ds.developerMode ? 'Hide debug panels' : 'Show debug panels'}
+            <button
+              class="btn btn-ghost btn-sm"
+              data-action="toggle-developer-mode"
+            >
+              🔧 ${ds.developerMode ? 'Hide debug panels' : 'Show debug panels'}
             </button>
-            <button class="btn btn-ghost" data-action="toggle-compact-mode">
+            <button
+              class="btn btn-ghost btn-sm"
+              data-action="toggle-compact-mode"
+            >
+              📏
               ${ds.compactMode
                 ? 'Use comfortable spacing'
                 : 'Use compact spacing'}
             </button>
-            <button class="btn btn-primary" data-action="save-settings">
-              Save all settings
+            <button class="btn btn-primary btn-sm" data-action="save-settings">
+              💾 Save all settings
             </button>
           </div>
         </div>
         <div class="card">
           <div class="card-head">
             <div>
-              <h2>Desktop updates</h2>
+              <h2>🔄 Desktop updates</h2>
               <p class="dim">Packaged builds can auto-update from GitHub.</p>
             </div>
             <span
@@ -2431,8 +2491,8 @@ component('cai-settings', {
               `
             : ''}
           <div class="btn-row">
-            <button class="btn btn-ghost" data-action="check-updates">
-              Check for updates
+            <button class="btn btn-ghost btn-sm" data-action="check-updates">
+              🔍 Check for updates
             </button>
             ${us.state === 'available'
               ? html`<button
@@ -2454,7 +2514,12 @@ component('cai-settings', {
         </div>
         <div class="card">
           <div class="card-head">
-            <div><h2>Keyboard shortcuts</h2></div>
+            <div>
+              <h2>⌨ Keyboard shortcuts</h2>
+              <p class="dim">
+                Available keyboard shortcuts in the desktop app.
+              </p>
+            </div>
           </div>
           <ul class="shortcut-list">
             <li><kbd>Ctrl/⌘ + K</kbd> Command palette</li>
@@ -2479,20 +2544,20 @@ component('cai-palette', {
       <div class="overlay" data-close-palette>
         <div class="palette" role="dialog" aria-modal="true">
           <div class="palette-head">
-            <h3>Quick actions</h3>
-            <button class="btn btn-sm" data-close-palette>✕</button>
+            <h3>⚡ Quick actions</h3>
+            <button class="btn btn-sm btn-ghost" data-close-palette>✕</button>
           </div>
           <label class="field" style="margin-bottom:0.75rem">
-            <span>Search</span>
+            <span>🔍 Search</span>
             <input
               id="palette-query"
-              placeholder="Type to filter commands, views, and desktop actions"
+              placeholder="Type to filter commands, views, and desktop actions…"
               value="${escapeHtml(paletteQuery.value)}"
             />
           </label>
           <div class="palette-grid">
             ${filteredPaletteActions.value.length === 0
-              ? html`<p class="empty-text">No matching actions.</p>`
+              ? html`<p class="empty-text">No matching actions found.</p>`
               : filteredPaletteActions.value
                   .map(
                     (action) => html`
