@@ -26,9 +26,11 @@
   },
   "devDependencies": {
     "@bquery/bquery": "^1.4.0",
+    "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^24.3.0",
     "electron": "^36.0.0",
     "electron-builder": "^26.0.12",
+    "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
     "vite": "^7.3.1"
   }

@@ -2561,6 +2561,13 @@ function renderShell(): string {
   const view = currentView.value;
   const bs = backendStatus.value;
   const ds = desktopState.value;
+  const workspacePath = ds.backendWorkingDirectory.trim();
+  const workspaceName = workspacePath
+    ? basename(workspacePath)
+    : 'No workspace selected';
+  const engineState = bs.running
+    ? `Running${bs.pid ? ` · PID ${bs.pid}` : ''}`
+    : 'Stopped';
   const activeTitle = activeGame.value?.game_id
     ? `Game ${activeGame.value.game_id.slice(0, 8)}`
     : VIEW_LABELS[view];
@@ -2568,11 +2575,25 @@ function renderShell(): string {
   return `
     <div class="shell ${ds.compactMode ? 'shell-compact' : ''}">
       <aside class="sidebar">
-        <div class="brand">
-          <span class="brand-icon">♔</span>
-          <div><strong>CheckAI</strong><p class="dim">Desktop</p></div>
+        <div class="sidebar-top">
+          <div class="brand">
+            <span class="brand-icon">♔</span>
+            <div>
+              <h1>CheckAI</h1>
+              <p class="dim">Desktop Command Center</p>
+            </div>
+          </div>
+          <div class="sidebar-workspace-card">
+            <span class="sidebar-kicker">Workspace</span>
+            <strong>${escapeHtml(workspaceName)}</strong>
+            <p class="dim mono">${escapeHtml(
+              workspacePath ||
+                'Select a working directory to unlock local engine workflows.'
+            )}</p>
+          </div>
         </div>
         <nav class="sidebar-nav">
+          <span class="sidebar-section-label">Control center</span>
           ${(Object.keys(VIEW_LABELS) as DesktopView[])
             .map(
               (v) => `
@@ -2586,14 +2607,35 @@ function renderShell(): string {
         </nav>
         <div class="sidebar-footer">
           <span class="status-dot ${bs.running ? 'online' : 'offline'}"></span>
-          <span>${bs.running ? 'Engine online' : 'Engine offline'}</span>
+          <div>
+            <strong>${bs.running ? 'Engine online' : 'Engine offline'}</strong>
+            <p class="dim">${escapeHtml(
+              bs.running
+                ? (bs.command ?? 'Desktop backend session active')
+                : 'Ready to launch your local engine workspace'
+            )}</p>
+          </div>
         </div>
       </aside>
       <main class="content">
         <header class="topbar">
-          <div>
+          <div class="topbar-copy">
+            <span class="topbar-kicker">${escapeHtml(VIEW_LABELS[view])}</span>
             <h1>${escapeHtml(activeTitle)}</h1>
-            <p class="dim">${escapeHtml(currentWorkspace.value)}</p>
+            <div class="topbar-meta">
+              <span class="meta-chip">
+                <span class="meta-chip-label">Workspace</span>
+                <strong>${escapeHtml(workspaceName)}</strong>
+              </span>
+              <span class="meta-chip ${bs.running ? 'meta-chip-strong' : ''}">
+                <span class="meta-chip-label">Engine</span>
+                <strong>${escapeHtml(engineState)}</strong>
+              </span>
+              <span class="meta-chip">
+                <span class="meta-chip-label">Desktop</span>
+                <strong>${escapeHtml(updateStatus.value.currentVersion)}</strong>
+              </span>
+            </div>
           </div>
           <div class="topbar-actions">
             <span class="badge ${liveConnection.value === 'connected' ? 'badge-ok' : 'badge-dim'}">
@@ -2602,8 +2644,8 @@ function renderShell(): string {
             <span class="badge ${ds.notificationsEnabled ? 'badge-ok' : 'badge-dim'}">
               ${ds.notificationsEnabled ? 'Notifications on' : 'Notifications off'}
             </span>
-            <button class="btn btn-ghost" data-action="save-settings">Save workspace</button>
-            <button class="btn btn-primary" data-action="toggle-palette">⌘K</button>
+            <button class="btn btn-ghost btn-sm" data-action="save-settings">Save workspace</button>
+            <button class="btn btn-primary btn-sm" data-action="toggle-palette">⌘K · Quick actions</button>
           </div>
         </header>
         ${toastMsg.value ? `<div class="toast toast-ok">${escapeHtml(toastMsg.value)}</div>` : ''}
