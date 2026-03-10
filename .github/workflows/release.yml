@@ -132,7 +132,7 @@ jobs:
   # Build checksums for all artifacts
   checksums:
     name: Generate checksums
-    needs: build-and-upload
+    needs: [build-and-upload, desktop]
     runs-on: ubuntu-latest
     steps:
       - name: Download all release assets
