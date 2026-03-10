@@ -13,5 +13,5 @@
     "rootDir": "src",
     "outDir": "dist-electron"
   },
-  "include": ["src/electron-main.ts", "src/preload.ts"]
+  "include": ["src/electron-main.ts", "src/preload.ts", "src/shared-types.ts"]
 }

@@ -4,61 +4,16 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
-
-type DesktopView = 'workspace' | 'live' | 'engine' | 'logs' | 'help';
-
-interface DesktopState {
-  backendUrl: string;
-  autoStartBackend: boolean;
-  backendExecutable: string;
-  backendArgs: string;
-  backendWorkingDirectory: string;
-  openingBookPath: string;
-  tablebasePath: string;
-  lastView: DesktopView;
-}
-
-interface BackendStatusPayload {
-  running: boolean;
-  pid: number | null;
-  command: string | null;
-  startedAt: number | null;
-  exitCode: number | null;
-  lastError: string | null;
-}
-
-interface UpdateStatusPayload {
-  supported: boolean;
-  currentVersion: string;
-  state:
-    | 'idle'
-    | 'unsupported'
-    | 'checking'
-    | 'available'
-    | 'downloading'
-    | 'downloaded'
-    | 'up-to-date'
-    | 'error';
-  availableVersion: string | null;
-  percent: number | null;
-  transferredBytes: number | null;
-  totalBytes: number | null;
-  message: string | null;
-}
-
-const DEFAULT_STATE: DesktopState = {
-  backendUrl: 'http://127.0.0.1:8080',
-  autoStartBackend: false,
-  backendExecutable: 'checkai',
-  backendArgs: 'serve',
-  backendWorkingDirectory: '',
-  openingBookPath: '',
-  tablebasePath: '',
-  lastView: 'workspace',
-};
+import {
+  DEFAULT_DESKTOP_STATE,
+  DESKTOP_VIEWS,
+  type BackendStatusPayload,
+  type DesktopState,
+  type UpdateStatusPayload,
+} from './shared-types.js';
 
 const MAX_LOG_LINES = 400;
-const DESKTOP_VIEWS: DesktopView[] = ['workspace', 'live', 'engine', 'logs', 'help'];
+const LOG_PUSH_DELAY_MS = 250;
 
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcessWithoutNullStreams | null = null;
@@ -66,6 +21,7 @@ let backendExitListener:
   | ((code: number | null, signal: NodeJS.Signals | null) => void)
   | null = null;
 let backendLogs = '';
+let backendLogsFlushTimer: NodeJS.Timeout | null = null;
 let backendStatus: BackendStatusPayload = {
   running: false,
   pid: null,
@@ -98,17 +54,21 @@ function normalizeString(value: unknown, fallback = ''): string {
 function normalizeDesktopState(value: unknown): DesktopState {
   const candidate = typeof value === 'object' && value !== null ? value : {};
   const record = candidate as Record<string, unknown>;
-  const lastView = normalizeString(record.lastView, DEFAULT_STATE.lastView);
-  const normalizedLastView = DESKTOP_VIEWS.find((view) => view === lastView) ?? DEFAULT_STATE.lastView;
+  const lastView = normalizeString(record.lastView, DEFAULT_DESKTOP_STATE.lastView);
+  const normalizedLastView =
+    DESKTOP_VIEWS.find((view) => view === lastView) ?? DEFAULT_DESKTOP_STATE.lastView;
 
   return {
-    backendUrl: normalizeString(record.backendUrl, DEFAULT_STATE.backendUrl),
+    backendUrl: normalizeString(record.backendUrl, DEFAULT_DESKTOP_STATE.backendUrl),
     autoStartBackend:
       typeof record.autoStartBackend === 'boolean'
         ? record.autoStartBackend
-        : DEFAULT_STATE.autoStartBackend,
-    backendExecutable: normalizeString(record.backendExecutable, DEFAULT_STATE.backendExecutable),
-    backendArgs: normalizeString(record.backendArgs, DEFAULT_STATE.backendArgs),
+        : DEFAULT_DESKTOP_STATE.autoStartBackend,
+    backendExecutable: normalizeString(
+      record.backendExecutable,
+      DEFAULT_DESKTOP_STATE.backendExecutable,
+    ),
+    backendArgs: normalizeString(record.backendArgs, DEFAULT_DESKTOP_STATE.backendArgs),
     backendWorkingDirectory: normalizeString(record.backendWorkingDirectory),
     openingBookPath: normalizeString(record.openingBookPath),
     tablebasePath: normalizeString(record.tablebasePath),
@@ -119,13 +79,13 @@ function normalizeDesktopState(value: unknown): DesktopState {
 function loadState(): DesktopState {
   const file = stateFilePath();
   if (!existsSync(file)) {
-    return { ...DEFAULT_STATE };
+    return { ...DEFAULT_DESKTOP_STATE };
   }
 
   try {
     return normalizeDesktopState(JSON.parse(readFileSync(file, 'utf8')) as Partial<DesktopState>);
   } catch {
-    return { ...DEFAULT_STATE };
+    return { ...DEFAULT_DESKTOP_STATE };
   }
 }
 
@@ -141,11 +101,30 @@ function pushBackendStatus(): void {
   mainWindow?.webContents.send('checkai:backend-status', backendStatus);
 }
 
+function flushBackendLogs(): void {
+  if (backendLogsFlushTimer) {
+    clearTimeout(backendLogsFlushTimer);
+    backendLogsFlushTimer = null;
+  }
+  mainWindow?.webContents.send('checkai:backend-logs', backendLogs);
+}
+
+function scheduleBackendLogsPush(): void {
+  if (backendLogsFlushTimer) {
+    return;
+  }
+
+  backendLogsFlushTimer = setTimeout(() => {
+    backendLogsFlushTimer = null;
+    mainWindow?.webContents.send('checkai:backend-logs', backendLogs);
+  }, LOG_PUSH_DELAY_MS);
+}
+
 function appendBackendLogs(chunk: string): void {
   const combined = `${backendLogs}${chunk}`;
   const lines = combined.split(/\r?\n/);
   backendLogs = lines.slice(-MAX_LOG_LINES).join('\n');
-  mainWindow?.webContents.send('checkai:backend-logs', backendLogs);
+  scheduleBackendLogsPush();
 }
 
 function pushUpdateStatus(): void {
@@ -416,6 +395,7 @@ function startBackend(state: DesktopState): BackendStatusPayload {
   const args = buildBackendArgs(state);
   const command = [executable, ...args].join(' ');
   backendLogs = '';
+  flushBackendLogs();
 
   try {
     backendProcess = spawn(executable, args, {
@@ -431,6 +411,7 @@ function startBackend(state: DesktopState): BackendStatusPayload {
       exitCode: null,
       lastError: error instanceof Error ? error.message : String(error),
     };
+    flushBackendLogs();
     pushBackendStatus();
     return backendStatus;
   }
@@ -474,6 +455,7 @@ function startBackend(state: DesktopState): BackendStatusPayload {
       exitCode: null,
       lastError: error instanceof Error ? error.message : String(error),
     };
+    flushBackendLogs();
     pushBackendStatus();
   });
 
@@ -492,6 +474,7 @@ function startBackend(state: DesktopState): BackendStatusPayload {
       exitCode: code,
       lastError: code === 0 ? null : `Backend exited with code ${code ?? -1}.`,
     };
+    flushBackendLogs();
     pushBackendStatus();
     notify('CheckAI Desktop', 'Local backend stopped.');
   };
@@ -531,6 +514,7 @@ function stopBackend(): BackendStatusPayload {
     pid: null,
     lastError: null,
   };
+  flushBackendLogs();
   pushBackendStatus();
   notify('CheckAI Desktop', 'Local backend stopped.');
   return backendStatus;

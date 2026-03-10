@@ -1,68 +1,14 @@
 import './styles.css';
 
 import { computed, effect, signal } from '@bquery/bquery/reactive';
-
-type DesktopView = 'workspace' | 'live' | 'engine' | 'logs' | 'help';
-
-interface DesktopState {
-  backendUrl: string;
-  autoStartBackend: boolean;
-  backendExecutable: string;
-  backendArgs: string;
-  backendWorkingDirectory: string;
-  openingBookPath: string;
-  tablebasePath: string;
-  lastView: DesktopView;
-}
-
-interface BackendStatusPayload {
-  running: boolean;
-  pid: number | null;
-  command: string | null;
-  startedAt: number | null;
-  exitCode: number | null;
-  lastError: string | null;
-}
-
-interface UpdateStatusPayload {
-  supported: boolean;
-  currentVersion: string;
-  state:
-    | 'idle'
-    | 'unsupported'
-    | 'checking'
-    | 'available'
-    | 'downloading'
-    | 'downloaded'
-    | 'up-to-date'
-    | 'error';
-  availableVersion: string | null;
-  percent: number | null;
-  transferredBytes: number | null;
-  totalBytes: number | null;
-  message: string | null;
-}
-
-interface DesktopApi {
-  getState(): Promise<DesktopState>;
-  saveState(state: DesktopState): Promise<DesktopState>;
-  getBackendStatus(): Promise<BackendStatusPayload>;
-  getBackendLogs(): Promise<string>;
-  getUpdateStatus(): Promise<UpdateStatusPayload>;
-  startBackend(state: DesktopState): Promise<BackendStatusPayload>;
-  stopBackend(): Promise<BackendStatusPayload>;
-  checkForUpdates(): Promise<UpdateStatusPayload>;
-  downloadUpdate(): Promise<UpdateStatusPayload>;
-  installUpdate(): Promise<void>;
-  pickFile(): Promise<string | null>;
-  pickDirectory(): Promise<string | null>;
-  openPath(path: string): Promise<void>;
-  openExternal(url: string): Promise<void>;
-  notify(title: string, body: string): Promise<void>;
-  onBackendStatus(callback: (status: BackendStatusPayload) => void): () => void;
-  onBackendLogs(callback: (logs: string) => void): () => void;
-  onUpdateStatus(callback: (status: UpdateStatusPayload) => void): () => void;
-}
+import {
+  DEFAULT_DESKTOP_STATE,
+  type BackendStatusPayload,
+  type DesktopApi,
+  type DesktopState,
+  type DesktopView,
+  type UpdateStatusPayload,
+} from './shared-types.js';
 
 declare global {
   interface Window {
@@ -70,20 +16,9 @@ declare global {
   }
 }
 
-const DEFAULT_STATE: DesktopState = {
-  backendUrl: 'http://127.0.0.1:8080',
-  autoStartBackend: false,
-  backendExecutable: 'checkai',
-  backendArgs: 'serve',
-  backendWorkingDirectory: '',
-  openingBookPath: '',
-  tablebasePath: '',
-  lastView: 'workspace',
-};
-
 const fallbackApi: DesktopApi = {
   async getState() {
-    return { ...DEFAULT_STATE };
+    return { ...DEFAULT_DESKTOP_STATE };
   },
   async saveState(state) {
     return state;
@@ -148,7 +83,7 @@ const fallbackApi: DesktopApi = {
 
 const desktop = window.checkaiDesktop ?? fallbackApi;
 
-const desktopState = signal<DesktopState>({ ...DEFAULT_STATE });
+const desktopState = signal<DesktopState>({ ...DEFAULT_DESKTOP_STATE });
 const currentView = signal<DesktopView>('workspace');
 const backendStatus = signal<BackendStatusPayload>({
   running: false,
@@ -766,27 +701,33 @@ function renderApp(): string {
 }
 
 async function handleAction(action: string): Promise<void> {
-  if (action === 'save') await saveSettings();
-  if (action === 'start') await startBackend();
-  if (action === 'stop') await stopBackend();
-  if (action === 'open-browser') openLiveInBrowser();
-  if (action === 'reload-live') reloadLiveView();
-  if (action === 'refresh-logs') await refreshLogs();
-  if (action === 'check-updates') await checkForDesktopUpdates();
-  if (action === 'download-update') await downloadDesktopUpdate();
-  if (action === 'install-update') await installDesktopUpdate();
-  if (action === 'pick-executable') await chooseExecutable();
-  if (action === 'pick-working-directory') await chooseWorkingDirectory();
-  if (action === 'pick-opening-book') await chooseOpeningBook();
-  if (action === 'pick-tablebase') await chooseTablebase();
-  if (action === 'live') currentView.value = 'live';
-  if (action === 'logs') currentView.value = 'logs';
-  if (action === 'toggle-palette') paletteOpen.value = true;
-  if (action === 'open-working-directory') {
-    const path = desktopState.value.backendWorkingDirectory.trim();
-    if (path) {
-      await desktop.openPath(path);
+  try {
+    if (action === 'save') await saveSettings();
+    if (action === 'start') await startBackend();
+    if (action === 'stop') await stopBackend();
+    if (action === 'open-browser') openLiveInBrowser();
+    if (action === 'reload-live') reloadLiveView();
+    if (action === 'refresh-logs') await refreshLogs();
+    if (action === 'check-updates') await checkForDesktopUpdates();
+    if (action === 'download-update') await downloadDesktopUpdate();
+    if (action === 'install-update') await installDesktopUpdate();
+    if (action === 'pick-executable') await chooseExecutable();
+    if (action === 'pick-working-directory') await chooseWorkingDirectory();
+    if (action === 'pick-opening-book') await chooseOpeningBook();
+    if (action === 'pick-tablebase') await chooseTablebase();
+    if (action === 'live') currentView.value = 'live';
+    if (action === 'logs') currentView.value = 'logs';
+    if (action === 'toggle-palette') paletteOpen.value = true;
+    if (action === 'open-working-directory') {
+      const path = desktopState.value.backendWorkingDirectory.trim();
+      if (path) {
+        await desktop.openPath(path);
+      }
     }
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    console.error(`Desktop action "${action}" failed:`, error);
+    setMessage(text);
   }
 }
 

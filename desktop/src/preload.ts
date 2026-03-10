@@ -1,47 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type {
+  BackendStatusPayload,
+  DesktopApi,
+  DesktopState,
+  UpdateStatusPayload,
+} from './shared-types.js';
 
-type DesktopView = 'workspace' | 'live' | 'engine' | 'logs' | 'help';
-
-interface DesktopState {
-  backendUrl: string;
-  autoStartBackend: boolean;
-  backendExecutable: string;
-  backendArgs: string;
-  backendWorkingDirectory: string;
-  openingBookPath: string;
-  tablebasePath: string;
-  lastView: DesktopView;
-}
-
-interface BackendStatusPayload {
-  running: boolean;
-  pid: number | null;
-  command: string | null;
-  startedAt: number | null;
-  exitCode: number | null;
-  lastError: string | null;
-}
-
-interface UpdateStatusPayload {
-  supported: boolean;
-  currentVersion: string;
-  state:
-    | 'idle'
-    | 'unsupported'
-    | 'checking'
-    | 'available'
-    | 'downloading'
-    | 'downloaded'
-    | 'up-to-date'
-    | 'error';
-  availableVersion: string | null;
-  percent: number | null;
-  transferredBytes: number | null;
-  totalBytes: number | null;
-  message: string | null;
-}
-
-const api = {
+const api: DesktopApi = {
   getState: (): Promise<DesktopState> => ipcRenderer.invoke('checkai:get-state'),
   saveState: (state: DesktopState): Promise<DesktopState> => ipcRenderer.invoke('checkai:save-state', state),
   getBackendStatus: (): Promise<BackendStatusPayload> => ipcRenderer.invoke('checkai:get-backend-status'),
