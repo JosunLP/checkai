@@ -28,7 +28,6 @@ The desktop app keeps the full engine workspace available while adding desktop-n
 
 ```bash
 cd desktop
-corepack enable
 npm ci
 npm run build
 npm run start

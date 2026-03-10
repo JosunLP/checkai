@@ -89,7 +89,6 @@ The repository now also includes a dedicated Electron desktop shell in `desktop/
 
 ```bash
 cd desktop
-corepack enable
 npm ci
 npm run build
 npm run start

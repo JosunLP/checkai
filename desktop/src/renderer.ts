@@ -745,26 +745,61 @@ function renderApp(): string {
 
 async function handleAction(action: string): Promise<void> {
   try {
-    if (action === 'save') await saveSettings();
-    if (action === 'start') await startBackend();
-    if (action === 'stop') await stopBackend();
-    if (action === 'open-browser') openLiveInBrowser();
-    if (action === 'reload-live') reloadLiveView();
-    if (action === 'refresh-logs') await refreshLogs();
-    if (action === 'check-updates') await checkForDesktopUpdates();
-    if (action === 'download-update') await downloadDesktopUpdate();
-    if (action === 'install-update') await installDesktopUpdate();
-    if (action === 'pick-executable') await chooseExecutable();
-    if (action === 'pick-working-directory') await chooseWorkingDirectory();
-    if (action === 'pick-opening-book') await chooseOpeningBook();
-    if (action === 'pick-tablebase') await chooseTablebase();
-    if (action === 'live') currentView.value = 'live';
-    if (action === 'logs') currentView.value = 'logs';
-    if (action === 'toggle-palette') paletteOpen.value = true;
-    if (action === 'open-working-directory') {
-      const path = desktopState.value.backendWorkingDirectory.trim();
-      if (path) {
-        await desktop.openPath(path);
+    switch (action) {
+      case 'save':
+        await saveSettings();
+        break;
+      case 'start':
+        await startBackend();
+        break;
+      case 'stop':
+        await stopBackend();
+        break;
+      case 'open-browser':
+        openLiveInBrowser();
+        break;
+      case 'reload-live':
+        reloadLiveView();
+        break;
+      case 'refresh-logs':
+        await refreshLogs();
+        break;
+      case 'check-updates':
+        await checkForDesktopUpdates();
+        break;
+      case 'download-update':
+        await downloadDesktopUpdate();
+        break;
+      case 'install-update':
+        await installDesktopUpdate();
+        break;
+      case 'pick-executable':
+        await chooseExecutable();
+        break;
+      case 'pick-working-directory':
+        await chooseWorkingDirectory();
+        break;
+      case 'pick-opening-book':
+        await chooseOpeningBook();
+        break;
+      case 'pick-tablebase':
+        await chooseTablebase();
+        break;
+      case 'live':
+        currentView.value = 'live';
+        break;
+      case 'logs':
+        currentView.value = 'logs';
+        break;
+      case 'toggle-palette':
+        paletteOpen.value = true;
+        break;
+      case 'open-working-directory': {
+        const path = desktopState.value.backendWorkingDirectory.trim();
+        if (path) {
+          await desktop.openPath(path);
+        }
+        break;
       }
     }
   } catch (error) {
