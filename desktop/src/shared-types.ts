@@ -17,6 +17,28 @@ export const DESKTOP_VIEWS = [
 
 export type DesktopView = (typeof DESKTOP_VIEWS)[number];
 
+export interface BackendPreset {
+  id: string;
+  name: string;
+  backendExecutable: string;
+  backendArgs: string;
+  backendWorkingDirectory: string;
+  backendUrl: string;
+  openingBookPath: string;
+  tablebasePath: string;
+  autoStartBackend: boolean;
+  createdAt: number;
+}
+
+export interface SaveTextFileOptions {
+  defaultPath: string;
+  content: string;
+  filters?: Array<{
+    name: string;
+    extensions: string[];
+  }>;
+}
+
 // ── Desktop state (persisted on disk) ───────────────────────────────────────
 
 export interface DesktopState {
@@ -30,6 +52,12 @@ export interface DesktopState {
   lastView: DesktopView;
   theme: 'dark' | 'light' | 'system';
   boardFlipped: boolean;
+  recentWorkspaces: string[];
+  backendPresets: BackendPreset[];
+  notificationsEnabled: boolean;
+  compactMode: boolean;
+  developerMode: boolean;
+  lastGameId: string | null;
 }
 
 // ── Backend & update payloads ───────────────────────────────────────────────
@@ -77,6 +105,8 @@ export interface DesktopApi {
   installUpdate(): Promise<void>;
   pickFile(): Promise<string | null>;
   pickDirectory(): Promise<string | null>;
+  readTextFile(path: string): Promise<string>;
+  saveTextFile(options: SaveTextFileOptions): Promise<string | null>;
   openPath(path: string): Promise<void>;
   openExternal(url: string): Promise<void>;
   notify(title: string, body: string): Promise<void>;
@@ -96,6 +126,12 @@ export const DEFAULT_DESKTOP_STATE: DesktopState = {
   lastView: 'dashboard',
   theme: 'dark',
   boardFlipped: false,
+  recentWorkspaces: [],
+  backendPresets: [],
+  notificationsEnabled: true,
+  compactMode: false,
+  developerMode: false,
+  lastGameId: null,
 };
 
 // ── Engine API types ────────────────────────────────────────────────────────

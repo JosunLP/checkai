@@ -17,9 +17,9 @@
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit && vite build",
-    "start": "bun run build && bunx electron .",
-    "pack": "bun run build && bunx electron-builder --config electron-builder.yml --dir --publish never",
-    "dist": "bun run build && bunx electron-builder --config electron-builder.yml --publish never"
+    "start": "bun run build && bun x electron .",
+    "pack": "bun run build && bun x electron-builder --config electron-builder.yml --dir --publish never",
+    "dist": "bun run build && bun x electron-builder --config electron-builder.yml --publish never"
   },
   "dependencies": {
     "electron-updater": "^6.6.2"

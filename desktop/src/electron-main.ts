@@ -14,8 +14,10 @@ import { fileURLToPath } from 'node:url';
 import {
   DEFAULT_DESKTOP_STATE,
   DESKTOP_VIEWS,
+  type BackendPreset,
   type BackendStatusPayload,
   type DesktopState,
+  type SaveTextFileOptions,
   type UpdateStatusPayload,
 } from './shared-types.js';
 
@@ -67,6 +69,54 @@ function normalizeTheme(value: unknown): 'dark' | 'light' | 'system' {
   return DEFAULT_DESKTOP_STATE.theme;
 }
 
+function normalizePreset(value: unknown): BackendPreset | null {
+  const candidate = typeof value === 'object' && value !== null ? value : null;
+  if (!candidate) return null;
+
+  const record = candidate as Record<string, unknown>;
+  const id = normalizeString(record.id).trim();
+  const name = normalizeString(record.name).trim();
+  if (!id || !name) return null;
+
+  return {
+    id,
+    name,
+    backendExecutable: normalizeString(record.backendExecutable),
+    backendArgs: normalizeString(record.backendArgs),
+    backendWorkingDirectory: normalizeString(record.backendWorkingDirectory),
+    backendUrl: normalizeString(
+      record.backendUrl,
+      DEFAULT_DESKTOP_STATE.backendUrl
+    ),
+    openingBookPath: normalizeString(record.openingBookPath),
+    tablebasePath: normalizeString(record.tablebasePath),
+    autoStartBackend:
+      typeof record.autoStartBackend === 'boolean'
+        ? record.autoStartBackend
+        : DEFAULT_DESKTOP_STATE.autoStartBackend,
+    createdAt:
+      typeof record.createdAt === 'number' && Number.isFinite(record.createdAt)
+        ? record.createdAt
+        : Date.now(),
+  };
+}
+
+function normalizeStringArray(value: unknown, limit = 8): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const entry of value) {
+    const str = normalizeString(entry).trim();
+    if (!str || seen.has(str)) continue;
+    seen.add(str);
+    normalized.push(str);
+    if (normalized.length >= limit) break;
+  }
+
+  return normalized;
+}
+
 function normalizeDesktopState(value: unknown): DesktopState {
   const candidate = typeof value === 'object' && value !== null ? value : {};
   const record = candidate as Record<string, unknown>;
@@ -104,6 +154,30 @@ function normalizeDesktopState(value: unknown): DesktopState {
       typeof record.boardFlipped === 'boolean'
         ? record.boardFlipped
         : DEFAULT_DESKTOP_STATE.boardFlipped,
+    recentWorkspaces: normalizeStringArray(record.recentWorkspaces, 10),
+    backendPresets: Array.isArray(record.backendPresets)
+      ? record.backendPresets
+          .map((preset) => normalizePreset(preset))
+          .filter((preset): preset is BackendPreset => preset !== null)
+          .slice(0, 20)
+      : DEFAULT_DESKTOP_STATE.backendPresets,
+    notificationsEnabled:
+      typeof record.notificationsEnabled === 'boolean'
+        ? record.notificationsEnabled
+        : DEFAULT_DESKTOP_STATE.notificationsEnabled,
+    compactMode:
+      typeof record.compactMode === 'boolean'
+        ? record.compactMode
+        : DEFAULT_DESKTOP_STATE.compactMode,
+    developerMode:
+      typeof record.developerMode === 'boolean'
+        ? record.developerMode
+        : DEFAULT_DESKTOP_STATE.developerMode,
+    lastGameId:
+      record.lastGameId === null
+        ? null
+        : normalizeString(record.lastGameId) ||
+          DEFAULT_DESKTOP_STATE.lastGameId,
   };
 }
 
@@ -634,6 +708,56 @@ async function selectPath(kind: 'file' | 'directory'): Promise<string | null> {
   return result.filePaths[0] ?? null;
 }
 
+function readTextFile(target: unknown): string {
+  const path = validateOpenPathTarget(target);
+  return readFileSync(path, 'utf8');
+}
+
+async function saveTextFile(options: unknown): Promise<string | null> {
+  if (!mainWindow) return null;
+
+  const candidate =
+    typeof options === 'object' && options !== null
+      ? (options as Partial<SaveTextFileOptions>)
+      : {};
+  const defaultPath = normalizeString(candidate.defaultPath).trim();
+  const content = normalizeString(candidate.content);
+  const filters = Array.isArray(candidate.filters)
+    ? candidate.filters
+        .map((filter) => {
+          const name = normalizeString(filter?.name).trim();
+          const extensions = Array.isArray(filter?.extensions)
+            ? filter.extensions
+                .map((extension) =>
+                  normalizeString(extension).trim().replace(/^\./, '')
+                )
+                .filter(Boolean)
+            : [];
+          return name && extensions.length > 0 ? { name, extensions } : null;
+        })
+        .filter(
+          (
+            filter
+          ): filter is {
+            name: string;
+            extensions: string[];
+          } => filter !== null
+        )
+    : [];
+
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: defaultPath || undefined,
+    filters: filters.length > 0 ? filters : undefined,
+  });
+
+  if (result.canceled || !result.filePath) {
+    return null;
+  }
+
+  writeFileSync(result.filePath, content, 'utf8');
+  return result.filePath;
+}
+
 function createWindow(): void {
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const preload = join(__dirname, 'preload.js');
@@ -678,6 +802,12 @@ function registerIpcHandlers(): void {
   ipcMain.handle('checkai:install-update', () => installUpdate());
   ipcMain.handle('checkai:pick-file', () => selectPath('file'));
   ipcMain.handle('checkai:pick-directory', () => selectPath('directory'));
+  ipcMain.handle('checkai:read-text-file', (_event, target: unknown) =>
+    readTextFile(target)
+  );
+  ipcMain.handle('checkai:save-text-file', (_event, options: unknown) =>
+    saveTextFile(options)
+  );
   ipcMain.handle('checkai:open-path', async (_event, target: unknown) => {
     const path = validateOpenPathTarget(target);
     const result = await shell.openPath(path);

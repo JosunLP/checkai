@@ -95,6 +95,10 @@ export function getLegalMoves(
   return request('GET', `/games/${encodeURIComponent(id)}/moves`);
 }
 
+export function getBoardAscii(id: string): Promise<string> {
+  return request('GET', `/games/${encodeURIComponent(id)}/board`);
+}
+
 // ── Archive ──────────────────────────────────────────────────────────────────
 
 export function listArchived(): Promise<{

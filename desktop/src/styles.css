@@ -119,6 +119,15 @@ code {
   min-height: 100vh;
 }
 
+.shell.shell-compact .content {
+  padding: 1rem 1.1rem;
+}
+
+.shell.shell-compact .card {
+  padding: 0.9rem;
+  border-radius: 16px;
+}
+
 .sidebar {
   padding: 1.25rem;
   border-right: 1px solid var(--border);
@@ -234,6 +243,27 @@ code {
   position: relative;
 }
 
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 /* ── Cards ─────────────────────────────────────────────────────────────── */
 
 .card {
@@ -266,6 +296,26 @@ code {
 
 .hero-card .card-head h2 {
   font-size: 1.4rem;
+}
+
+.hero-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.hero-stat {
+  padding: 0.8rem 0.9rem;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.36);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 0.2rem;
+}
+
+[data-theme='light'] .hero-stat {
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .empty-text {
@@ -455,6 +505,13 @@ code {
   background: var(--bg-hover);
 }
 
+.mini-item .mono.dim {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ── Data tables ───────────────────────────────────────────────────────── */
 
 .table-wrap {
@@ -565,6 +622,26 @@ code {
 .checkbox-field input[type='checkbox'] {
   width: 1.1rem;
   height: 1.1rem;
+}
+
+.drop-zone {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.95rem 1rem;
+  border-radius: 14px;
+  border: 1px dashed rgba(124, 140, 255, 0.35);
+  background: rgba(124, 140, 255, 0.06);
+  margin-bottom: 1rem;
+  transition:
+    border-color 120ms ease,
+    transform 120ms ease,
+    background-color 120ms ease;
+}
+
+.drop-zone-active {
+  border-color: var(--primary);
+  background: rgba(124, 140, 255, 0.14);
+  transform: translateY(-1px);
 }
 
 /* ── Callout ───────────────────────────────────────────────────────────── */
@@ -847,6 +924,44 @@ code {
   font-size: 1rem;
 }
 
+.ascii-panel,
+.json-panel {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 0.85rem;
+  border-radius: 12px;
+  background: rgba(3, 7, 18, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  overflow: auto;
+}
+
+.ascii-panel {
+  min-height: 13rem;
+}
+
+.json-panel {
+  max-height: 22rem;
+}
+
+[data-theme='light'] .ascii-panel,
+[data-theme='light'] .json-panel {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.details-panel {
+  margin-top: 0.75rem;
+}
+
+.details-panel summary {
+  cursor: pointer;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+}
+
 /* ── Log panel ─────────────────────────────────────────────────────────── */
 
 .log-panel {
@@ -867,6 +982,38 @@ code {
 
 [data-theme='light'] .log-panel {
   background: rgba(0, 0, 0, 0.04);
+}
+
+.logs-grid {
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.4fr);
+}
+
+.logs-grid > .card:last-child {
+  grid-column: 1 / -1;
+}
+
+.preset-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.preset-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.36);
+}
+
+[data-theme='light'] .preset-card {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.preset-card p {
+  margin: 0.2rem 0 0;
 }
 
 /* ── Settings shortcuts ────────────────────────────────────────────────── */
@@ -975,6 +1122,15 @@ code {
   transform: translateY(-1px);
 }
 
+.palette-btn strong,
+.palette-btn span {
+  display: block;
+}
+
+.palette-btn strong {
+  margin-bottom: 0.2rem;
+}
+
 [data-theme='light'] .palette-btn {
   background: rgba(0, 0, 0, 0.03);
 }
@@ -1010,5 +1166,15 @@ code {
   }
   .content {
     max-height: none;
+  }
+  .topbar {
+    flex-direction: column;
+  }
+  .logs-grid {
+    grid-template-columns: 1fr;
+  }
+  .preset-card {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

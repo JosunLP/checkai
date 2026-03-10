@@ -9,6 +9,7 @@ import {
   exportFen as apiExportFen,
   exportPgn as apiExportPgn,
   getAnalysisJob as apiGetAnalysisJob,
+  getBoardAscii as apiGetBoardAscii,
   getGame as apiGetGame,
   getLegalMoves as apiGetLegalMoves,
   getStorageStats as apiGetStorageStats,
@@ -30,6 +31,7 @@ import {
   type AnalysisJob,
   type AnalysisResultPayload,
   type ArchivedGameSummary,
+  type BackendPreset,
   type BackendStatusPayload,
   type BoardMap,
   type DesktopApi,
@@ -40,6 +42,7 @@ import {
   type GameSummary,
   type LegalMove,
   type ReplayState,
+  type SaveTextFileOptions,
   type StorageStats,
   type UpdateStatusPayload,
 } from './shared-types.js';
@@ -103,6 +106,12 @@ const fallbackApi: DesktopApi = {
   async pickDirectory() {
     return null;
   },
+  async readTextFile() {
+    throw new Error('Local file reading is only available inside Electron.');
+  },
+  async saveTextFile() {
+    return null;
+  },
   async openPath() {},
   async openExternal() {},
   async notify() {},
@@ -143,8 +152,15 @@ const updateStatus = signal<UpdateStatusPayload>({
   message: null,
 });
 const paletteOpen = signal(false);
+const paletteQuery = signal('');
 const toastMsg = signal<string | null>(null);
 const errorMsg = signal<string | null>(null);
+const boardAscii = signal('');
+const liveConnection = signal<'connecting' | 'connected' | 'disconnected'>(
+  'disconnected'
+);
+const liveMessage = signal('Live sync offline');
+const importDropActive = signal(false);
 
 // Engine data
 const gamesList = signal<GameSummary[]>([]);
@@ -160,6 +176,13 @@ const activeAnalysis = signal<AnalysisJob | null>(null);
 const fenInput = signal('');
 const analysisDepth = signal(30);
 const analysisPolling = signal(false);
+
+const notifiedAnalysisJobs = new Set<string>();
+let liveWs: WebSocket | null = null;
+let liveReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let liveReconnectDelay = 1000;
+let liveSubscribedGameId: string | null = null;
+const LIVE_RECONNECT_MAX_DELAY = 30000;
 
 // Computed
 const boardFlipped = computed(() => desktopState.value.boardFlipped);
@@ -177,6 +200,79 @@ const lastMove = computed((): { from: string; to: string } | null => {
   if (!g || g.move_history.length === 0) return null;
   const last = g.move_history[g.move_history.length - 1];
   return { from: last.move_json.from, to: last.move_json.to };
+});
+
+const currentWorkspace = computed(
+  () =>
+    desktopState.value.backendWorkingDirectory.trim() || 'No workspace selected'
+);
+
+const backendUptimeLabel = computed(() => {
+  const startedAt = backendStatus.value.startedAt;
+  if (!backendStatus.value.running || !startedAt) return '—';
+  const totalSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+});
+
+const filteredPaletteActions = computed(() => {
+  const query = paletteQuery.value.trim().toLowerCase();
+  const actions = [
+    { id: 'create-game', label: 'New game', meta: 'Start a fresh game' },
+    {
+      id: 'start-backend',
+      label: 'Start backend',
+      meta: 'Launch local engine',
+    },
+    { id: 'stop-backend', label: 'Stop backend', meta: 'Stop local engine' },
+    {
+      id: 'refresh-logs',
+      label: 'Refresh logs',
+      meta: 'Reload backend console output',
+    },
+    {
+      id: 'import-fen-file',
+      label: 'Import FEN file',
+      meta: 'Load a FEN from disk',
+    },
+    {
+      id: 'save-settings',
+      label: 'Save workspace',
+      meta: 'Persist desktop preferences',
+    },
+    {
+      id: 'nav:dashboard',
+      label: 'Dashboard',
+      meta: 'Overview and quick actions',
+    },
+    { id: 'nav:games', label: 'Games', meta: 'Active games and FEN import' },
+    { id: 'nav:archive', label: 'Archive', meta: 'Replay completed games' },
+    { id: 'nav:analysis', label: 'Analysis', meta: 'Engine analysis jobs' },
+    {
+      id: 'nav:engine',
+      label: 'Engine config',
+      meta: 'Backend presets and assets',
+    },
+    { id: 'nav:logs', label: 'Logs', meta: 'Backend and debug output' },
+    { id: 'nav:settings', label: 'Settings', meta: 'Desktop preferences' },
+    {
+      id: 'check-updates',
+      label: 'Check updates',
+      meta: 'Look for a newer desktop build',
+    },
+    { id: 'flip-board', label: 'Flip board', meta: 'Swap board orientation' },
+  ];
+
+  if (!query) return actions;
+  return actions.filter(
+    (action) =>
+      action.label.toLowerCase().includes(query) ||
+      action.meta.toLowerCase().includes(query)
+  );
 });
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -201,6 +297,60 @@ function formatBytes(v: number | null): string {
     i++;
   }
   return `${s.toFixed(s >= 10 ? 0 : 1)} ${units[i]}`;
+}
+
+function formatDateTime(value: number | null | undefined): string {
+  if (!value) return '—';
+  return new Date(value).toLocaleString();
+}
+
+function basename(input: string): string {
+  const normalized = input.replace(/[\\/]+$/, '');
+  if (!normalized) return input;
+  const parts = normalized.split(/[\\/]/);
+  return parts[parts.length - 1] || normalized;
+}
+
+function toSlug(input: string): string {
+  return (
+    input
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'checkai-export'
+  );
+}
+
+function buildExportOptions(
+  defaultPath: string,
+  content: string,
+  filters: SaveTextFileOptions['filters']
+): SaveTextFileOptions {
+  return { defaultPath, content, filters };
+}
+
+function normalizeFenText(raw: string): string {
+  return (
+    raw
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split(/\r?\n/)[0]
+      ?.trim() ?? ''
+  );
+}
+
+function syncTheme(theme: DesktopState['theme']): void {
+  if (theme === 'system') {
+    const prefersLight = window.matchMedia(
+      '(prefers-color-scheme: light)'
+    ).matches;
+    document.documentElement.setAttribute(
+      'data-theme',
+      prefersLight ? 'light' : 'dark'
+    );
+    return;
+  }
+  document.documentElement.setAttribute('data-theme', theme);
 }
 
 function showToast(msg: string): void {
@@ -245,6 +395,219 @@ function resultLabel(r: string | null): string {
   return '*';
 }
 
+async function notifyUser(title: string, body: string): Promise<void> {
+  if (!desktopState.value.notificationsEnabled) return;
+  try {
+    await desktop.notify(title, body);
+  } catch {
+    // Best-effort only.
+  }
+}
+
+function updateRecentWorkspaces(path: string): void {
+  const normalized = path.trim();
+  if (!normalized) return;
+  desktopState.value = {
+    ...desktopState.value,
+    recentWorkspaces: [
+      normalized,
+      ...desktopState.value.recentWorkspaces.filter(
+        (entry) => entry !== normalized
+      ),
+    ].slice(0, 8),
+  };
+}
+
+function buildPresetFromState(name: string): BackendPreset {
+  return {
+    id: crypto.randomUUID(),
+    name,
+    backendExecutable: desktopState.value.backendExecutable,
+    backendArgs: desktopState.value.backendArgs,
+    backendWorkingDirectory: desktopState.value.backendWorkingDirectory,
+    backendUrl: desktopState.value.backendUrl,
+    openingBookPath: desktopState.value.openingBookPath,
+    tablebasePath: desktopState.value.tablebasePath,
+    autoStartBackend: desktopState.value.autoStartBackend,
+    createdAt: Date.now(),
+  };
+}
+
+function loadPresetIntoState(presetId: string): void {
+  const preset = desktopState.value.backendPresets.find(
+    (entry) => entry.id === presetId
+  );
+  if (!preset) return;
+  desktopState.value = {
+    ...desktopState.value,
+    backendExecutable: preset.backendExecutable,
+    backendArgs: preset.backendArgs,
+    backendWorkingDirectory: preset.backendWorkingDirectory,
+    backendUrl: preset.backendUrl,
+    openingBookPath: preset.openingBookPath,
+    tablebasePath: preset.tablebasePath,
+    autoStartBackend: preset.autoStartBackend,
+  };
+  if (preset.backendWorkingDirectory) {
+    updateRecentWorkspaces(preset.backendWorkingDirectory);
+  }
+  showToast(`Preset “${preset.name}” loaded`);
+}
+
+function removePresetFromState(presetId: string): void {
+  const preset = desktopState.value.backendPresets.find(
+    (entry) => entry.id === presetId
+  );
+  desktopState.value = {
+    ...desktopState.value,
+    backendPresets: desktopState.value.backendPresets.filter(
+      (entry) => entry.id !== presetId
+    ),
+  };
+  if (preset) showToast(`Preset “${preset.name}” removed`);
+}
+
+function saveCurrentPreset(): void {
+  const workspaceName = desktopState.value.backendWorkingDirectory
+    ? basename(desktopState.value.backendWorkingDirectory)
+    : 'Local engine';
+  const preset = buildPresetFromState(workspaceName);
+  desktopState.value = {
+    ...desktopState.value,
+    backendPresets: [preset, ...desktopState.value.backendPresets].slice(0, 12),
+  };
+  showToast(`Preset “${preset.name}” saved`);
+}
+
+function liveWsUrl(): string | null {
+  try {
+    const url = new URL(desktopState.value.backendUrl);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    url.pathname = '/ws';
+    url.search = '';
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function liveSend(payload: Record<string, unknown>): void {
+  if (liveWs?.readyState === WebSocket.OPEN) {
+    liveWs.send(JSON.stringify(payload));
+  }
+}
+
+function subscribeLiveGame(gameId: string | null): void {
+  if (liveSubscribedGameId && liveSubscribedGameId !== gameId) {
+    liveSend({ action: 'unsubscribe', game_id: liveSubscribedGameId });
+  }
+  liveSubscribedGameId = gameId;
+  if (gameId) {
+    liveSend({ action: 'subscribe', game_id: gameId });
+  }
+}
+
+function scheduleLiveReconnect(): void {
+  if (liveReconnectTimer) return;
+  liveReconnectTimer = setTimeout(() => {
+    liveReconnectTimer = null;
+    connectLiveUpdates();
+  }, liveReconnectDelay);
+  liveReconnectDelay = Math.min(
+    liveReconnectDelay * 2,
+    LIVE_RECONNECT_MAX_DELAY
+  );
+}
+
+function handleLiveMessage(raw: unknown): void {
+  if (typeof raw !== 'string') return;
+
+  try {
+    const message = JSON.parse(raw) as {
+      type?: string;
+      event?: string;
+      game_id?: string;
+    };
+
+    if (message.type !== 'event') return;
+
+    if (message.event === 'game_updated' && message.game_id) {
+      if (activeGame.value?.game_id === message.game_id) {
+        void openGame(message.game_id, true);
+      }
+      void refreshGamesList();
+      void refreshArchive();
+      return;
+    }
+
+    if (message.event === 'game_created' || message.event === 'game_deleted') {
+      void refreshGamesList();
+      void refreshArchive();
+    }
+  } catch {
+    // Ignore malformed messages.
+  }
+}
+
+function connectLiveUpdates(): void {
+  const url = liveWsUrl();
+  if (!url) {
+    liveConnection.value = 'disconnected';
+    liveMessage.value = 'Live sync unavailable: invalid backend URL';
+    return;
+  }
+
+  if (
+    liveWs &&
+    (liveWs.readyState === WebSocket.OPEN ||
+      liveWs.readyState === WebSocket.CONNECTING)
+  ) {
+    return;
+  }
+
+  liveConnection.value = 'connecting';
+  liveMessage.value = 'Connecting live sync…';
+
+  try {
+    liveWs = new WebSocket(url);
+  } catch {
+    liveConnection.value = 'disconnected';
+    liveMessage.value = 'Live sync failed to start';
+    scheduleLiveReconnect();
+    return;
+  }
+
+  liveWs.onopen = () => {
+    liveConnection.value = 'connected';
+    liveMessage.value = 'Live sync active';
+    liveReconnectDelay = 1000;
+    if (liveReconnectTimer) {
+      clearTimeout(liveReconnectTimer);
+      liveReconnectTimer = null;
+    }
+    subscribeLiveGame(
+      activeGame.value?.game_id ?? desktopState.value.lastGameId ?? null
+    );
+  };
+
+  liveWs.onmessage = (event) => {
+    handleLiveMessage(event.data);
+  };
+
+  liveWs.onclose = () => {
+    liveConnection.value = 'disconnected';
+    liveMessage.value = 'Live sync disconnected';
+    liveWs = null;
+    scheduleLiveReconnect();
+  };
+
+  liveWs.onerror = () => {
+    liveConnection.value = 'disconnected';
+    liveMessage.value = 'Live sync error';
+  };
+}
+
 // ── API Interactions ────────────────────────────────────────────────────────
 
 async function refreshGamesList(): Promise<void> {
@@ -267,9 +630,13 @@ async function createNewGame(): Promise<void> {
   }
 }
 
-async function importFromFen(): Promise<void> {
-  const fen = fenInput.value.trim();
-  if (!fen) return;
+async function importFenText(fenText: string): Promise<void> {
+  const fen = normalizeFenText(fenText);
+  if (!fen) {
+    showError('No FEN found to import.');
+    return;
+  }
+
   try {
     const res = await apiImportFen(fen);
     fenInput.value = '';
@@ -281,18 +648,36 @@ async function importFromFen(): Promise<void> {
   }
 }
 
-async function openGame(id: string): Promise<void> {
+async function importFromFen(): Promise<void> {
+  const fen = fenInput.value.trim();
+  if (!fen) return;
+  await importFenText(fen);
+}
+
+async function refreshBoardAscii(gameId: string): Promise<void> {
+  try {
+    boardAscii.value = await apiGetBoardAscii(gameId);
+  } catch {
+    boardAscii.value = 'Board ASCII preview unavailable.';
+  }
+}
+
+async function openGame(id: string, keepCurrentView = false): Promise<void> {
   try {
     const g = await apiGetGame(id);
     activeGame.value = g;
     selectedSquare.value = null;
+    boardAscii.value = '';
+    updateDesktopState({ lastGameId: id });
+    subscribeLiveGame(id);
     if (!g.is_over) {
       const res = await apiGetLegalMoves(id);
       legalMoves.value = res.moves;
     } else {
       legalMoves.value = [];
     }
-    currentView.value = 'board';
+    await refreshBoardAscii(id);
+    if (!keepCurrentView) currentView.value = 'board';
   } catch (e) {
     showError((e as Error).message);
   }
@@ -339,6 +724,8 @@ async function doDeleteGame(id: string): Promise<void> {
     if (activeGame.value?.game_id === id) {
       activeGame.value = null;
       legalMoves.value = [];
+      boardAscii.value = '';
+      subscribeLiveGame(null);
     }
     await refreshGamesList();
     showToast('Game deleted');
@@ -370,6 +757,44 @@ async function doExportFen(): Promise<void> {
   }
 }
 
+async function saveTextExport(
+  defaultPath: string,
+  content: string,
+  filters: SaveTextFileOptions['filters'],
+  successMessage: string
+): Promise<void> {
+  try {
+    const savedPath = await desktop.saveTextFile(
+      buildExportOptions(defaultPath, content, filters)
+    );
+    if (savedPath) {
+      showToast(successMessage);
+      await notifyUser(
+        'CheckAI Desktop',
+        `${successMessage} (${basename(savedPath)})`
+      );
+    }
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function doSaveFen(): Promise<void> {
+  const g = activeGame.value;
+  if (!g) return;
+  try {
+    const res = await apiExportFen(g.game_id);
+    await saveTextExport(
+      `${toSlug(g.game_id)}.fen`,
+      res.fen,
+      [{ name: 'FEN position', extensions: ['fen', 'txt'] }],
+      'FEN saved to disk'
+    );
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
 async function doExportPgn(): Promise<void> {
   const g = activeGame.value;
   if (!g) return;
@@ -377,6 +802,33 @@ async function doExportPgn(): Promise<void> {
     const pgn = await apiExportPgn(g.game_id);
     await navigator.clipboard.writeText(pgn);
     showToast('PGN copied to clipboard');
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function doSavePgn(): Promise<void> {
+  const g = activeGame.value;
+  if (!g) return;
+  try {
+    const pgn = await apiExportPgn(g.game_id);
+    await saveTextExport(
+      `${toSlug(g.game_id)}.pgn`,
+      pgn,
+      [{ name: 'PGN game', extensions: ['pgn', 'txt'] }],
+      'PGN saved to disk'
+    );
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function importFenFromFile(): Promise<void> {
+  try {
+    const filePath = await desktop.pickFile();
+    if (!filePath) return;
+    const text = await desktop.readTextFile(filePath);
+    await importFenText(text);
   } catch (e) {
     showError((e as Error).message);
   }
@@ -459,6 +911,21 @@ async function pollAnalysisJob(jobId: string): Promise<void> {
           analysisPollTimer = null;
         }
         analysisPolling.value = false;
+        if (!notifiedAnalysisJobs.has(job.id)) {
+          notifiedAnalysisJobs.add(job.id);
+          if (job.status === 'Completed') {
+            await notifyUser(
+              'CheckAI analysis complete',
+              `Job ${job.id.slice(0, 8)} finished successfully.`
+            );
+          }
+          if (typeof job.status === 'object' && 'Failed' in job.status) {
+            await notifyUser(
+              'CheckAI analysis failed',
+              job.status.Failed.error
+            );
+          }
+        }
         await refreshAnalysisJobs();
       }
     } catch {
@@ -493,6 +960,9 @@ function updateDesktopState(patch: Partial<DesktopState>): void {
 }
 
 async function saveDesktopSettings(): Promise<void> {
+  if (desktopState.value.backendWorkingDirectory.trim()) {
+    updateRecentWorkspaces(desktopState.value.backendWorkingDirectory);
+  }
   const state = { ...desktopState.value, lastView: currentView.value };
   desktopState.value = await desktop.saveState(state);
   showToast('Settings saved');
@@ -504,9 +974,13 @@ async function persistViewSilently(): Promise<void> {
 }
 
 async function startBackend(): Promise<void> {
+  if (desktopState.value.backendWorkingDirectory.trim()) {
+    updateRecentWorkspaces(desktopState.value.backendWorkingDirectory);
+  }
   const state = { ...desktopState.value, lastView: currentView.value };
   backendStatus.value = await desktop.startBackend(state);
   setApiBase(desktopState.value.backendUrl);
+  connectLiveUpdates();
 }
 
 async function stopBackend(): Promise<void> {
@@ -580,6 +1054,8 @@ component('cai-dashboard', {
     const us = updateStatus.value;
     const games = gamesList.value;
     const stats = storageStats.value;
+    const presets = desktopState.value.backendPresets;
+    const recentWorkspaces = desktopState.value.recentWorkspaces;
 
     return html`
       <div class="view-grid">
@@ -588,12 +1064,26 @@ component('cai-dashboard', {
             <div>
               <h2>CheckAI Desktop</h2>
               <p class="dim">
-                Full-featured desktop workspace for the CheckAI chess engine.
+                Workspace-first control room for the CheckAI chess engine.
               </p>
             </div>
             <span class="badge ${bs.running ? 'badge-ok' : 'badge-dim'}"
               >${bs.running ? 'Engine online' : 'Engine offline'}</span
             >
+          </div>
+          <div class="hero-meta">
+            <div class="hero-stat">
+              <span class="stat-label">Workspace</span>
+              <strong>${safeHtml`${currentWorkspace.value}`}</strong>
+            </div>
+            <div class="hero-stat">
+              <span class="stat-label">Live sync</span>
+              <strong>${safeHtml`${liveMessage.value}`}</strong>
+            </div>
+            <div class="hero-stat">
+              <span class="stat-label">Saved presets</span>
+              <strong>${presets.length}</strong>
+            </div>
           </div>
           <div class="quick-strip">
             <button class="qbtn" data-action="create-game">
@@ -611,6 +1101,14 @@ component('cai-dashboard', {
             <button class="qbtn" data-action="nav:analysis">
               <strong>Analysis</strong
               ><span>Deep engine analysis on any completed game</span>
+            </button>
+            <button class="qbtn" data-action="import-fen-file">
+              <strong>Import from file</strong
+              ><span>Load a FEN from disk with native file dialogs</span>
+            </button>
+            <button class="qbtn" data-action="nav:engine">
+              <strong>Workspace presets</strong
+              ><span>Switch backend profiles, assets, and working folders</span>
             </button>
           </div>
         </div>
@@ -635,6 +1133,10 @@ component('cai-dashboard', {
               <span class="stat-label">Version</span
               ><strong>${safeHtml`${us.currentVersion}`}</strong>
             </div>
+            <div class="stat">
+              <span class="stat-label">Uptime</span
+              ><strong>${backendUptimeLabel.value}</strong>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" data-action="start-backend">
@@ -644,6 +1146,35 @@ component('cai-dashboard', {
               Stop
             </button>
           </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Recent workspaces</h3>
+              <p class="dim">Jump between productive local setups.</p>
+            </div>
+          </div>
+          ${recentWorkspaces.length === 0
+            ? html`<p class="empty-text">
+                Choose a working directory to build your first desktop
+                workspace.
+              </p>`
+            : html`<div class="mini-list">
+                ${recentWorkspaces
+                  .map(
+                    (workspace) => html`
+                      <button
+                        class="mini-item"
+                        data-action="use-recent-workspace"
+                        data-id="${workspace}"
+                      >
+                        <span>${safeHtml`${basename(workspace)}`}</span>
+                        <span class="mono dim">${safeHtml`${workspace}`}</span>
+                      </button>
+                    `
+                  )
+                  .join('')}
+              </div>`}
         </div>
         <div class="card">
           <div class="card-head">
@@ -706,6 +1237,40 @@ component('cai-dashboard', {
                 Start the backend to view storage statistics.
               </p>`}
         </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Saved presets</h3>
+              <p class="dim">
+                Reusable backend launch profiles for common workflows.
+              </p>
+            </div>
+          </div>
+          ${presets.length === 0
+            ? html`<p class="empty-text">
+                Save your current backend settings as a preset from the Engine
+                view.
+              </p>`
+            : html`<div class="mini-list">
+                ${presets
+                  .slice(0, 4)
+                  .map(
+                    (preset) => html`
+                      <button
+                        class="mini-item"
+                        data-action="load-preset"
+                        data-id="${preset.id}"
+                      >
+                        <span>${safeHtml`${preset.name}`}</span>
+                        <span class="dim"
+                          >${safeHtml`${preset.backendArgs || 'serve'}`}</span
+                        >
+                      </button>
+                    `
+                  )
+                  .join('')}
+              </div>`}
+        </div>
       </div>
     `;
   },
@@ -728,6 +1293,9 @@ component('cai-games', {
             <button class="btn btn-primary" data-action="create-game">
               New game
             </button>
+            <button class="btn btn-ghost" data-action="import-fen-file">
+              Import file
+            </button>
             <button class="btn btn-ghost" data-action="refresh-games">
               Refresh
             </button>
@@ -743,6 +1311,15 @@ component('cai-games', {
             />
           </label>
           <button class="btn btn-ghost" data-action="import-fen">Import</button>
+        </div>
+        <div
+          class="drop-zone ${importDropActive.value ? 'drop-zone-active' : ''}"
+          data-drop-zone
+        >
+          <strong>Drag & drop a FEN file</strong>
+          <span class="dim"
+            >Drop plain text, .fen, or .txt files anywhere in this panel.</span
+          >
         </div>
         ${games.length === 0
           ? html`<p class="empty-text">No active games yet.</p>`
@@ -823,6 +1400,9 @@ component('cai-board', {
       !g.is_over
     );
     const history = g.move_history;
+    const currentFen = `${
+      Object.entries(g.state.board).filter(([, piece]) => Boolean(piece)).length
+    } pieces on board`;
 
     return html`
       <div class="board-layout">
@@ -843,6 +1423,9 @@ component('cai-board', {
                 </button>
                 <button class="btn btn-sm" data-action="refresh-game">
                   Refresh
+                </button>
+                <button class="btn btn-sm" data-action="save-pgn">
+                  Save PGN
                 </button>
               </div>
             </div>
@@ -937,6 +1520,9 @@ component('cai-board', {
               <button class="btn btn-sm" data-action="export-fen">
                 Copy FEN
               </button>
+              <button class="btn btn-sm" data-action="save-fen">
+                Save FEN
+              </button>
               <button class="btn btn-sm" data-action="export-pgn">
                 Copy PGN
               </button>
@@ -953,6 +1539,37 @@ component('cai-board', {
                     ${renderMoveList(history)}
                   </ol>`}
             </div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3>Advanced board view</h3>
+                <p class="dim">
+                  Desktop-native debugging aids for the current position.
+                </p>
+              </div>
+            </div>
+            <div class="stat-grid" style="margin-bottom:0.75rem">
+              <div class="stat">
+                <span class="stat-label">Game ID</span>
+                <strong class="mono">${g.game_id}</strong>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Board state</span>
+                <strong>${currentFen}</strong>
+              </div>
+            </div>
+            <pre class="ascii-panel">
+${escapeHtml(boardAscii.value || 'Loading ASCII board…')}</pre
+            >
+            ${desktopState.value.developerMode
+              ? html`<details class="details-panel">
+                  <summary>Raw game JSON</summary>
+                  <pre class="json-panel">
+${escapeHtml(JSON.stringify(g, null, 2))}</pre
+                  >
+                </details>`
+              : ''}
           </div>
         </div>
       </div>
@@ -1336,7 +1953,7 @@ component('cai-analysis', {
                               ${j.game_id?.slice(0, 8) ?? '—'}…
                             </td>
                             <td>${renderAnalysisStatusBadge(j)}</td>
-                            <td>${new Date(j.created_at).toLocaleString()}</td>
+                            <td>${formatDateTime(j.created_at)}</td>
                             <td class="btn-row">
                               <button
                                 class="btn btn-sm"
@@ -1498,6 +2115,9 @@ component('cai-engine', {
             <button class="btn btn-ghost" data-action="stop-backend">
               Stop backend
             </button>
+            <button class="btn btn-ghost" data-action="save-preset">
+              Save preset
+            </button>
             <button class="btn btn-ghost" data-action="save-settings">
               Save
             </button>
@@ -1550,6 +2170,82 @@ component('cai-engine', {
             >
           </div>
         </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Workspace session</h2>
+              <p class="dim">Recent folders and persistent launch presets.</p>
+            </div>
+          </div>
+          <div class="stat-grid" style="margin-bottom:0.85rem">
+            <div class="stat">
+              <span class="stat-label">Current workspace</span>
+              <strong>${safeHtml`${currentWorkspace.value}`}</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Recent folders</span>
+              <strong>${ds.recentWorkspaces.length}</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Saved presets</span>
+              <strong>${ds.backendPresets.length}</strong>
+            </div>
+          </div>
+          ${ds.recentWorkspaces.length > 0
+            ? html`<div class="mini-list" style="margin-bottom:0.85rem">
+                ${ds.recentWorkspaces
+                  .map(
+                    (workspace) => html`
+                      <button
+                        class="mini-item"
+                        data-action="use-recent-workspace"
+                        data-id="${workspace}"
+                      >
+                        <span>${safeHtml`${basename(workspace)}`}</span>
+                        <span class="mono dim">${safeHtml`${workspace}`}</span>
+                      </button>
+                    `
+                  )
+                  .join('')}
+              </div>`
+            : ''}
+          ${ds.backendPresets.length === 0
+            ? html`<p class="empty-text">
+                No presets yet. Save a profile for recurring runs.
+              </p>`
+            : html`<div class="preset-list">
+                ${ds.backendPresets
+                  .map(
+                    (preset) => html`
+                      <div class="preset-card">
+                        <div>
+                          <strong>${safeHtml`${preset.name}`}</strong>
+                          <p class="dim mono">
+                            ${safeHtml`${preset.backendArgs || 'serve'}`}
+                          </p>
+                        </div>
+                        <div class="btn-row">
+                          <button
+                            class="btn btn-sm"
+                            data-action="load-preset"
+                            data-id="${preset.id}"
+                          >
+                            Load
+                          </button>
+                          <button
+                            class="btn btn-sm btn-danger"
+                            data-action="delete-preset"
+                            data-id="${preset.id}"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    `
+                  )
+                  .join('')}
+              </div>`}
+        </div>
       </div>
     `;
   },
@@ -1561,24 +2257,79 @@ component('cai-logs', {
   styles: `:host { display:block; }`,
   render() {
     return html`
-      <div class="card">
-        <div class="card-head">
-          <div>
-            <h2>Backend logs</h2>
-            <p class="dim">Tail stdout/stderr from the local engine process.</p>
+      <div class="view-grid logs-grid">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Diagnostics</h2>
+              <p class="dim">
+                Desktop health, live sync, and current runtime context.
+              </p>
+            </div>
           </div>
-          <div class="btn-row">
-            <button class="btn btn-ghost" data-action="refresh-logs">
-              Refresh
-            </button>
-            <button class="btn btn-ghost" data-action="open-working-dir">
-              Open working directory
-            </button>
+          <div class="stat-grid">
+            <div class="stat">
+              <span class="stat-label">Engine</span>
+              <strong
+                >${backendStatus.value.running ? 'Running' : 'Stopped'}</strong
+              >
+            </div>
+            <div class="stat">
+              <span class="stat-label">Live sync</span>
+              <strong>${liveConnection.value}</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Workspace</span>
+              <strong>${safeHtml`${currentWorkspace.value}`}</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Last game</span>
+              <strong class="mono"
+                >${desktopState.value.lastGameId ?? '—'}</strong
+              >
+            </div>
+          </div>
+          <div class="callout" style="margin-top:0.85rem">
+            <strong>Live status:</strong>
+            <span>${safeHtml`${liveMessage.value}`}</span>
           </div>
         </div>
-        <pre class="log-panel">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Backend logs</h2>
+              <p class="dim">
+                Tail stdout/stderr from the local engine process.
+              </p>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-ghost" data-action="refresh-logs">
+                Refresh
+              </button>
+              <button class="btn btn-ghost" data-action="open-working-dir">
+                Open working directory
+              </button>
+            </div>
+          </div>
+          <pre class="log-panel">
 ${escapeHtml(backendLogs.value || 'No logs captured yet.')}</pre
-        >
+          >
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Board ASCII</h2>
+              <p class="dim">
+                CLI-style board snapshot for debugging and support.
+              </p>
+            </div>
+          </div>
+          <pre class="ascii-panel">
+${escapeHtml(
+              boardAscii.value || 'Open a game to inspect the current board.'
+            )}</pre
+          >
+        </div>
       </div>
     `;
   },
@@ -1590,6 +2341,7 @@ component('cai-settings', {
   styles: `:host { display:block; }`,
   render() {
     const us = updateStatus.value;
+    const ds = desktopState.value;
     return html`
       <div class="view-grid">
         <div class="card">
@@ -1598,8 +2350,7 @@ component('cai-settings', {
           </div>
           <div class="stat-grid">
             <div class="stat">
-              <span class="stat-label">Theme</span
-              ><strong>${desktopState.value.theme}</strong>
+              <span class="stat-label">Theme</span><strong>${ds.theme}</strong>
             </div>
             <div class="stat">
               <span class="stat-label">Board orientation</span
@@ -1609,6 +2360,18 @@ component('cai-settings', {
                   : 'White at bottom'}</strong
               >
             </div>
+            <div class="stat">
+              <span class="stat-label">Notifications</span
+              ><strong>${ds.notificationsEnabled ? 'Enabled' : 'Muted'}</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Developer mode</span
+              ><strong>${ds.developerMode ? 'On' : 'Off'}</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Density</span
+              ><strong>${ds.compactMode ? 'Compact' : 'Comfortable'}</strong>
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-ghost" data-action="toggle-theme">
@@ -1616,6 +2379,19 @@ component('cai-settings', {
             </button>
             <button class="btn btn-ghost" data-action="flip-board">
               ${boardFlipped.value ? 'Reset board' : 'Flip board'}
+            </button>
+            <button class="btn btn-ghost" data-action="toggle-notifications">
+              ${ds.notificationsEnabled
+                ? 'Mute notifications'
+                : 'Enable notifications'}
+            </button>
+            <button class="btn btn-ghost" data-action="toggle-developer-mode">
+              ${ds.developerMode ? 'Hide debug panels' : 'Show debug panels'}
+            </button>
+            <button class="btn btn-ghost" data-action="toggle-compact-mode">
+              ${ds.compactMode
+                ? 'Use comfortable spacing'
+                : 'Use compact spacing'}
             </button>
             <button class="btn btn-primary" data-action="save-settings">
               Save all settings
@@ -1706,39 +2482,27 @@ component('cai-palette', {
             <h3>Quick actions</h3>
             <button class="btn btn-sm" data-close-palette>✕</button>
           </div>
+          <label class="field" style="margin-bottom:0.75rem">
+            <span>Search</span>
+            <input
+              id="palette-query"
+              placeholder="Type to filter commands, views, and desktop actions"
+              value="${escapeHtml(paletteQuery.value)}"
+            />
+          </label>
           <div class="palette-grid">
-            <button class="palette-btn" data-palette="create-game">
-              New game
-            </button>
-            <button class="palette-btn" data-palette="start-backend">
-              Start backend
-            </button>
-            <button class="palette-btn" data-palette="stop-backend">
-              Stop backend
-            </button>
-            <button class="palette-btn" data-palette="refresh-logs">
-              Refresh logs
-            </button>
-            <button class="palette-btn" data-palette="nav:dashboard">
-              Dashboard
-            </button>
-            <button class="palette-btn" data-palette="nav:games">Games</button>
-            <button class="palette-btn" data-palette="nav:archive">
-              Archive
-            </button>
-            <button class="palette-btn" data-palette="nav:analysis">
-              Analysis
-            </button>
-            <button class="palette-btn" data-palette="nav:engine">
-              Engine config
-            </button>
-            <button class="palette-btn" data-palette="nav:logs">Logs</button>
-            <button class="palette-btn" data-palette="check-updates">
-              Check updates
-            </button>
-            <button class="palette-btn" data-palette="flip-board">
-              Flip board
-            </button>
+            ${filteredPaletteActions.value.length === 0
+              ? html`<p class="empty-text">No matching actions.</p>`
+              : filteredPaletteActions.value
+                  .map(
+                    (action) => html`
+                      <button class="palette-btn" data-palette="${action.id}">
+                        <strong>${safeHtml`${action.label}`}</strong>
+                        <span class="dim">${safeHtml`${action.meta}`}</span>
+                      </button>
+                    `
+                  )
+                  .join('')}
           </div>
         </div>
       </div>
@@ -1796,9 +2560,13 @@ function renderViewContent(view: DesktopView): string {
 function renderShell(): string {
   const view = currentView.value;
   const bs = backendStatus.value;
+  const ds = desktopState.value;
+  const activeTitle = activeGame.value?.game_id
+    ? `Game ${activeGame.value.game_id.slice(0, 8)}`
+    : VIEW_LABELS[view];
 
   return `
-    <div class="shell">
+    <div class="shell ${ds.compactMode ? 'shell-compact' : ''}">
       <aside class="sidebar">
         <div class="brand">
           <span class="brand-icon">♔</span>
@@ -1822,6 +2590,22 @@ function renderShell(): string {
         </div>
       </aside>
       <main class="content">
+        <header class="topbar">
+          <div>
+            <h1>${escapeHtml(activeTitle)}</h1>
+            <p class="dim">${escapeHtml(currentWorkspace.value)}</p>
+          </div>
+          <div class="topbar-actions">
+            <span class="badge ${liveConnection.value === 'connected' ? 'badge-ok' : 'badge-dim'}">
+              ${escapeHtml(liveMessage.value)}
+            </span>
+            <span class="badge ${ds.notificationsEnabled ? 'badge-ok' : 'badge-dim'}">
+              ${ds.notificationsEnabled ? 'Notifications on' : 'Notifications off'}
+            </span>
+            <button class="btn btn-ghost" data-action="save-settings">Save workspace</button>
+            <button class="btn btn-primary" data-action="toggle-palette">⌘K</button>
+          </div>
+        </header>
         ${toastMsg.value ? `<div class="toast toast-ok">${escapeHtml(toastMsg.value)}</div>` : ''}
         ${errorMsg.value ? `<div class="toast toast-err">${escapeHtml(errorMsg.value)}</div>` : ''}
         ${renderViewContent(view)}
@@ -1841,12 +2625,21 @@ appRoot.addEventListener('click', (e) => {
   if (!(target instanceof Element)) return;
 
   // Close palette
-  if (target.closest('[data-close-palette]') && !target.closest('.palette')) {
+  const closePaletteButton = target.closest<HTMLElement>(
+    'button[data-close-palette]'
+  );
+  if (closePaletteButton) {
     paletteOpen.value = false;
+    paletteQuery.value = '';
     return;
   }
-  if (target.hasAttribute('data-close-palette')) {
+
+  const paletteOverlay = target.closest<HTMLElement>(
+    '.overlay[data-close-palette]'
+  );
+  if (paletteOverlay && target === paletteOverlay) {
     paletteOpen.value = false;
+    paletteQuery.value = '';
     return;
   }
 
@@ -1880,6 +2673,7 @@ appRoot.addEventListener('click', (e) => {
   const paletteBtn = target.closest<HTMLElement>('[data-palette]');
   if (paletteBtn) {
     paletteOpen.value = false;
+    paletteQuery.value = '';
     const action = paletteBtn.dataset.palette!;
     void handleAction(action);
     return;
@@ -1921,6 +2715,9 @@ appRoot.addEventListener('input', (e) => {
     case 'analysis-depth':
       analysisDepth.value = parseInt(t.value) || 30;
       break;
+    case 'palette-query':
+      paletteQuery.value = t.value;
+      break;
   }
 });
 
@@ -1932,6 +2729,38 @@ appRoot.addEventListener('change', (e) => {
   if (t.hasAttribute('data-replay-slider')) {
     void replayTo(parseInt(t.value));
   }
+});
+
+appRoot.addEventListener('dragover', (e) => {
+  const target = e.target;
+  if (!(target instanceof Element)) return;
+  if (target.closest('[data-drop-zone]')) {
+    e.preventDefault();
+    importDropActive.value = true;
+  }
+});
+
+appRoot.addEventListener('dragleave', (e) => {
+  const target = e.target;
+  if (!(target instanceof Element)) return;
+  if (target.closest('[data-drop-zone]')) {
+    importDropActive.value = false;
+  }
+});
+
+appRoot.addEventListener('drop', (e) => {
+  const target = e.target;
+  if (!(target instanceof Element)) return;
+  if (!target.closest('[data-drop-zone]')) return;
+
+  e.preventDefault();
+  importDropActive.value = false;
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+  void file
+    .text()
+    .then((text) => importFenText(text))
+    .catch((err) => showError((err as Error).message));
 });
 
 async function handleAction(action: string, id?: string): Promise<void> {
@@ -1953,11 +2782,18 @@ async function handleAction(action: string, id?: string): Promise<void> {
       return;
     }
     switch (action) {
+      case 'toggle-palette':
+        paletteOpen.value = !paletteOpen.value;
+        if (!paletteOpen.value) paletteQuery.value = '';
+        break;
       case 'create-game':
         await createNewGame();
         break;
       case 'import-fen':
         await importFromFen();
+        break;
+      case 'import-fen-file':
+        await importFenFromFile();
         break;
       case 'open-game':
         if (id) await openGame(id);
@@ -1989,8 +2825,14 @@ async function handleAction(action: string, id?: string): Promise<void> {
       case 'export-fen':
         await doExportFen();
         break;
+      case 'save-fen':
+        await doSaveFen();
+        break;
       case 'export-pgn':
         await doExportPgn();
+        break;
+      case 'save-pgn':
+        await doSavePgn();
         break;
       case 'refresh-archive':
         await refreshArchive();
@@ -2049,6 +2891,22 @@ async function handleAction(action: string, id?: string): Promise<void> {
       case 'save-settings':
         await saveDesktopSettings();
         break;
+      case 'save-preset':
+        saveCurrentPreset();
+        break;
+      case 'load-preset':
+        if (id) loadPresetIntoState(id);
+        break;
+      case 'delete-preset':
+        if (id) removePresetFromState(id);
+        break;
+      case 'use-recent-workspace':
+        if (id) {
+          updateDesktopState({ backendWorkingDirectory: id });
+          updateRecentWorkspaces(id);
+          showToast(`Workspace “${basename(id)}” selected`);
+        }
+        break;
       case 'refresh-logs':
         await refreshLogs();
         break;
@@ -2087,11 +2945,29 @@ async function handleAction(action: string, id?: string): Promise<void> {
         await desktop.installUpdate();
         break;
       case 'toggle-theme': {
-        const next = desktopState.value.theme === 'dark' ? 'light' : 'dark';
+        const next =
+          desktopState.value.theme === 'dark'
+            ? 'light'
+            : desktopState.value.theme === 'light'
+              ? 'system'
+              : 'dark';
         updateDesktopState({ theme: next });
-        document.documentElement.setAttribute('data-theme', next);
+        syncTheme(next);
         break;
       }
+      case 'toggle-notifications':
+        updateDesktopState({
+          notificationsEnabled: !desktopState.value.notificationsEnabled,
+        });
+        break;
+      case 'toggle-developer-mode':
+        updateDesktopState({
+          developerMode: !desktopState.value.developerMode,
+        });
+        break;
+      case 'toggle-compact-mode':
+        updateDesktopState({ compactMode: !desktopState.value.compactMode });
+        break;
     }
   } catch (err) {
     showError((err as Error).message);
@@ -2105,6 +2981,7 @@ window.addEventListener('keydown', (e) => {
   if (mod && e.key.toLowerCase() === 'k') {
     e.preventDefault();
     paletteOpen.value = true;
+    paletteQuery.value = '';
     return;
   }
   if (mod && e.key.toLowerCase() === 'n') {
@@ -2136,9 +3013,18 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (paletteOpen.value) {
       paletteOpen.value = false;
+      paletteQuery.value = '';
       return;
     }
     selectedSquare.value = null;
+  }
+  if (e.key === 'Enter' && paletteOpen.value) {
+    const first = filteredPaletteActions.value[0];
+    if (!first) return;
+    e.preventDefault();
+    paletteOpen.value = false;
+    paletteQuery.value = '';
+    void handleAction(first.id);
   }
 });
 
@@ -2188,7 +3074,12 @@ async function init(): Promise<void> {
   backendLogs.value = await desktop.getBackendLogs();
   updateStatus.value = await desktop.getUpdateStatus();
   setApiBase(desktopState.value.backendUrl);
-  document.documentElement.setAttribute('data-theme', desktopState.value.theme);
+  syncTheme(desktopState.value.theme);
+  connectLiveUpdates();
+
+  if (desktopState.value.lastGameId) {
+    void refreshBoardAscii(desktopState.value.lastGameId).catch(() => {});
+  }
 
   desktop.onBackendStatus((s) => {
     backendStatus.value = s;
@@ -2207,6 +3098,13 @@ async function init(): Promise<void> {
     .catch(() => {});
   void refreshArchive().catch(() => {});
   void refreshAnalysisJobs().catch(() => {});
+
+  if (desktopState.value.lastGameId) {
+    void openGame(
+      desktopState.value.lastGameId,
+      currentView.value === 'board'
+    ).catch(() => {});
+  }
 }
 
 void init();
