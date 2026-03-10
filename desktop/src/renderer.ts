@@ -82,6 +82,7 @@ const fallbackApi: DesktopApi = {
 };
 
 const desktop = window.checkaiDesktop ?? fallbackApi;
+const DEFAULT_DESKTOP_VIEW: DesktopView = 'help';
 
 const desktopState = signal<DesktopState>({ ...DEFAULT_DESKTOP_STATE });
 const currentView = signal<DesktopView>('workspace');
@@ -563,26 +564,27 @@ function renderHelpView(): string {
 }
 
 function renderMainContent(): string {
-  const viewPanelClass = (view: DesktopView): string =>
-    currentView.value === view ? 'view-panel active' : 'view-panel hidden';
+  const activeView = currentView.value;
+  const renderers = {
+    workspace: renderWorkspaceView,
+    live: renderLiveView,
+    engine: renderEngineView,
+    logs: renderLogsView,
+    help: renderHelpView,
+  } satisfies Record<DesktopView, () => string>;
+  const validViews = Object.keys(renderers) as DesktopView[];
+  const renderedView: DesktopView =
+    validViews.includes(activeView) ? activeView : DEFAULT_DESKTOP_VIEW;
 
-  return `
-    <section class="${viewPanelClass('workspace')}" data-view-panel="workspace">
-      ${renderWorkspaceView()}
-    </section>
-    <section class="${viewPanelClass('live')}" data-view-panel="live">
-      ${renderLiveView()}
-    </section>
-    <section class="${viewPanelClass('engine')}" data-view-panel="engine">
-      ${renderEngineView()}
-    </section>
-    <section class="${viewPanelClass('logs')}" data-view-panel="logs">
-      ${renderLogsView()}
-    </section>
-    <section class="${viewPanelClass('help')}" data-view-panel="help">
-      ${renderHelpView()}
-    </section>
-  `;
+  if (renderedView !== activeView) {
+    console.warn(
+      `Unknown desktop view "${activeView}", falling back to ${DEFAULT_DESKTOP_VIEW}. Valid views are: ${validViews.join(', ')}`,
+    );
+  }
+
+  const content = renderers[renderedView]();
+
+  return `<section class="view-panel active" data-view-panel="${renderedView}">${content}</section>`;
 }
 
 function getUpdatePrimaryAction(): { action: string; label: string; disabled: boolean } {
