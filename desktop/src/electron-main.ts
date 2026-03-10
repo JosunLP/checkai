@@ -1,9 +1,16 @@
-import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron';
-import { autoUpdater } from 'electron-updater';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Notification,
+  shell,
+} from 'electron';
+import electronUpdater from 'electron-updater';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   DEFAULT_DESKTOP_STATE,
   DESKTOP_VIEWS,
@@ -11,6 +18,8 @@ import {
   type DesktopState,
   type UpdateStatusPayload,
 } from './shared-types.js';
+
+const { autoUpdater } = electronUpdater;
 
 const MAX_LOG_LINES = 400;
 const LOG_PUSH_DELAY_MS = 250;
@@ -53,28 +62,48 @@ function normalizeString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
 }
 
+function normalizeTheme(value: unknown): 'dark' | 'light' | 'system' {
+  if (value === 'dark' || value === 'light' || value === 'system') return value;
+  return DEFAULT_DESKTOP_STATE.theme;
+}
+
 function normalizeDesktopState(value: unknown): DesktopState {
   const candidate = typeof value === 'object' && value !== null ? value : {};
   const record = candidate as Record<string, unknown>;
-  const lastView = normalizeString(record.lastView, DEFAULT_DESKTOP_STATE.lastView);
+  const lastView = normalizeString(
+    record.lastView,
+    DEFAULT_DESKTOP_STATE.lastView
+  );
   const normalizedLastView =
-    DESKTOP_VIEWS.find((view) => view === lastView) ?? DEFAULT_DESKTOP_STATE.lastView;
+    DESKTOP_VIEWS.find((view) => view === lastView) ??
+    DEFAULT_DESKTOP_STATE.lastView;
 
   return {
-    backendUrl: normalizeString(record.backendUrl, DEFAULT_DESKTOP_STATE.backendUrl),
+    backendUrl: normalizeString(
+      record.backendUrl,
+      DEFAULT_DESKTOP_STATE.backendUrl
+    ),
     autoStartBackend:
       typeof record.autoStartBackend === 'boolean'
         ? record.autoStartBackend
         : DEFAULT_DESKTOP_STATE.autoStartBackend,
     backendExecutable: normalizeString(
       record.backendExecutable,
-      DEFAULT_DESKTOP_STATE.backendExecutable,
+      DEFAULT_DESKTOP_STATE.backendExecutable
     ),
-    backendArgs: normalizeString(record.backendArgs, DEFAULT_DESKTOP_STATE.backendArgs),
+    backendArgs: normalizeString(
+      record.backendArgs,
+      DEFAULT_DESKTOP_STATE.backendArgs
+    ),
     backendWorkingDirectory: normalizeString(record.backendWorkingDirectory),
     openingBookPath: normalizeString(record.openingBookPath),
     tablebasePath: normalizeString(record.tablebasePath),
     lastView: normalizedLastView,
+    theme: normalizeTheme(record.theme),
+    boardFlipped:
+      typeof record.boardFlipped === 'boolean'
+        ? record.boardFlipped
+        : DEFAULT_DESKTOP_STATE.boardFlipped,
   };
 }
 
@@ -85,7 +114,9 @@ function loadState(): DesktopState {
   }
 
   try {
-    return normalizeDesktopState(JSON.parse(readFileSync(file, 'utf8')) as Partial<DesktopState>);
+    return normalizeDesktopState(
+      JSON.parse(readFileSync(file, 'utf8')) as Partial<DesktopState>
+    );
   } catch {
     return { ...DEFAULT_DESKTOP_STATE };
   }
@@ -196,7 +227,7 @@ function validateNotificationBody(value: unknown): string {
 function getBackendExitError(
   code: number | null,
   signal: NodeJS.Signals | null,
-  stopRequested: boolean,
+  stopRequested: boolean
 ): string | null {
   if (signal === 'SIGTERM' || code === 0) {
     return null;
@@ -217,7 +248,9 @@ function validateOpenPathTarget(target: unknown): string {
 
   const looksLikeWindowsDrivePath = /^[a-zA-Z]:[\\/]/.test(value);
   if (!looksLikeWindowsDrivePath && /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)) {
-    throw new Error('Only local filesystem paths can be opened from the desktop shell.');
+    throw new Error(
+      'Only local filesystem paths can be opened from the desktop shell.'
+    );
   }
 
   const resolvedPath = resolve(value);
@@ -524,7 +557,10 @@ function startBackend(state: DesktopState): BackendStatusPayload {
     pushBackendStatus();
   });
 
-  backendExitListener = (code: number | null, signal: NodeJS.Signals | null) => {
+  backendExitListener = (
+    code: number | null,
+    signal: NodeJS.Signals | null
+  ) => {
     if (backendProcess !== processRef) {
       return;
     }
@@ -626,7 +662,9 @@ function createWindow(): void {
 
 function registerIpcHandlers(): void {
   ipcMain.handle('checkai:get-state', () => loadState());
-  ipcMain.handle('checkai:save-state', (_event, state: unknown) => saveState(state));
+  ipcMain.handle('checkai:save-state', (_event, state: unknown) =>
+    saveState(state)
+  );
   ipcMain.handle('checkai:get-backend-status', () => backendStatus);
   ipcMain.handle('checkai:get-backend-logs', () => backendLogs);
   ipcMain.handle('checkai:get-update-status', () => updateStatus);
@@ -648,9 +686,11 @@ function registerIpcHandlers(): void {
     }
   });
   ipcMain.handle('checkai:open-external', (_event, target: unknown) =>
-    shell.openExternal(validateExternalTarget(target)),
+    shell.openExternal(validateExternalTarget(target))
   );
-  ipcMain.handle('checkai:notify', (_event, title: unknown, body: unknown) => notify(title, body));
+  ipcMain.handle('checkai:notify', (_event, title: unknown, body: unknown) =>
+    notify(title, body)
+  );
 }
 
 registerIpcHandlers();

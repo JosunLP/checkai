@@ -1,12 +1,46 @@
 import './styles.css';
 
+import { component, html, safeHtml } from '@bquery/bquery/component';
 import { computed, effect, signal } from '@bquery/bquery/reactive';
 import {
+  cancelAnalysisJob as apiCancelAnalysisJob,
+  createGame as apiCreateGame,
+  deleteGame as apiDeleteGame,
+  exportFen as apiExportFen,
+  exportPgn as apiExportPgn,
+  getAnalysisJob as apiGetAnalysisJob,
+  getGame as apiGetGame,
+  getLegalMoves as apiGetLegalMoves,
+  getStorageStats as apiGetStorageStats,
+  importFen as apiImportFen,
+  listAnalysisJobs as apiListAnalysisJobs,
+  listArchived as apiListArchived,
+  listGames as apiListGames,
+  replayArchived as apiReplayArchived,
+  startAnalysis as apiStartAnalysis,
+  submitAction as apiSubmitAction,
+  submitMove as apiSubmitMove,
+  setApiBase,
+} from './api-client.js';
+import {
   DEFAULT_DESKTOP_STATE,
+  FILES,
+  PIECE_UNICODE,
+  RANKS,
+  type AnalysisJob,
+  type AnalysisResultPayload,
+  type ArchivedGameSummary,
   type BackendStatusPayload,
+  type BoardMap,
   type DesktopApi,
   type DesktopState,
   type DesktopView,
+  type FenChar,
+  type Game,
+  type GameSummary,
+  type LegalMove,
+  type ReplayState,
+  type StorageStats,
   type UpdateStatusPayload,
 } from './shared-types.js';
 
@@ -16,12 +50,14 @@ declare global {
   }
 }
 
+// ── Fallback API for running outside Electron ───────────────────────────────
+
 const fallbackApi: DesktopApi = {
   async getState() {
     return { ...DEFAULT_DESKTOP_STATE };
   },
-  async saveState(state) {
-    return state;
+  async saveState(s) {
+    return s;
   },
   async getBackendStatus() {
     return {
@@ -34,7 +70,7 @@ const fallbackApi: DesktopApi = {
     };
   },
   async getBackendLogs() {
-    return 'Electron preload bridge unavailable. Open this build inside Electron to use native features.';
+    return 'Open this build inside Electron to use native features.';
   },
   async startBackend() {
     return fallbackApi.getBackendStatus();
@@ -46,7 +82,7 @@ const fallbackApi: DesktopApi = {
     return {
       supported: false,
       currentVersion: 'dev',
-      state: 'unsupported',
+      state: 'unsupported' as const,
       availableVersion: null,
       percent: null,
       transferredBytes: null,
@@ -82,10 +118,11 @@ const fallbackApi: DesktopApi = {
 };
 
 const desktop = window.checkaiDesktop ?? fallbackApi;
-const DEFAULT_DESKTOP_VIEW: DesktopView = 'workspace';
+
+// ── Reactive state ──────────────────────────────────────────────────────────
 
 const desktopState = signal<DesktopState>({ ...DEFAULT_DESKTOP_STATE });
-const currentView = signal<DesktopView>('workspace');
+const currentView = signal<DesktopView>('dashboard');
 const backendStatus = signal<BackendStatusPayload>({
   running: false,
   pid: null,
@@ -103,43 +140,49 @@ const updateStatus = signal<UpdateStatusPayload>({
   percent: null,
   transferredBytes: null,
   totalBytes: null,
-  message: 'Desktop updates are available in packaged builds.',
+  message: null,
 });
 const paletteOpen = signal(false);
-const liveReloadToken = signal(Date.now());
-const message = signal<string | null>(null);
-let liveIframeElement: HTMLIFrameElement | null = null;
-let liveIframeSrc = '';
-let pendingRenderFrame: number | null = null;
-let pendingRenderMarkup: string = '';
+const toastMsg = signal<string | null>(null);
+const errorMsg = signal<string | null>(null);
 
-interface InputSelectionState {
-  id: string;
-  selectionStart: number | null;
-  selectionEnd: number | null;
-  selectionDirection: 'forward' | 'backward' | 'none' | null;
-}
+// Engine data
+const gamesList = signal<GameSummary[]>([]);
+const activeGame = signal<Game | null>(null);
+const legalMoves = signal<LegalMove[]>([]);
+const selectedSquare = signal<string | null>(null);
+const archivedList = signal<ArchivedGameSummary[]>([]);
+const storageStats = signal<StorageStats | null>(null);
+const replayState = signal<ReplayState | null>(null);
+const replayGameId = signal<string | null>(null);
+const analysisJobs = signal<AnalysisJob[]>([]);
+const activeAnalysis = signal<AnalysisJob | null>(null);
+const fenInput = signal('');
+const analysisDepth = signal(30);
+const analysisPolling = signal(false);
 
-const liveUrl = computed(() => {
-  const base = desktopState.value.backendUrl.trim().replace(/\/+$/, '');
-  const token = liveReloadToken.value;
-  return base ? `${base}/?desktop=1&t=${token}` : '';
+// Computed
+const boardFlipped = computed(() => desktopState.value.boardFlipped);
+
+const highlightSquares = computed((): Set<string> => {
+  const sq = selectedSquare.value;
+  if (!sq) return new Set();
+  return new Set(
+    legalMoves.value.filter((m) => m.from === sq).map((m) => m.to)
+  );
 });
 
-const canEmbedLiveView = computed(() => {
-  try {
-    const url = new URL(desktopState.value.backendUrl);
-    return (
-      (url.protocol === 'http:' || url.protocol === 'https:') &&
-      ['127.0.0.1', 'localhost', '::1'].includes(url.hostname)
-    );
-  } catch {
-    return false;
-  }
+const lastMove = computed((): { from: string; to: string } | null => {
+  const g = activeGame.value;
+  if (!g || g.move_history.length === 0) return null;
+  const last = g.move_history[g.move_history.length - 1];
+  return { from: last.move_json.from, to: last.move_json.to };
 });
 
-function escapeHtml(value: string): string {
-  return value
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function escapeHtml(v: string): string {
+  return v
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -147,757 +190,1996 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function formatBytes(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return '—';
-  if (value < 1024) return `${value} B`;
+function formatBytes(v: number | null): string {
+  if (v === null || !Number.isFinite(v)) return '—';
+  if (v < 1024) return `${v} B`;
+  const units = ['KB', 'MB', 'GB'];
+  let s = v / 1024;
+  let i = 0;
+  while (s >= 1024 && i < units.length - 1) {
+    s /= 1024;
+    i++;
+  }
+  return `${s.toFixed(s >= 10 ? 0 : 1)} ${units[i]}`;
+}
 
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let size = value / 1024;
-  let unitIndex = 0;
+function showToast(msg: string): void {
+  toastMsg.value = msg;
+  setTimeout(() => {
+    if (toastMsg.value === msg) toastMsg.value = null;
+  }, 3000);
+}
 
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
+function showError(msg: string): void {
+  errorMsg.value = msg;
+  setTimeout(() => {
+    if (errorMsg.value === msg) errorMsg.value = null;
+  }, 6000);
+}
+
+function qualityColor(q: string): string {
+  switch (q) {
+    case 'Best':
+      return '#34d399';
+    case 'Excellent':
+      return '#6ee7b7';
+    case 'Good':
+      return '#a3e635';
+    case 'Inaccuracy':
+      return '#fbbf24';
+    case 'Mistake':
+      return '#fb923c';
+    case 'Blunder':
+      return '#fb7185';
+    case 'Book':
+      return '#94a3b8';
+    default:
+      return '#94a3b8';
+  }
+}
+
+function resultLabel(r: string | null): string {
+  if (r === 'WhiteWins') return '1-0';
+  if (r === 'BlackWins') return '0-1';
+  if (r === 'Draw') return '½-½';
+  return '*';
+}
+
+// ── API Interactions ────────────────────────────────────────────────────────
+
+async function refreshGamesList(): Promise<void> {
+  try {
+    const res = await apiListGames();
+    gamesList.value = res.games;
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function createNewGame(): Promise<void> {
+  try {
+    const res = await apiCreateGame();
+    await refreshGamesList();
+    await openGame(res.game_id);
+    showToast('New game created');
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function importFromFen(): Promise<void> {
+  const fen = fenInput.value.trim();
+  if (!fen) return;
+  try {
+    const res = await apiImportFen(fen);
+    fenInput.value = '';
+    await refreshGamesList();
+    await openGame(res.game_id);
+    showToast('Game imported from FEN');
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function openGame(id: string): Promise<void> {
+  try {
+    const g = await apiGetGame(id);
+    activeGame.value = g;
+    selectedSquare.value = null;
+    if (!g.is_over) {
+      const res = await apiGetLegalMoves(id);
+      legalMoves.value = res.moves;
+    } else {
+      legalMoves.value = [];
+    }
+    currentView.value = 'board';
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function handleSquareClick(sq: string): Promise<void> {
+  const g = activeGame.value;
+  if (!g || g.is_over) return;
+
+  const sel = selectedSquare.value;
+  if (sel) {
+    const move = legalMoves.value.find((m) => m.from === sel && m.to === sq);
+    if (move) {
+      try {
+        const res = await apiSubmitMove(g.game_id, sel, sq, move.promotion);
+        if (res.success) {
+          await openGame(g.game_id);
+        } else {
+          showError(res.message);
+        }
+      } catch (e) {
+        showError((e as Error).message);
+      }
+      selectedSquare.value = null;
+      return;
+    }
   }
 
-  return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unitIndex]}`;
-}
-
-function setMessage(value: string | null): void {
-  message.value = value;
-  if (!value) return;
-  window.setTimeout(() => {
-    if (message.value === value) {
-      message.value = null;
+  const piece = g.state.board[sq];
+  if (piece) {
+    const isWhitePiece = piece === piece.toUpperCase();
+    const isWhiteTurn = g.state.turn === 'white';
+    if (isWhitePiece === isWhiteTurn) {
+      selectedSquare.value = sq;
+      return;
     }
-  }, 3200);
+  }
+  selectedSquare.value = null;
 }
 
-function updateState(patch: Partial<DesktopState>): void {
+async function doDeleteGame(id: string): Promise<void> {
+  try {
+    await apiDeleteGame(id);
+    if (activeGame.value?.game_id === id) {
+      activeGame.value = null;
+      legalMoves.value = [];
+    }
+    await refreshGamesList();
+    showToast('Game deleted');
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function doAction(action: string, reason?: string): Promise<void> {
+  const g = activeGame.value;
+  if (!g) return;
+  try {
+    await apiSubmitAction(g.game_id, action, reason);
+    await openGame(g.game_id);
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function doExportFen(): Promise<void> {
+  const g = activeGame.value;
+  if (!g) return;
+  try {
+    const res = await apiExportFen(g.game_id);
+    await navigator.clipboard.writeText(res.fen);
+    showToast('FEN copied to clipboard');
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function doExportPgn(): Promise<void> {
+  const g = activeGame.value;
+  if (!g) return;
+  try {
+    const pgn = await apiExportPgn(g.game_id);
+    await navigator.clipboard.writeText(pgn);
+    showToast('PGN copied to clipboard');
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+// ── Archive ─────────────────────────────────────────────────────────────────
+
+async function refreshArchive(): Promise<void> {
+  try {
+    const res = await apiListArchived();
+    archivedList.value = res.games;
+    if (res.storage) storageStats.value = res.storage;
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function openArchivedGame(id: string): Promise<void> {
+  try {
+    replayGameId.value = id;
+    const rs = await apiReplayArchived(id, 0);
+    replayState.value = rs;
+    currentView.value = 'archive';
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function replayTo(moveNum: number): Promise<void> {
+  const id = replayGameId.value;
+  if (!id) return;
+  try {
+    replayState.value = await apiReplayArchived(id, moveNum);
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+// ── Analysis ────────────────────────────────────────────────────────────────
+
+let analysisPollTimer: ReturnType<typeof setInterval> | null = null;
+
+async function refreshAnalysisJobs(): Promise<void> {
+  try {
+    const res = await apiListAnalysisJobs();
+    analysisJobs.value = res.jobs;
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function submitAnalysis(gameId: string): Promise<void> {
+  try {
+    const res = await apiStartAnalysis(gameId, analysisDepth.value);
+    showToast('Analysis started');
+    await refreshAnalysisJobs();
+    await pollAnalysisJob(res.job_id);
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+async function pollAnalysisJob(jobId: string): Promise<void> {
+  if (analysisPollTimer) {
+    clearInterval(analysisPollTimer);
+    analysisPollTimer = null;
+  }
+  analysisPolling.value = true;
+  const poll = async () => {
+    try {
+      const job = await apiGetAnalysisJob(jobId);
+      activeAnalysis.value = job;
+      if (
+        job.status === 'Completed' ||
+        job.status === 'Cancelled' ||
+        (typeof job.status === 'object' && 'Failed' in job.status)
+      ) {
+        if (analysisPollTimer) {
+          clearInterval(analysisPollTimer);
+          analysisPollTimer = null;
+        }
+        analysisPolling.value = false;
+        await refreshAnalysisJobs();
+      }
+    } catch {
+      if (analysisPollTimer) {
+        clearInterval(analysisPollTimer);
+        analysisPollTimer = null;
+      }
+      analysisPolling.value = false;
+    }
+  };
+  await poll();
+  if (analysisPolling.value) {
+    analysisPollTimer = setInterval(poll, 1500);
+  }
+}
+
+async function cancelAnalysis(jobId: string): Promise<void> {
+  try {
+    await apiCancelAnalysisJob(jobId);
+    await refreshAnalysisJobs();
+    if (activeAnalysis.value?.id === jobId) activeAnalysis.value = null;
+    showToast('Analysis cancelled');
+  } catch (e) {
+    showError((e as Error).message);
+  }
+}
+
+// ── Desktop actions ─────────────────────────────────────────────────────────
+
+function updateDesktopState(patch: Partial<DesktopState>): void {
   desktopState.value = { ...desktopState.value, ...patch };
 }
 
-async function saveSettings(): Promise<void> {
-  await persistState(true);
-}
-
-async function persistState(announce: boolean): Promise<void> {
+async function saveDesktopSettings(): Promise<void> {
   const state = { ...desktopState.value, lastView: currentView.value };
   desktopState.value = await desktop.saveState(state);
-  if (announce) {
-    setMessage('Desktop settings saved.');
-    await desktop.notify('CheckAI Desktop', 'Desktop settings saved.');
-  }
+  showToast('Settings saved');
+}
+
+async function persistViewSilently(): Promise<void> {
+  const state = { ...desktopState.value, lastView: currentView.value };
+  desktopState.value = await desktop.saveState(state);
+}
+
+async function startBackend(): Promise<void> {
+  const state = { ...desktopState.value, lastView: currentView.value };
+  backendStatus.value = await desktop.startBackend(state);
+  setApiBase(desktopState.value.backendUrl);
+}
+
+async function stopBackend(): Promise<void> {
+  backendStatus.value = await desktop.stopBackend();
 }
 
 async function refreshLogs(): Promise<void> {
   backendLogs.value = await desktop.getBackendLogs();
 }
 
-async function startBackend(): Promise<void> {
-  const state = { ...desktopState.value, lastView: currentView.value };
-  backendStatus.value = await desktop.startBackend(state);
-  await refreshLogs();
-}
+// ── Board rendering ─────────────────────────────────────────────────────────
 
-async function stopBackend(): Promise<void> {
-  backendStatus.value = await desktop.stopBackend();
-  await refreshLogs();
-}
-
-async function chooseExecutable(): Promise<void> {
-  const file = await desktop.pickFile();
-  if (file) {
-    updateState({ backendExecutable: file });
-  }
-}
-
-async function chooseWorkingDirectory(): Promise<void> {
-  const dir = await desktop.pickDirectory();
-  if (dir) {
-    updateState({ backendWorkingDirectory: dir });
-  }
-}
-
-async function chooseOpeningBook(): Promise<void> {
-  const file = await desktop.pickFile();
-  if (file) {
-    updateState({ openingBookPath: file });
-  }
-}
-
-async function chooseTablebase(): Promise<void> {
-  const dir = await desktop.pickDirectory();
-  if (dir) {
-    updateState({ tablebasePath: dir });
-  }
-}
-
-async function checkForDesktopUpdates(): Promise<void> {
-  updateStatus.value = await desktop.checkForUpdates();
-}
-
-async function downloadDesktopUpdate(): Promise<void> {
-  updateStatus.value = await desktop.downloadUpdate();
-}
-
-async function installDesktopUpdate(): Promise<void> {
-  await desktop.installUpdate();
-}
-
-async function openLiveInBrowser(): Promise<void> {
-  const url = desktopState.value.backendUrl.trim();
-  if (!url) return;
-  await desktop.openExternal(url);
-}
-
-function reloadLiveView(): void {
-  liveReloadToken.value = Date.now();
-}
-
-function createLiveIframe(src: string): HTMLIFrameElement {
-  const iframe = document.createElement('iframe');
-  iframe.src = src;
-  iframe.title = 'CheckAI engine workspace';
-  iframe.setAttribute(
-    'sandbox',
-    'allow-downloads allow-forms allow-popups allow-same-origin allow-scripts',
-  );
-  return iframe;
-}
-
-function syncLiveIframe(host: ParentNode | null): void {
-  if (!(host instanceof HTMLElement)) {
-    return;
+function renderBoard(
+  board: BoardMap,
+  flipped: boolean,
+  interactive: boolean
+): string {
+  const ranks = flipped ? [...RANKS] : [...RANKS].reverse();
+  const files = flipped ? [...FILES].reverse() : [...FILES];
+  const sel = selectedSquare.value;
+  const highlights = highlightSquares.value;
+  const lm = lastMove.value;
+  const check = activeGame.value?.is_check ?? false;
+  const turn = activeGame.value?.state.turn;
+  let kingSquare: string | null = null;
+  if (check && turn) {
+    const kingChar = turn === 'white' ? 'K' : 'k';
+    for (const sq of Object.keys(board)) {
+      if (board[sq] === kingChar) {
+        kingSquare = sq;
+        break;
+      }
+    }
   }
 
-  if (!canEmbedLiveView.value || !liveUrl.value) {
-    host.replaceChildren();
-    return;
+  let rows = '';
+  for (const r of ranks) {
+    let cells = '';
+    for (const f of files) {
+      const sq = `${f}${r}`;
+      const piece = board[sq] as FenChar | null;
+      const isLight = (f.charCodeAt(0) + parseInt(r)) % 2 === 0;
+      const classes = [
+        'sq',
+        isLight ? 'sq-light' : 'sq-dark',
+        sel === sq ? 'sq-selected' : '',
+        highlights.has(sq) ? 'sq-highlight' : '',
+        lm && (lm.from === sq || lm.to === sq) ? 'sq-last-move' : '',
+        kingSquare === sq ? 'sq-check' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+      const pieceStr = piece ? PIECE_UNICODE[piece] : '';
+      const cursor = interactive ? 'cursor:pointer;' : '';
+      cells += `<div class="${classes}" data-sq="${sq}" style="${cursor}">${pieceStr}</div>`;
+    }
+    rows += `<div class="board-row"><span class="rank-label">${r}</span>${cells}</div>`;
   }
-
-  if (!liveIframeElement) {
-    liveIframeElement = createLiveIframe(liveUrl.value);
-    liveIframeSrc = liveUrl.value;
-  } else if (liveIframeSrc !== liveUrl.value) {
-    liveIframeElement.src = liveUrl.value;
-    liveIframeSrc = liveUrl.value;
-  }
-
-  host.replaceChildren(liveIframeElement);
+  let fileLabels = '<div class="file-labels"><span></span>';
+  for (const f of files) fileLabels += `<span>${f}</span>`;
+  fileLabels += '</div>';
+  return `<div class="chess-board">${rows}${fileLabels}</div>`;
 }
 
-function renderCommandPalette(): string {
-  if (!paletteOpen.value) return '';
+// ── Component: Dashboard ────────────────────────────────────────────────────
 
-  return `
-    <div class="overlay" data-close-palette>
-      <div class="palette" role="dialog" aria-modal="true" aria-label="Quick actions">
-        <div class="palette-header">
-          <h3>Quick actions</h3>
-          <button class="ghost-icon-btn" data-close-palette>✕</button>
+component('cai-dashboard', {
+  styles: `:host { display:block; }`,
+  render() {
+    const bs = backendStatus.value;
+    const us = updateStatus.value;
+    const games = gamesList.value;
+    const stats = storageStats.value;
+
+    return html`
+      <div class="view-grid">
+        <div class="card hero-card">
+          <div class="card-head">
+            <div>
+              <h2>CheckAI Desktop</h2>
+              <p class="dim">
+                Full-featured desktop workspace for the CheckAI chess engine.
+              </p>
+            </div>
+            <span class="badge ${bs.running ? 'badge-ok' : 'badge-dim'}"
+              >${bs.running ? 'Engine online' : 'Engine offline'}</span
+            >
+          </div>
+          <div class="quick-strip">
+            <button class="qbtn" data-action="create-game">
+              <strong>New game</strong
+              ><span>Start a fresh game from the starting position</span>
+            </button>
+            <button class="qbtn" data-action="nav:games">
+              <strong>Active games</strong
+              ><span>Browse, open, or manage running games</span>
+            </button>
+            <button class="qbtn" data-action="nav:archive">
+              <strong>Archive</strong
+              ><span>Review completed games and replay any position</span>
+            </button>
+            <button class="qbtn" data-action="nav:analysis">
+              <strong>Analysis</strong
+              ><span>Deep engine analysis on any completed game</span>
+            </button>
+          </div>
         </div>
-        <div class="palette-actions">
-          <button class="palette-action" data-palette-action="start">Start local backend</button>
-          <button class="palette-action" data-palette-action="stop">Stop local backend</button>
-          <button class="palette-action" data-palette-action="reload">Reload live workspace</button>
-          <button class="palette-action" data-palette-action="logs">Open logs view</button>
-          <button class="palette-action" data-palette-action="check-updates">Check desktop updates</button>
-          <button class="palette-action" data-palette-action="browser">Open engine UI in browser</button>
+        <div class="card">
+          <div class="card-head">
+            <div><h3>Backend status</h3></div>
+          </div>
+          <div class="stat-grid">
+            <div class="stat">
+              <span class="stat-label">Status</span
+              ><strong>${bs.running ? 'Running' : 'Stopped'}</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">PID</span
+              ><strong>${bs.pid ?? '—'}</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Command</span
+              ><strong class="mono">${safeHtml`${bs.command ?? '—'}`}</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Version</span
+              ><strong>${safeHtml`${us.currentVersion}`}</strong>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" data-action="start-backend">
+              Start
+            </button>
+            <button class="btn btn-ghost" data-action="stop-backend">
+              Stop
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Active games</h3>
+              <p class="dim">
+                ${games.length} game${games.length !== 1 ? 's' : ''} in progress
+              </p>
+            </div>
+          </div>
+          ${games.length === 0
+            ? html`<p class="empty-text">
+                No active games. Create one to get started.
+              </p>`
+            : html`<div class="mini-list">
+                ${games
+                  .slice(0, 5)
+                  .map(
+                    (g) => html`
+                      <button
+                        class="mini-item"
+                        data-action="open-game"
+                        data-id="${g.game_id}"
+                      >
+                        <span class="mono">${g.game_id.slice(0, 8)}</span>
+                        <span
+                          >${g.turn} · Move
+                          ${g.fullmove_number}${g.is_over
+                            ? ' · ' + resultLabel(g.result)
+                            : ''}</span
+                        >
+                      </button>
+                    `
+                  )
+                  .join('')}
+              </div>`}
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div><h3>Storage</h3></div>
+          </div>
+          ${stats
+            ? html`<div class="stat-grid">
+                <div class="stat">
+                  <span class="stat-label">Active</span
+                  ><strong
+                    >${stats.active_count} ·
+                    ${formatBytes(stats.active_bytes)}</strong
+                  >
+                </div>
+                <div class="stat">
+                  <span class="stat-label">Archived</span
+                  ><strong
+                    >${stats.archived_count} ·
+                    ${formatBytes(stats.archive_bytes)}</strong
+                  >
+                </div>
+              </div>`
+            : html`<p class="empty-text">
+                Start the backend to view storage statistics.
+              </p>`}
         </div>
       </div>
-    </div>
-  `;
-}
-
-function renderWorkspaceView(): string {
-  return `
-    <section class="grid-two">
-      <article class="card">
-        <div class="card-header">
-          <div>
-            <h2>Workspace session</h2>
-            <p>Persist backend targets, working directories, and native desktop preferences between launches.</p>
-          </div>
-          <span class="badge ${backendStatus.value.running ? 'badge-success' : 'badge-muted'}">
-            ${backendStatus.value.running ? 'Engine running' : 'Engine stopped'}
-          </span>
-        </div>
-        <label class="field">
-          <span>Server URL</span>
-          <input id="backend-url" value="${escapeHtml(desktopState.value.backendUrl)}" placeholder="http://127.0.0.1:8080" />
-        </label>
-        <label class="field checkbox-row">
-          <input id="auto-start" type="checkbox" ${desktopState.value.autoStartBackend ? 'checked' : ''} />
-          <span>Auto-start the local backend when the desktop app launches</span>
-        </label>
-        <div class="button-row">
-          <button class="btn btn-primary" data-action="save">Save workspace</button>
-          <button class="btn btn-secondary" data-action="open-browser">Open browser UI</button>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="card-header">
-          <div>
-            <h2>Desktop quick actions</h2>
-            <p>Lean into desktop workflows with native dialogs, keyboard shortcuts, and persistent state.</p>
-          </div>
-          <span class="shortcut-pill">⌘/Ctrl + K</span>
-        </div>
-        <div class="quick-grid">
-          <button class="quick-card" data-action="start">
-            <strong>Launch backend</strong>
-            <span>Start the local <code>checkai serve</code> workflow with your saved engine flags.</span>
-          </button>
-          <button class="quick-card" data-action="live">
-            <strong>Open live workspace</strong>
-            <span>Jump into the full engine UI, monitoring, analysis, and archive workspace.</span>
-          </button>
-          <button class="quick-card" data-action="logs">
-            <strong>Inspect logs</strong>
-            <span>Review stdout/stderr without leaving the desktop shell.</span>
-          </button>
-          <button class="quick-card" data-action="open-working-directory">
-            <strong>Open working directory</strong>
-            <span>Reveal the configured project folder in the system file manager.</span>
-          </button>
-        </div>
-      </article>
-    </section>
-  `;
-}
-
-function renderLiveView(): string {
-  if (!desktopState.value.backendUrl.trim()) {
-    return `
-      <article class="card empty-card">
-        <h2>No backend URL configured</h2>
-        <p>Save a backend URL in the workspace settings or start a local backend to load the full engine UI.</p>
-      </article>
     `;
-  }
+  },
+});
 
-  if (!canEmbedLiveView.value) {
-    return `
-      <article class="card empty-card">
-        <div>
-          <h2>Embedded live view is limited to local backends</h2>
-          <p>
-            For safety, the Electron workspace only embeds loopback URLs. You can still open the configured
-            backend in your external browser.
-          </p>
-          <div class="button-row center-row">
-            <button class="btn btn-secondary" data-action="open-browser">Open in browser</button>
-            <button class="btn btn-secondary" data-action="reload-live">Reload URL</button>
+// ── Component: Games List ───────────────────────────────────────────────────
+
+component('cai-games', {
+  styles: `:host { display:block; }`,
+  render() {
+    const games = gamesList.value;
+    return html`
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Active games</h2>
+            <p class="dim">Create, open, or delete running games.</p>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" data-action="create-game">
+              New game
+            </button>
+            <button class="btn btn-ghost" data-action="refresh-games">
+              Refresh
+            </button>
           </div>
         </div>
-      </article>
+        <div class="fen-row">
+          <label class="field-inline">
+            <span>Import FEN:</span>
+            <input
+              id="fen-import"
+              placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+              value="${escapeHtml(fenInput.value)}"
+            />
+          </label>
+          <button class="btn btn-ghost" data-action="import-fen">Import</button>
+        </div>
+        ${games.length === 0
+          ? html`<p class="empty-text">No active games yet.</p>`
+          : html`<div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Turn</th>
+                    <th>Move</th>
+                    <th>Status</th>
+                    <th>Result</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${games
+                    .map(
+                      (g) => html`
+                        <tr>
+                          <td class="mono">${g.game_id.slice(0, 8)}…</td>
+                          <td>${g.turn}</td>
+                          <td>${g.fullmove_number}</td>
+                          <td>
+                            <span
+                              class="badge ${g.is_over
+                                ? 'badge-dim'
+                                : 'badge-ok'}"
+                              >${g.is_over ? 'Over' : 'Active'}</span
+                            >
+                          </td>
+                          <td>${resultLabel(g.result)}</td>
+                          <td class="btn-row">
+                            <button
+                              class="btn btn-sm"
+                              data-action="open-game"
+                              data-id="${g.game_id}"
+                            >
+                              Open
+                            </button>
+                            <button
+                              class="btn btn-sm btn-danger"
+                              data-action="delete-game"
+                              data-id="${g.game_id}"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      `
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            </div>`}
+      </div>
     `;
+  },
+});
+
+// ── Component: Board view ───────────────────────────────────────────────────
+
+component('cai-board', {
+  styles: `:host { display:block; }`,
+  render() {
+    const g = activeGame.value;
+    if (!g)
+      return html`<div class="card empty-card">
+        <h2>No game selected</h2>
+        <p class="dim">
+          Open or create a game from the dashboard or games list.
+        </p>
+      </div>`;
+
+    const boardHtml = renderBoard(
+      g.state.board,
+      boardFlipped.value,
+      !g.is_over
+    );
+    const history = g.move_history;
+
+    return html`
+      <div class="board-layout">
+        <div class="board-main">
+          <div class="card board-card">
+            <div class="card-head">
+              <div>
+                <h2>Game <span class="mono">${g.game_id.slice(0, 8)}</span></h2>
+                <p class="dim">
+                  ${g.is_over
+                    ? `Game over — ${resultLabel(g.result)}${g.end_reason ? ' (' + g.end_reason + ')' : ''}`
+                    : `${g.state.turn}'s turn · Move ${g.state.fullmove_number}${g.is_check ? ' · Check!' : ''}`}
+                </p>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-sm" data-action="flip-board">
+                  ${boardFlipped.value ? '⟳ Reset' : '⟳ Flip'}
+                </button>
+                <button class="btn btn-sm" data-action="refresh-game">
+                  Refresh
+                </button>
+              </div>
+            </div>
+            <div class="board-container" data-board-interactive>
+              ${boardHtml}
+            </div>
+            ${!g.is_over
+              ? html`
+                  <div class="action-bar">
+                    <button class="btn btn-ghost" data-action="resign">
+                      Resign
+                    </button>
+                    <button class="btn btn-ghost" data-action="offer-draw">
+                      Offer draw
+                    </button>
+                    <button
+                      class="btn btn-ghost"
+                      data-action="claim-draw-threefold"
+                    >
+                      Claim threefold
+                    </button>
+                    <button
+                      class="btn btn-ghost"
+                      data-action="claim-draw-fifty"
+                    >
+                      Claim 50-move
+                    </button>
+                  </div>
+                `
+              : html`
+                  <div class="action-bar">
+                    <button
+                      class="btn btn-primary"
+                      data-action="analyze-game"
+                      data-id="${g.game_id}"
+                    >
+                      Analyze
+                    </button>
+                    <button class="btn btn-ghost" data-action="create-game">
+                      New game
+                    </button>
+                  </div>
+                `}
+          </div>
+        </div>
+        <div class="board-sidebar">
+          <div class="card">
+            <div class="card-head">
+              <div><h3>Info</h3></div>
+            </div>
+            <div class="stat-grid">
+              <div class="stat">
+                <span class="stat-label">Turn</span
+                ><strong>${g.state.turn}</strong>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Move</span
+                ><strong>${g.state.fullmove_number}</strong>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Legal moves</span
+                ><strong>${g.legal_move_count}</strong>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Halfmove clock</span
+                ><strong>${g.state.halfmove_clock}</strong>
+              </div>
+              <div class="stat">
+                <span class="stat-label">En passant</span
+                ><strong>${g.state.en_passant ?? '—'}</strong>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Castling W</span
+                ><strong
+                  >${g.state.castling.white.kingside ? 'K' : '-'}${g.state
+                    .castling.white.queenside
+                    ? 'Q'
+                    : '-'}</strong
+                >
+              </div>
+              <div class="stat">
+                <span class="stat-label">Castling B</span
+                ><strong
+                  >${g.state.castling.black.kingside ? 'k' : '-'}${g.state
+                    .castling.black.queenside
+                    ? 'q'
+                    : '-'}</strong
+                >
+              </div>
+            </div>
+            <div class="btn-row" style="margin-top:0.75rem">
+              <button class="btn btn-sm" data-action="export-fen">
+                Copy FEN
+              </button>
+              <button class="btn btn-sm" data-action="export-pgn">
+                Copy PGN
+              </button>
+            </div>
+          </div>
+          <div class="card move-list-card">
+            <div class="card-head">
+              <div><h3>Moves</h3></div>
+            </div>
+            <div class="move-list">
+              ${history.length === 0
+                ? html`<p class="empty-text">No moves yet.</p>`
+                : html`<ol class="moves">
+                    ${renderMoveList(history)}
+                  </ol>`}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+});
+
+function renderMoveList(history: Game['move_history']): string {
+  const pairs: string[] = [];
+  for (let i = 0; i < history.length; i += 2) {
+    const w = history[i];
+    const b = history[i + 1];
+    pairs.push(
+      html`<li>
+        <span class="move-num">${w.move_number}.</span>
+        <span class="move-w">${safeHtml`${w.notation}`}</span>${b
+          ? html` <span class="move-b">${safeHtml`${b.notation}`}</span>`
+          : ''}
+      </li>`
+    );
   }
-
-  return `
-    <article class="card live-card">
-      <div class="card-header">
-        <div>
-          <h2>Live engine workspace</h2>
-          <p>The complete CheckAI engine UI stays available inside the desktop shell for games, archive replay, analysis, and export workflows.</p>
-        </div>
-        <div class="button-row">
-          <button class="btn btn-secondary" data-action="reload-live">Reload</button>
-          <button class="btn btn-secondary" data-action="open-browser">Open in browser</button>
-        </div>
-      </div>
-      <div class="iframe-shell" data-live-iframe-host></div>
-    </article>
-  `;
+  return pairs.join('');
 }
 
-function renderEngineView(): string {
-  return `
-    <section class="grid-two">
-      <article class="card">
-        <div class="card-header">
-          <div>
-            <h2>Local backend launch</h2>
-            <p>Configure how the Electron shell starts <code>checkai</code> for local runs, live monitoring, and productive desktop sessions.</p>
-          </div>
-        </div>
-        <label class="field">
-          <span>Executable</span>
-          <div class="input-with-button">
-            <input id="backend-executable" value="${escapeHtml(desktopState.value.backendExecutable)}" placeholder="checkai" />
-            <button class="btn btn-secondary" data-action="pick-executable">Browse</button>
-          </div>
-        </label>
-        <label class="field">
-          <span>Arguments</span>
-          <input id="backend-args" value="${escapeHtml(desktopState.value.backendArgs)}" placeholder="serve --analysis-depth 30" />
-        </label>
-        <label class="field">
-          <span>Working directory</span>
-          <div class="input-with-button">
-            <input id="backend-working-directory" value="${escapeHtml(desktopState.value.backendWorkingDirectory)}" placeholder="/path/to/project" />
-            <button class="btn btn-secondary" data-action="pick-working-directory">Browse</button>
-          </div>
-        </label>
-        <div class="button-row">
-          <button class="btn btn-primary" data-action="start">Start backend</button>
-          <button class="btn btn-secondary" data-action="stop">Stop backend</button>
-          <button class="btn btn-secondary" data-action="save">Save</button>
-        </div>
-      </article>
+// ── Component: Archive ──────────────────────────────────────────────────────
 
-      <article class="card">
-        <div class="card-header">
-          <div>
-            <h2>Engine assets</h2>
-            <p>Wire opening books and tablebases into your saved launch profile using native file and folder pickers.</p>
-          </div>
-        </div>
-        <label class="field">
-          <span>Opening book (<code>.bin</code>)</span>
-          <div class="input-with-button">
-            <input id="opening-book-path" value="${escapeHtml(desktopState.value.openingBookPath)}" placeholder="/path/to/book.bin" />
-            <button class="btn btn-secondary" data-action="pick-opening-book">Browse</button>
-          </div>
-        </label>
-        <label class="field">
-          <span>Tablebase directory</span>
-          <div class="input-with-button">
-            <input id="tablebase-path" value="${escapeHtml(desktopState.value.tablebasePath)}" placeholder="/path/to/tablebases" />
-            <button class="btn btn-secondary" data-action="pick-tablebase">Browse</button>
-          </div>
-        </label>
-        <div class="callout">
-          <strong>Applied automatically:</strong>
-          <span>
-            When these fields are set, CheckAI Desktop appends <code>--book-path</code> and
-            <code>--tablebase-path</code> to the saved backend launch profile unless you already passed them manually.
-          </span>
-        </div>
-      </article>
-    </section>
-  `;
-}
+component('cai-archive', {
+  styles: `:host { display:block; }`,
+  render() {
+    const rs = replayState.value;
+    const list = archivedList.value;
 
-function renderLogsView(): string {
-  return `
-    <article class="card">
-      <div class="card-header">
-        <div>
-          <h2>Backend logs</h2>
-          <p>Tail the local engine process directly inside the desktop app for debugging, monitoring, and failure analysis.</p>
-        </div>
-        <div class="button-row">
-          <button class="btn btn-secondary" data-action="refresh-logs">Refresh</button>
-          <button class="btn btn-secondary" data-action="open-working-directory">Open working directory</button>
-        </div>
-      </div>
-      <pre class="log-panel">${escapeHtml(backendLogs.value || 'No backend logs captured yet.')}</pre>
-    </article>
-  `;
-}
-
-function renderHelpView(): string {
-  return `
-    <section class="grid-two">
-      <article class="card">
-        <div class="card-header">
-          <div>
-            <h2>Engine coverage</h2>
-            <p>The desktop shell complements the existing web workspace instead of replacing it.</p>
-          </div>
-        </div>
-        <ul class="feature-list">
-          <li>Full game creation, move entry, draw/resign actions, and archive replay via the embedded engine UI</li>
-          <li>Async analysis workflows, summaries, and result inspection inside the live workspace</li>
-          <li>Native desktop file/folder dialogs for engine assets and working directories</li>
-          <li>Persistent sessions with saved backend URLs, launch settings, and last-used view</li>
-          <li>Inline stdout/stderr log inspection for local backend debugging</li>
-        </ul>
-      </article>
-
-      <article class="card">
-        <div class="card-header">
-          <div>
-            <h2>Keyboard shortcuts</h2>
-            <p>Desktop-friendly interactions for faster navigation.</p>
-          </div>
-        </div>
-        <ul class="feature-list">
-          <li><strong>⌘/Ctrl + K</strong> — Open the command palette</li>
-          <li><strong>⌘/Ctrl + 1…5</strong> — Switch between workspace, live, engine, logs, and help views</li>
-          <li><strong>Escape</strong> — Close the command palette</li>
-        </ul>
-      </article>
-
-      <article class="card">
-        <div class="card-header">
-          <div>
-            <h2>Desktop updates</h2>
-            <p>Packaged builds can discover, download, and install new desktop releases from GitHub.</p>
-          </div>
-          <span class="badge ${updateStatus.value.state === 'downloaded' ? 'badge-success' : 'badge-muted'}">
-            ${escapeHtml(updateStatus.value.currentVersion)}
-          </span>
-        </div>
-        <div class="callout">
-          <strong>Status:</strong>
-          <span>${escapeHtml(updateStatus.value.message ?? 'Ready to check for updates.')}</span>
-        </div>
-        ${
-          updateStatus.value.percent !== null
-            ? `
-              <div class="progress-meta">
-                <strong>${Math.round(updateStatus.value.percent)}%</strong>
-                <span>${escapeHtml(`${formatBytes(updateStatus.value.transferredBytes)} / ${formatBytes(updateStatus.value.totalBytes)}`)}</span>
+    return html`
+      <div class="view-grid">
+        ${rs
+          ? html`
+              <div class="card board-card">
+                <div class="card-head">
+                  <div>
+                    <h2>
+                      Replay ·
+                      <span class="mono">${rs.game_id.slice(0, 8)}</span>
+                    </h2>
+                    <p class="dim">Move ${rs.at_move} / ${rs.total_moves}</p>
+                  </div>
+                  <div class="btn-row">
+                    <button class="btn btn-sm" data-action="replay-start">
+                      ⏮
+                    </button>
+                    <button class="btn btn-sm" data-action="replay-prev">
+                      ◀
+                    </button>
+                    <button class="btn btn-sm" data-action="replay-next">
+                      ▶
+                    </button>
+                    <button class="btn btn-sm" data-action="replay-end">
+                      ⏭
+                    </button>
+                    <button class="btn btn-sm" data-action="close-replay">
+                      Close
+                    </button>
+                  </div>
+                </div>
+                <div class="board-container">
+                  ${renderBoard(rs.state.board, boardFlipped.value, false)}
+                </div>
+                <input
+                  type="range"
+                  class="replay-slider"
+                  min="0"
+                  max="${rs.total_moves}"
+                  value="${rs.at_move}"
+                  data-replay-slider
+                />
               </div>
             `
-            : ''
-        }
-        <div class="button-row">
-          <button class="btn btn-secondary" data-action="check-updates">Check for updates</button>
-          ${renderUpdatePrimaryButton()}
+          : ''}
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Archived games</h2>
+              <p class="dim">
+                ${list.length} completed game${list.length !== 1 ? 's' : ''} in
+                the archive
+              </p>
+            </div>
+            <button class="btn btn-ghost" data-action="refresh-archive">
+              Refresh
+            </button>
+          </div>
+          ${list.length === 0
+            ? html`<p class="empty-text">
+                No archived games yet. Complete a game to see it here.
+              </p>`
+            : html`<div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Result</th>
+                      <th>Reason</th>
+                      <th>Moves</th>
+                      <th>Size</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${list
+                      .map(
+                        (g) => html`
+                          <tr>
+                            <td class="mono">${g.game_id.slice(0, 8)}…</td>
+                            <td>${resultLabel(g.result)}</td>
+                            <td>${g.end_reason ?? '—'}</td>
+                            <td>${g.move_count}</td>
+                            <td>${formatBytes(g.compressed_bytes)}</td>
+                            <td class="btn-row">
+                              <button
+                                class="btn btn-sm"
+                                data-action="replay-archived"
+                                data-id="${g.game_id}"
+                              >
+                                Replay
+                              </button>
+                              <button
+                                class="btn btn-sm"
+                                data-action="analyze-archived"
+                                data-id="${g.game_id}"
+                              >
+                                Analyze
+                              </button>
+                            </td>
+                          </tr>
+                        `
+                      )
+                      .join('')}
+                  </tbody>
+                </table>
+              </div>`}
         </div>
-      </article>
-    </section>
-  `;
+      </div>
+    `;
+  },
+});
+
+// ── Component: Analysis ─────────────────────────────────────────────────────
+
+component('cai-analysis', {
+  styles: `:host { display:block; }`,
+  render() {
+    const jobs = analysisJobs.value;
+    const active = activeAnalysis.value;
+    const result = active?.result;
+    const summary = result?.summary;
+
+    return html`
+      <div class="view-grid">
+        ${active
+          ? html`
+              <div class="card">
+                <div class="card-head">
+                  <div>
+                    <h2>
+                      Analysis ·
+                      <span class="mono">${active.id.slice(0, 8)}</span>
+                    </h2>
+                    <p class="dim">${renderAnalysisStatusText(active)}</p>
+                  </div>
+                  ${analysisPolling.value
+                    ? html`<button
+                        class="btn btn-ghost btn-danger"
+                        data-action="cancel-analysis"
+                        data-id="${active.id}"
+                      >
+                        Cancel
+                      </button>`
+                    : html`<button
+                        class="btn btn-ghost"
+                        data-action="close-analysis"
+                      >
+                        Close
+                      </button>`}
+                </div>
+                ${summary
+                  ? html`
+                      <div class="analysis-summary">
+                        <div class="accuracy-row">
+                          <div class="accuracy-block">
+                            <span class="accuracy-label">White accuracy</span>
+                            <strong class="accuracy-value"
+                              >${summary.white_accuracy.toFixed(1)}%</strong
+                            >
+                            <span class="dim"
+                              >avg ±${summary.white_avg_cp_loss.toFixed(1)}
+                              cp</span
+                            >
+                          </div>
+                          <div class="accuracy-block">
+                            <span class="accuracy-label">Black accuracy</span>
+                            <strong class="accuracy-value"
+                              >${summary.black_accuracy.toFixed(1)}%</strong
+                            >
+                            <span class="dim"
+                              >avg ±${summary.black_avg_cp_loss.toFixed(1)}
+                              cp</span
+                            >
+                          </div>
+                        </div>
+                        <div class="quality-bar">
+                          ${renderQualityBar(summary)}
+                        </div>
+                        <div class="stat-grid">
+                          <div class="stat">
+                            <span class="stat-label">Total moves</span
+                            ><strong>${summary.total_moves}</strong>
+                          </div>
+                          <div class="stat">
+                            <span class="stat-label">Best</span
+                            ><strong style="color:#34d399"
+                              >${summary.best_moves}</strong
+                            >
+                          </div>
+                          <div class="stat">
+                            <span class="stat-label">Excellent</span
+                            ><strong style="color:#6ee7b7"
+                              >${summary.excellent_moves}</strong
+                            >
+                          </div>
+                          <div class="stat">
+                            <span class="stat-label">Good</span
+                            ><strong style="color:#a3e635"
+                              >${summary.good_moves}</strong
+                            >
+                          </div>
+                          <div class="stat">
+                            <span class="stat-label">Inaccuracies</span
+                            ><strong style="color:#fbbf24"
+                              >${summary.inaccuracies}</strong
+                            >
+                          </div>
+                          <div class="stat">
+                            <span class="stat-label">Mistakes</span
+                            ><strong style="color:#fb923c"
+                              >${summary.mistakes}</strong
+                            >
+                          </div>
+                          <div class="stat">
+                            <span class="stat-label">Blunders</span
+                            ><strong style="color:#fb7185"
+                              >${summary.blunders}</strong
+                            >
+                          </div>
+                          <div class="stat">
+                            <span class="stat-label">Book moves</span
+                            ><strong style="color:#94a3b8"
+                              >${summary.book_moves}</strong
+                            >
+                          </div>
+                          <div class="stat">
+                            <span class="stat-label">Depth</span
+                            ><strong>${result!.depth}</strong>
+                          </div>
+                          <div class="stat">
+                            <span class="stat-label">Avg CP loss</span
+                            ><strong
+                              >${summary.average_centipawn_loss.toFixed(
+                                1
+                              )}</strong
+                            >
+                          </div>
+                        </div>
+                      </div>
+                      ${result!.annotations.length > 0
+                        ? html`
+                            <div class="annotation-list">
+                              <h3>Move annotations</h3>
+                              <div class="table-wrap">
+                                <table class="data-table compact">
+                                  <thead>
+                                    <tr>
+                                      <th>#</th>
+                                      <th>Side</th>
+                                      <th>Played</th>
+                                      <th>Best</th>
+                                      <th>CP loss</th>
+                                      <th>Quality</th>
+                                      <th>PV</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    ${result!.annotations
+                                      .map(
+                                        (a) => html`
+                                          <tr>
+                                            <td>${a.move_number}</td>
+                                            <td>${a.side}</td>
+                                            <td class="mono">
+                                              ${a.played_move.from}${a
+                                                .played_move.to}${a.played_move
+                                                .promotion ?? ''}
+                                            </td>
+                                            <td class="mono">
+                                              ${a.best_move.from}${a.best_move
+                                                .to}${a.best_move.promotion ??
+                                              ''}
+                                            </td>
+                                            <td>${a.centipawn_loss}</td>
+                                            <td>
+                                              <span
+                                                class="quality-dot"
+                                                style="color:${qualityColor(
+                                                  a.quality
+                                                )}"
+                                                >${safeHtml`${a.quality}`}</span
+                                              >
+                                            </td>
+                                            <td class="mono dim">
+                                              ${a.principal_variation
+                                                .slice(0, 3)
+                                                .join(' ')}
+                                            </td>
+                                          </tr>
+                                        `
+                                      )
+                                      .join('')}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          `
+                        : ''}
+                    `
+                  : ''}
+              </div>
+            `
+          : ''}
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Analysis jobs</h2>
+              <p class="dim">Submit games for deep engine analysis.</p>
+            </div>
+            <div class="btn-row">
+              <label class="field-inline"
+                ><span>Depth:</span
+                ><input
+                  type="number"
+                  id="analysis-depth"
+                  min="10"
+                  max="99"
+                  value="${analysisDepth.value}"
+                  style="width:5rem"
+              /></label>
+              <button class="btn btn-ghost" data-action="refresh-analysis">
+                Refresh
+              </button>
+            </div>
+          </div>
+          ${jobs.length === 0
+            ? html`<p class="empty-text">
+                No analysis jobs yet. Open a game and submit it for analysis.
+              </p>`
+            : html`<div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Job</th>
+                      <th>Game</th>
+                      <th>Status</th>
+                      <th>Created</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${jobs
+                      .map(
+                        (j) => html`
+                          <tr>
+                            <td class="mono">${j.id.slice(0, 8)}…</td>
+                            <td class="mono">
+                              ${j.game_id?.slice(0, 8) ?? '—'}…
+                            </td>
+                            <td>${renderAnalysisStatusBadge(j)}</td>
+                            <td>${new Date(j.created_at).toLocaleString()}</td>
+                            <td class="btn-row">
+                              <button
+                                class="btn btn-sm"
+                                data-action="view-analysis"
+                                data-id="${j.id}"
+                              >
+                                View
+                              </button>
+                              ${isAnalysisActive(j)
+                                ? html`<button
+                                    class="btn btn-sm btn-danger"
+                                    data-action="cancel-analysis"
+                                    data-id="${j.id}"
+                                  >
+                                    Cancel
+                                  </button>`
+                                : ''}
+                            </td>
+                          </tr>
+                        `
+                      )
+                      .join('')}
+                  </tbody>
+                </table>
+              </div>`}
+        </div>
+      </div>
+    `;
+  },
+});
+
+function isAnalysisActive(job: AnalysisJob): boolean {
+  return (
+    job.status === 'Queued' ||
+    (typeof job.status === 'object' && 'InProgress' in job.status)
+  );
 }
 
-function renderMainContent(): string {
-  const activeView = currentView.value;
-  const renderers = {
-    workspace: renderWorkspaceView,
-    live: renderLiveView,
-    engine: renderEngineView,
-    logs: renderLogsView,
-    help: renderHelpView,
-  } satisfies Record<DesktopView, () => string>;
-  const validViews = Object.keys(renderers) as DesktopView[];
-  const renderedView: DesktopView =
-    validViews.includes(activeView) ? activeView : DEFAULT_DESKTOP_VIEW;
-
-  if (renderedView !== activeView) {
-    console.warn(
-      `Unknown desktop view "${activeView}", falling back to ${DEFAULT_DESKTOP_VIEW}. Valid views are: ${validViews.join(', ')}`,
-    );
+function renderAnalysisStatusText(job: AnalysisJob): string {
+  if (job.status === 'Queued') return 'Queued…';
+  if (job.status === 'Completed') return 'Completed';
+  if (job.status === 'Cancelled') return 'Cancelled';
+  if (typeof job.status === 'object') {
+    if ('InProgress' in job.status) {
+      const p = job.status.InProgress;
+      return `Analyzing… ${p.moves_analyzed}/${p.total_moves} moves`;
+    }
+    if ('Failed' in job.status) return `Failed: ${job.status.Failed.error}`;
   }
-
-  const content = renderers[renderedView]();
-
-  return `<section class="view-panel active" data-view-panel="${renderedView}">${content}</section>`;
+  return 'Unknown';
 }
 
-function getUpdatePrimaryAction(): { action: string; label: string; disabled: boolean } {
-  const disabled = updateStatus.value.state === 'checking' || updateStatus.value.state === 'downloading';
-  const action = disabled
-    ? ''
-    : updateStatus.value.state === 'downloaded'
-      ? 'install-update'
-      : updateStatus.value.state === 'available'
-        ? 'download-update'
-        : 'check-updates';
-  const label =
-    updateStatus.value.state === 'downloaded'
-      ? 'Restart to update'
-      : updateStatus.value.state === 'checking'
-        ? 'Checking…'
-        : updateStatus.value.state === 'available'
-          ? 'Download update'
-        : updateStatus.value.state === 'downloading'
-          ? 'Downloading…'
-          : 'Check updates';
-
-  return { action, label, disabled };
-}
-
-function renderUpdateButton(
-  variant: 'primary' | 'secondary',
-  options: { hideWhenDefaultCheck?: boolean } = {},
-): string {
-  const primary = getUpdatePrimaryAction();
-  if (options.hideWhenDefaultCheck && primary.action === 'check-updates') {
-    return '';
+function renderAnalysisStatusBadge(job: AnalysisJob): string {
+  if (job.status === 'Completed')
+    return '<span class="badge badge-ok">Completed</span>';
+  if (job.status === 'Queued')
+    return '<span class="badge badge-dim">Queued</span>';
+  if (job.status === 'Cancelled')
+    return '<span class="badge badge-dim">Cancelled</span>';
+  if (typeof job.status === 'object' && 'InProgress' in job.status) {
+    const p = job.status.InProgress;
+    return `<span class="badge badge-active">${p.moves_analyzed}/${p.total_moves}</span>`;
   }
-
-  return `<button class="btn btn-${variant}" ${primary.action ? `data-action="${primary.action}"` : 'disabled'}>${primary.label}</button>`;
+  if (typeof job.status === 'object' && 'Failed' in job.status)
+    return '<span class="badge badge-danger">Failed</span>';
+  return '<span class="badge badge-dim">?</span>';
 }
 
-function renderUpdateActionButton(): string {
-  return renderUpdateButton('secondary');
+function renderQualityBar(summary: AnalysisResultPayload['summary']): string {
+  const segments = [
+    { count: summary.best_moves, color: '#34d399', label: 'Best' },
+    { count: summary.excellent_moves, color: '#6ee7b7', label: 'Excellent' },
+    { count: summary.good_moves, color: '#a3e635', label: 'Good' },
+    { count: summary.inaccuracies, color: '#fbbf24', label: 'Inaccuracy' },
+    { count: summary.mistakes, color: '#fb923c', label: 'Mistake' },
+    { count: summary.blunders, color: '#fb7185', label: 'Blunder' },
+    { count: summary.book_moves, color: '#94a3b8', label: 'Book' },
+  ];
+  return `<div class="qbar">${segments
+    .filter((s) => s.count > 0)
+    .map(
+      (s) =>
+        `<div class="qbar-seg" style="flex:${s.count};background:${s.color}" title="${s.label}: ${s.count}"></div>`
+    )
+    .join('')}</div>`;
 }
 
-function renderUpdatePrimaryButton(): string {
-  return renderUpdateButton('primary', { hideWhenDefaultCheck: true });
-}
+// ── Component: Engine config ────────────────────────────────────────────────
 
-function captureFocusedInputState(root: HTMLElement): InputSelectionState | null {
-  const activeElement = document.activeElement;
-  if (!(activeElement instanceof HTMLInputElement) || !root.contains(activeElement) || !activeElement.id) {
-    return null;
+component('cai-engine', {
+  styles: `:host { display:block; }`,
+  render() {
+    const ds = desktopState.value;
+    const bs = backendStatus.value;
+    return html`
+      <div class="view-grid">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Backend configuration</h2>
+              <p class="dim">
+                Configure executable, arguments, and working directory for the
+                local backend.
+              </p>
+            </div>
+          </div>
+          <label class="field"
+            ><span>Executable</span>
+            <div class="input-with-btn">
+              <input
+                id="cfg-executable"
+                value="${escapeHtml(ds.backendExecutable)}"
+                placeholder="checkai"
+              /><button class="btn btn-ghost" data-action="pick-executable">
+                Browse
+              </button>
+            </div></label
+          >
+          <label class="field"
+            ><span>Arguments</span
+            ><input
+              id="cfg-args"
+              value="${escapeHtml(ds.backendArgs)}"
+              placeholder="serve --analysis-depth 30"
+          /></label>
+          <label class="field"
+            ><span>Working directory</span>
+            <div class="input-with-btn">
+              <input
+                id="cfg-working-dir"
+                value="${escapeHtml(ds.backendWorkingDirectory)}"
+                placeholder="/path/to/project"
+              /><button
+                class="btn btn-ghost"
+                data-action="pick-working-directory"
+              >
+                Browse
+              </button>
+            </div></label
+          >
+          <label class="field"
+            ><span>Server URL</span
+            ><input
+              id="cfg-url"
+              value="${escapeHtml(ds.backendUrl)}"
+              placeholder="http://127.0.0.1:8080"
+          /></label>
+          <label class="field checkbox-field"
+            ><input
+              id="cfg-autostart"
+              type="checkbox"
+              ${ds.autoStartBackend ? 'checked' : ''}
+            /><span>Auto-start backend on launch</span></label
+          >
+          <div class="btn-row">
+            <button class="btn btn-primary" data-action="start-backend">
+              Start backend
+            </button>
+            <button class="btn btn-ghost" data-action="stop-backend">
+              Stop backend
+            </button>
+            <button class="btn btn-ghost" data-action="save-settings">
+              Save
+            </button>
+          </div>
+          ${bs.lastError
+            ? html`<div class="callout callout-danger">
+                ${safeHtml`${bs.lastError}`}
+              </div>`
+            : ''}
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Engine assets</h2>
+              <p class="dim">
+                Opening books and tablebases applied to backend launch.
+              </p>
+            </div>
+          </div>
+          <label class="field"
+            ><span>Opening book (.bin)</span>
+            <div class="input-with-btn">
+              <input
+                id="cfg-book"
+                value="${escapeHtml(ds.openingBookPath)}"
+                placeholder="/path/to/book.bin"
+              /><button class="btn btn-ghost" data-action="pick-opening-book">
+                Browse
+              </button>
+            </div></label
+          >
+          <label class="field"
+            ><span>Tablebase directory</span>
+            <div class="input-with-btn">
+              <input
+                id="cfg-tablebase"
+                value="${escapeHtml(ds.tablebasePath)}"
+                placeholder="/path/to/tablebases"
+              /><button class="btn btn-ghost" data-action="pick-tablebase">
+                Browse
+              </button>
+            </div></label
+          >
+          <div class="callout">
+            <strong>Note:</strong>
+            <span
+              >These paths are appended as <code>--book-path</code> and
+              <code>--tablebase-path</code> flags unless already present in your
+              arguments.</span
+            >
+          </div>
+        </div>
+      </div>
+    `;
+  },
+});
+
+// ── Component: Logs ─────────────────────────────────────────────────────────
+
+component('cai-logs', {
+  styles: `:host { display:block; }`,
+  render() {
+    return html`
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h2>Backend logs</h2>
+            <p class="dim">Tail stdout/stderr from the local engine process.</p>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" data-action="refresh-logs">
+              Refresh
+            </button>
+            <button class="btn btn-ghost" data-action="open-working-dir">
+              Open working directory
+            </button>
+          </div>
+        </div>
+        <pre class="log-panel">
+${escapeHtml(backendLogs.value || 'No logs captured yet.')}</pre
+        >
+      </div>
+    `;
+  },
+});
+
+// ── Component: Settings ─────────────────────────────────────────────────────
+
+component('cai-settings', {
+  styles: `:host { display:block; }`,
+  render() {
+    const us = updateStatus.value;
+    return html`
+      <div class="view-grid">
+        <div class="card">
+          <div class="card-head">
+            <div><h2>Desktop preferences</h2></div>
+          </div>
+          <div class="stat-grid">
+            <div class="stat">
+              <span class="stat-label">Theme</span
+              ><strong>${desktopState.value.theme}</strong>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Board orientation</span
+              ><strong
+                >${boardFlipped.value
+                  ? 'Black at bottom'
+                  : 'White at bottom'}</strong
+              >
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" data-action="toggle-theme">
+              Toggle theme
+            </button>
+            <button class="btn btn-ghost" data-action="flip-board">
+              ${boardFlipped.value ? 'Reset board' : 'Flip board'}
+            </button>
+            <button class="btn btn-primary" data-action="save-settings">
+              Save all settings
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Desktop updates</h2>
+              <p class="dim">Packaged builds can auto-update from GitHub.</p>
+            </div>
+            <span
+              class="badge ${us.state === 'downloaded'
+                ? 'badge-ok'
+                : 'badge-dim'}"
+              >${safeHtml`${us.currentVersion}`}</span
+            >
+          </div>
+          <div class="callout">
+            <strong>Status:</strong>
+            <span>${safeHtml`${us.message ?? 'Ready.'}`}</span>
+          </div>
+          ${us.percent !== null
+            ? html`
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill"
+                    style="width:${Math.round(us.percent)}%"
+                  ></div>
+                </div>
+                <p class="dim">
+                  ${Math.round(us.percent)}% ·
+                  ${formatBytes(us.transferredBytes)} /
+                  ${formatBytes(us.totalBytes)}
+                </p>
+              `
+            : ''}
+          <div class="btn-row">
+            <button class="btn btn-ghost" data-action="check-updates">
+              Check for updates
+            </button>
+            ${us.state === 'available'
+              ? html`<button
+                  class="btn btn-primary"
+                  data-action="download-update"
+                >
+                  Download
+                </button>`
+              : ''}
+            ${us.state === 'downloaded'
+              ? html`<button
+                  class="btn btn-primary"
+                  data-action="install-update"
+                >
+                  Install & restart
+                </button>`
+              : ''}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div><h2>Keyboard shortcuts</h2></div>
+          </div>
+          <ul class="shortcut-list">
+            <li><kbd>Ctrl/⌘ + K</kbd> Command palette</li>
+            <li><kbd>Ctrl/⌘ + 1–8</kbd> Switch views</li>
+            <li><kbd>Ctrl/⌘ + N</kbd> New game</li>
+            <li><kbd>Ctrl/⌘ + F</kbd> Flip board</li>
+            <li><kbd>Escape</kbd> Close palette / deselect</li>
+          </ul>
+        </div>
+      </div>
+    `;
+  },
+});
+
+// ── Command palette ─────────────────────────────────────────────────────────
+
+component('cai-palette', {
+  styles: `:host { display:block; }`,
+  render() {
+    if (!paletteOpen.value) return '';
+    return html`
+      <div class="overlay" data-close-palette>
+        <div class="palette" role="dialog" aria-modal="true">
+          <div class="palette-head">
+            <h3>Quick actions</h3>
+            <button class="btn btn-sm" data-close-palette>✕</button>
+          </div>
+          <div class="palette-grid">
+            <button class="palette-btn" data-palette="create-game">
+              New game
+            </button>
+            <button class="palette-btn" data-palette="start-backend">
+              Start backend
+            </button>
+            <button class="palette-btn" data-palette="stop-backend">
+              Stop backend
+            </button>
+            <button class="palette-btn" data-palette="refresh-logs">
+              Refresh logs
+            </button>
+            <button class="palette-btn" data-palette="nav:dashboard">
+              Dashboard
+            </button>
+            <button class="palette-btn" data-palette="nav:games">Games</button>
+            <button class="palette-btn" data-palette="nav:archive">
+              Archive
+            </button>
+            <button class="palette-btn" data-palette="nav:analysis">
+              Analysis
+            </button>
+            <button class="palette-btn" data-palette="nav:engine">
+              Engine config
+            </button>
+            <button class="palette-btn" data-palette="nav:logs">Logs</button>
+            <button class="palette-btn" data-palette="check-updates">
+              Check updates
+            </button>
+            <button class="palette-btn" data-palette="flip-board">
+              Flip board
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+});
+
+// ── Root app shell ──────────────────────────────────────────────────────────
+
+const VIEW_LABELS: Record<DesktopView, string> = {
+  dashboard: 'Dashboard',
+  games: 'Games',
+  board: 'Board',
+  archive: 'Archive',
+  analysis: 'Analysis',
+  engine: 'Engine',
+  logs: 'Logs',
+  settings: 'Settings',
+};
+
+const VIEW_ICONS: Record<DesktopView, string> = {
+  dashboard: '⌂',
+  games: '♟',
+  board: '♔',
+  archive: '📦',
+  analysis: '📊',
+  engine: '⚙',
+  logs: '📋',
+  settings: '🔧',
+};
+
+function renderViewContent(view: DesktopView): string {
+  switch (view) {
+    case 'dashboard':
+      return '<cai-dashboard></cai-dashboard>';
+    case 'games':
+      return '<cai-games></cai-games>';
+    case 'board':
+      return '<cai-board></cai-board>';
+    case 'archive':
+      return '<cai-archive></cai-archive>';
+    case 'analysis':
+      return '<cai-analysis></cai-analysis>';
+    case 'engine':
+      return '<cai-engine></cai-engine>';
+    case 'logs':
+      return '<cai-logs></cai-logs>';
+    case 'settings':
+      return '<cai-settings></cai-settings>';
+    default:
+      return '<cai-dashboard></cai-dashboard>';
   }
-
-  return {
-    id: activeElement.id,
-    selectionStart: activeElement.selectionStart,
-    selectionEnd: activeElement.selectionEnd,
-    selectionDirection: activeElement.selectionDirection,
-  };
 }
 
-function restoreFocusedInputState(root: HTMLElement, state: InputSelectionState | null): void {
-  if (!state) {
-    return;
-  }
+function renderShell(): string {
+  const view = currentView.value;
+  const bs = backendStatus.value;
 
-  const nextInput = root.querySelector<HTMLInputElement>(`#${CSS.escape(state.id)}`);
-  if (!nextInput) {
-    return;
-  }
-
-  nextInput.focus({ preventScroll: true });
-  if (state.selectionStart !== null && state.selectionEnd !== null) {
-    nextInput.setSelectionRange(
-      state.selectionStart,
-      state.selectionEnd,
-      state.selectionDirection ?? undefined,
-    );
-  }
-}
-
-function renderApp(): string {
   return `
     <div class="shell">
       <aside class="sidebar">
         <div class="brand">
           <span class="brand-icon">♔</span>
-          <div>
-            <strong>CheckAI Desktop</strong>
-            <p>Electron + bQuery workspace</p>
-          </div>
+          <div><strong>CheckAI</strong><p class="dim">Desktop</p></div>
         </div>
         <nav class="sidebar-nav">
-          ${([
-            ['workspace', 'Workspace'],
-            ['live', 'Live'],
-            ['engine', 'Engine'],
-            ['logs', 'Logs'],
-            ['help', 'Help'],
-          ] as Array<[DesktopView, string]>)
+          ${(Object.keys(VIEW_LABELS) as DesktopView[])
             .map(
-              ([view, label]) => `
-                <button class="sidebar-link ${currentView.value === view ? 'active' : ''}" data-view="${view}">
-                  ${label}
-                </button>
-              `,
+              (v) => `
+            <button class="nav-btn ${view === v ? 'active' : ''}" data-nav="${v}">
+              <span class="nav-icon">${VIEW_ICONS[v]}</span>
+              <span>${VIEW_LABELS[v]}</span>
+            </button>
+          `
             )
             .join('')}
         </nav>
         <div class="sidebar-footer">
-          <span class="status-dot ${backendStatus.value.running ? 'online' : 'offline'}"></span>
-          <span>${backendStatus.value.running ? 'Local engine online' : 'Local engine idle'}</span>
+          <span class="status-dot ${bs.running ? 'online' : 'offline'}"></span>
+          <span>${bs.running ? 'Engine online' : 'Engine offline'}</span>
         </div>
       </aside>
-
       <main class="content">
-        <header class="topbar">
-          <div>
-            <h1>Dedicated desktop UI for productive engine workflows</h1>
-            <p>${escapeHtml(desktopState.value.backendUrl)}</p>
-          </div>
-          <div class="topbar-actions">
-            <div class="status-card">
-              <span class="status-title">Backend</span>
-              <strong>${backendStatus.value.running ? 'Running' : 'Stopped'}</strong>
-              <span class="status-subtle">${escapeHtml(backendStatus.value.command ?? 'Waiting for launch')}</span>
-            </div>
-            <div class="status-card">
-              <span class="status-title">Desktop update</span>
-              <strong>${
-                updateStatus.value.availableVersion
-                  ? `v${escapeHtml(updateStatus.value.availableVersion)} ready`
-                  : escapeHtml(updateStatus.value.currentVersion)
-              }</strong>
-              <span class="status-subtle">${escapeHtml(updateStatus.value.message ?? 'Ready to check for updates.')}</span>
-            </div>
-            <button class="btn btn-secondary" data-action="toggle-palette">Quick actions</button>
-            ${renderUpdateActionButton()}
-            <button class="btn btn-primary" data-action="start">Start</button>
-          </div>
-        </header>
-
-        ${
-          message.value
-            ? `<div class="flash-message">${escapeHtml(message.value)}</div>`
-            : ''
-        }
-        ${
-          backendStatus.value.lastError
-            ? `<div class="error-banner">${escapeHtml(backendStatus.value.lastError)}</div>`
-            : ''
-        }
-
-        ${renderMainContent()}
+        ${toastMsg.value ? `<div class="toast toast-ok">${escapeHtml(toastMsg.value)}</div>` : ''}
+        ${errorMsg.value ? `<div class="toast toast-err">${escapeHtml(errorMsg.value)}</div>` : ''}
+        ${renderViewContent(view)}
       </main>
     </div>
-    ${renderCommandPalette()}
+    <cai-palette></cai-palette>
   `;
 }
 
-async function handleAction(action: string): Promise<void> {
+// ── Event delegation ────────────────────────────────────────────────────────
+
+const appRoot = document.getElementById('app');
+if (!appRoot) throw new Error('Missing #app root element');
+
+appRoot.addEventListener('click', (e) => {
+  const target = e.target;
+  if (!(target instanceof Element)) return;
+
+  // Close palette
+  if (target.closest('[data-close-palette]') && !target.closest('.palette')) {
+    paletteOpen.value = false;
+    return;
+  }
+  if (target.hasAttribute('data-close-palette')) {
+    paletteOpen.value = false;
+    return;
+  }
+
+  // Square clicks
+  const sqEl = target.closest<HTMLElement>('[data-sq]');
+  if (sqEl && sqEl.closest('[data-board-interactive]')) {
+    void handleSquareClick(sqEl.dataset.sq!);
+    return;
+  }
+
+  // Navigation
+  const navEl = target.closest<HTMLElement>('[data-nav]');
+  if (navEl) {
+    const v = navEl.dataset.nav as DesktopView;
+    currentView.value = v;
+    void persistViewSilently();
+    if (v === 'games') void refreshGamesList();
+    if (v === 'archive') void refreshArchive();
+    if (v === 'analysis') void refreshAnalysisJobs();
+    if (v === 'logs') void refreshLogs();
+    if (v === 'dashboard') {
+      void refreshGamesList();
+      void apiGetStorageStats()
+        .then((s) => (storageStats.value = s))
+        .catch(() => {});
+    }
+    return;
+  }
+
+  // Palette actions
+  const paletteBtn = target.closest<HTMLElement>('[data-palette]');
+  if (paletteBtn) {
+    paletteOpen.value = false;
+    const action = paletteBtn.dataset.palette!;
+    void handleAction(action);
+    return;
+  }
+
+  // General actions
+  const actionEl = target.closest<HTMLElement>('[data-action]');
+  if (actionEl) {
+    void handleAction(actionEl.dataset.action!, actionEl.dataset.id);
+    return;
+  }
+});
+
+appRoot.addEventListener('input', (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLInputElement)) return;
+  switch (t.id) {
+    case 'cfg-executable':
+      updateDesktopState({ backendExecutable: t.value });
+      break;
+    case 'cfg-args':
+      updateDesktopState({ backendArgs: t.value });
+      break;
+    case 'cfg-working-dir':
+      updateDesktopState({ backendWorkingDirectory: t.value });
+      break;
+    case 'cfg-url':
+      updateDesktopState({ backendUrl: t.value });
+      break;
+    case 'cfg-book':
+      updateDesktopState({ openingBookPath: t.value });
+      break;
+    case 'cfg-tablebase':
+      updateDesktopState({ tablebasePath: t.value });
+      break;
+    case 'fen-import':
+      fenInput.value = t.value;
+      break;
+    case 'analysis-depth':
+      analysisDepth.value = parseInt(t.value) || 30;
+      break;
+  }
+});
+
+appRoot.addEventListener('change', (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLInputElement)) return;
+  if (t.id === 'cfg-autostart')
+    updateDesktopState({ autoStartBackend: t.checked });
+  if (t.hasAttribute('data-replay-slider')) {
+    void replayTo(parseInt(t.value));
+  }
+});
+
+async function handleAction(action: string, id?: string): Promise<void> {
   try {
+    if (action.startsWith('nav:')) {
+      const v = action.slice(4) as DesktopView;
+      currentView.value = v;
+      void persistViewSilently();
+      if (v === 'games') void refreshGamesList();
+      if (v === 'archive') void refreshArchive();
+      if (v === 'analysis') void refreshAnalysisJobs();
+      if (v === 'logs') void refreshLogs();
+      if (v === 'dashboard') {
+        void refreshGamesList();
+        void apiGetStorageStats()
+          .then((s) => (storageStats.value = s))
+          .catch(() => {});
+      }
+      return;
+    }
     switch (action) {
-      case 'save':
-        await saveSettings();
+      case 'create-game':
+        await createNewGame();
         break;
-      case 'start':
+      case 'import-fen':
+        await importFromFen();
+        break;
+      case 'open-game':
+        if (id) await openGame(id);
+        break;
+      case 'delete-game':
+        if (id) await doDeleteGame(id);
+        break;
+      case 'refresh-games':
+        await refreshGamesList();
+        break;
+      case 'refresh-game':
+        if (activeGame.value) await openGame(activeGame.value.game_id);
+        break;
+      case 'flip-board':
+        updateDesktopState({ boardFlipped: !boardFlipped.value });
+        break;
+      case 'resign':
+        await doAction('resign');
+        break;
+      case 'offer-draw':
+        await doAction('offer_draw');
+        break;
+      case 'claim-draw-threefold':
+        await doAction('claim_draw', 'threefold_repetition');
+        break;
+      case 'claim-draw-fifty':
+        await doAction('claim_draw', 'fifty_move_rule');
+        break;
+      case 'export-fen':
+        await doExportFen();
+        break;
+      case 'export-pgn':
+        await doExportPgn();
+        break;
+      case 'refresh-archive':
+        await refreshArchive();
+        break;
+      case 'replay-archived':
+        if (id) await openArchivedGame(id);
+        break;
+      case 'close-replay':
+        replayState.value = null;
+        replayGameId.value = null;
+        break;
+      case 'replay-start':
+        await replayTo(0);
+        break;
+      case 'replay-prev':
+        if (replayState.value)
+          await replayTo(Math.max(0, replayState.value.at_move - 1));
+        break;
+      case 'replay-next':
+        if (replayState.value)
+          await replayTo(
+            Math.min(
+              replayState.value.total_moves,
+              replayState.value.at_move + 1
+            )
+          );
+        break;
+      case 'replay-end':
+        if (replayState.value) await replayTo(replayState.value.total_moves);
+        break;
+      case 'analyze-game':
+      case 'analyze-archived':
+        if (id) {
+          await submitAnalysis(id);
+          currentView.value = 'analysis';
+        }
+        break;
+      case 'refresh-analysis':
+        await refreshAnalysisJobs();
+        break;
+      case 'view-analysis':
+        if (id) await pollAnalysisJob(id);
+        break;
+      case 'cancel-analysis':
+        if (id) await cancelAnalysis(id);
+        break;
+      case 'close-analysis':
+        activeAnalysis.value = null;
+        break;
+      case 'start-backend':
         await startBackend();
         break;
-      case 'stop':
+      case 'stop-backend':
         await stopBackend();
         break;
-      case 'open-browser':
-        await openLiveInBrowser();
-        break;
-      case 'reload-live':
-        reloadLiveView();
+      case 'save-settings':
+        await saveDesktopSettings();
         break;
       case 'refresh-logs':
         await refreshLogs();
         break;
+      case 'open-working-dir': {
+        const p = desktopState.value.backendWorkingDirectory.trim();
+        if (p) await desktop.openPath(p);
+        break;
+      }
+      case 'pick-executable': {
+        const f = await desktop.pickFile();
+        if (f) updateDesktopState({ backendExecutable: f });
+        break;
+      }
+      case 'pick-working-directory': {
+        const d = await desktop.pickDirectory();
+        if (d) updateDesktopState({ backendWorkingDirectory: d });
+        break;
+      }
+      case 'pick-opening-book': {
+        const f = await desktop.pickFile();
+        if (f) updateDesktopState({ openingBookPath: f });
+        break;
+      }
+      case 'pick-tablebase': {
+        const d = await desktop.pickDirectory();
+        if (d) updateDesktopState({ tablebasePath: d });
+        break;
+      }
       case 'check-updates':
-        await checkForDesktopUpdates();
+        updateStatus.value = await desktop.checkForUpdates();
         break;
       case 'download-update':
-        await downloadDesktopUpdate();
+        updateStatus.value = await desktop.downloadUpdate();
         break;
       case 'install-update':
-        await installDesktopUpdate();
+        await desktop.installUpdate();
         break;
-      case 'pick-executable':
-        await chooseExecutable();
-        break;
-      case 'pick-working-directory':
-        await chooseWorkingDirectory();
-        break;
-      case 'pick-opening-book':
-        await chooseOpeningBook();
-        break;
-      case 'pick-tablebase':
-        await chooseTablebase();
-        break;
-      case 'live':
-        currentView.value = 'live';
-        break;
-      case 'logs':
-        currentView.value = 'logs';
-        break;
-      case 'toggle-palette':
-        paletteOpen.value = true;
-        break;
-      case 'open-working-directory': {
-        const path = desktopState.value.backendWorkingDirectory.trim();
-        if (path) {
-          await desktop.openPath(path);
-        }
+      case 'toggle-theme': {
+        const next = desktopState.value.theme === 'dark' ? 'light' : 'dark';
+        updateDesktopState({ theme: next });
+        document.documentElement.setAttribute('data-theme', next);
         break;
       }
     }
-  } catch (error) {
-    const text = error instanceof Error ? error.message : String(error);
-    console.error(`Desktop action "${action}" failed:`, error);
-    setMessage(text);
+  } catch (err) {
+    showError((err as Error).message);
   }
 }
 
-function bindRootEvents(root: HTMLElement): void {
-  root.addEventListener('click', (event) => {
-    if (!(event.target instanceof Element)) return;
+// ── Keyboard shortcuts ──────────────────────────────────────────────────────
 
-    if (event.target.hasAttribute('data-close-palette')) {
+window.addEventListener('keydown', (e) => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    paletteOpen.value = true;
+    return;
+  }
+  if (mod && e.key.toLowerCase() === 'n') {
+    e.preventDefault();
+    void createNewGame();
+    return;
+  }
+  if (mod && e.key.toLowerCase() === 'f') {
+    e.preventDefault();
+    updateDesktopState({ boardFlipped: !boardFlipped.value });
+    return;
+  }
+  if (mod && /^[1-8]$/.test(e.key)) {
+    e.preventDefault();
+    const views: DesktopView[] = [
+      'dashboard',
+      'games',
+      'board',
+      'archive',
+      'analysis',
+      'engine',
+      'logs',
+      'settings',
+    ];
+    currentView.value = views[parseInt(e.key) - 1];
+    void persistViewSilently();
+    return;
+  }
+  if (e.key === 'Escape') {
+    if (paletteOpen.value) {
       paletteOpen.value = false;
       return;
     }
+    selectedSquare.value = null;
+  }
+});
 
-    const target = event.target.closest<HTMLElement>(
-      '[data-view], [data-action], [data-palette-action]',
-    );
-    if (!target) return;
+// ── Reactive rendering ──────────────────────────────────────────────────────
 
-    const view = target.dataset.view as DesktopView | undefined;
-    if (view) {
-      currentView.value = view;
-      updateState({ lastView: view });
-      void persistState(false);
-      return;
+let pendingFrame: number | null = null;
+let pendingMarkup = '';
+
+effect(() => {
+  pendingMarkup = renderShell();
+  if (pendingFrame !== null) return;
+  pendingFrame = requestAnimationFrame(() => {
+    pendingFrame = null;
+    // Save focused input
+    const ae = document.activeElement;
+    let focusId = '';
+    let selStart: number | null = null;
+    let selEnd: number | null = null;
+    if (ae instanceof HTMLInputElement && ae.id) {
+      focusId = ae.id;
+      selStart = ae.selectionStart;
+      selEnd = ae.selectionEnd;
     }
-
-    const paletteAction = target.dataset.paletteAction;
-    if (paletteAction) {
-      paletteOpen.value = false;
-      void handleAction(
-        paletteAction === 'reload'
-          ? 'reload-live'
-          : paletteAction === 'browser'
-            ? 'open-browser'
-            : paletteAction,
+    const tpl = document.createElement('template');
+    tpl.innerHTML = pendingMarkup;
+    appRoot.replaceChildren(tpl.content);
+    // Restore focus
+    if (focusId) {
+      const el = appRoot.querySelector<HTMLInputElement>(
+        `#${CSS.escape(focusId)}`
       );
-      return;
-    }
-
-    const action = target.dataset.action;
-    if (action) {
-      void handleAction(action);
-    }
-  });
-
-  root.addEventListener('input', (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
-
-    if (target.id === 'backend-url') updateState({ backendUrl: target.value });
-    if (target.id === 'backend-executable') updateState({ backendExecutable: target.value });
-    if (target.id === 'backend-args') updateState({ backendArgs: target.value });
-    if (target.id === 'backend-working-directory')
-      updateState({ backendWorkingDirectory: target.value });
-    if (target.id === 'opening-book-path') updateState({ openingBookPath: target.value });
-    if (target.id === 'tablebase-path') updateState({ tablebasePath: target.value });
-  });
-
-  root.addEventListener('change', (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
-
-    if (target.id === 'auto-start') {
-      updateState({ autoStartBackend: target.checked });
+      if (el) {
+        el.focus({ preventScroll: true });
+        if (selStart !== null && selEnd !== null)
+          el.setSelectionRange(selStart, selEnd);
+      }
     }
   });
-}
+});
 
-function registerKeyboardShortcuts(): void {
-  window.addEventListener('keydown', (event) => {
-    const shortcut = event.metaKey || event.ctrlKey;
-    if (shortcut && event.key.toLowerCase() === 'k') {
-      event.preventDefault();
-      paletteOpen.value = true;
-      return;
-    }
-
-    if (shortcut && /^[1-5]$/.test(event.key)) {
-      event.preventDefault();
-      const order: DesktopView[] = ['workspace', 'live', 'engine', 'logs', 'help'];
-      currentView.value = order[Number(event.key) - 1] ?? 'workspace';
-      updateState({ lastView: currentView.value });
-      void persistState(false);
-      return;
-    }
-
-    if (event.key === 'Escape') {
-      paletteOpen.value = false;
-    }
-  });
-}
+// ── Initialize ──────────────────────────────────────────────────────────────
 
 async function init(): Promise<void> {
   desktopState.value = await desktop.getState();
@@ -905,44 +2187,26 @@ async function init(): Promise<void> {
   backendStatus.value = await desktop.getBackendStatus();
   backendLogs.value = await desktop.getBackendLogs();
   updateStatus.value = await desktop.getUpdateStatus();
+  setApiBase(desktopState.value.backendUrl);
+  document.documentElement.setAttribute('data-theme', desktopState.value.theme);
 
-  desktop.onBackendStatus((status) => {
-    backendStatus.value = status;
+  desktop.onBackendStatus((s) => {
+    backendStatus.value = s;
   });
-  desktop.onBackendLogs((logs) => {
-    backendLogs.value = logs;
+  desktop.onBackendLogs((l) => {
+    backendLogs.value = l;
   });
-  desktop.onUpdateStatus((status) => {
-    updateStatus.value = status;
+  desktop.onUpdateStatus((s) => {
+    updateStatus.value = s;
   });
 
-  registerKeyboardShortcuts();
+  // Initial data load
+  void refreshGamesList().catch(() => {});
+  void apiGetStorageStats()
+    .then((s) => (storageStats.value = s))
+    .catch(() => {});
+  void refreshArchive().catch(() => {});
+  void refreshAnalysisJobs().catch(() => {});
 }
-
-const appRoot = document.getElementById('app');
-if (!appRoot) {
-  throw new Error('Missing #app root element');
-}
-
-bindRootEvents(appRoot);
-
-effect(() => {
-  pendingRenderMarkup = renderApp();
-
-  if (pendingRenderFrame !== null) {
-    return;
-  }
-
-  pendingRenderFrame = window.requestAnimationFrame(() => {
-    pendingRenderFrame = null;
-
-    const focusedInputState = captureFocusedInputState(appRoot);
-    const template = document.createElement('template');
-    template.innerHTML = pendingRenderMarkup;
-    syncLiveIframe(template.content.querySelector('[data-live-iframe-host]'));
-    appRoot.replaceChildren(template.content);
-    restoreFocusedInputState(appRoot, focusedInputState);
-  });
-});
 
 void init();
