@@ -316,7 +316,7 @@ checkai/
 │       ├── shared-types.ts   # Shared IPC contract (main, preload, renderer)
 │       ├── renderer.ts       # Desktop workspace shell UI
 │       ├── electron-main.ts
-│       └── preload.ts
+│       ├── preload.ts
 │       └── styles.css        # Desktop-specific styles
 ├── web/                  # TypeScript Web UI (bQuery + Tailwind + Vite)
 │   ├── src/              # 12 TypeScript source modules
