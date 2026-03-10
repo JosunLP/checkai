@@ -28,17 +28,17 @@ The desktop app keeps the full engine workspace available while adding desktop-n
 
 ```bash
 cd desktop
-npm ci
-npm run build
-npm run start
+bun install
+bun run build
+bun run start
 ```
 
 For local packaging:
 
 ```bash
 cd desktop
-npm run pack   # unpacked app bundle
-npm run dist   # installable artifacts
+bun run pack   # unpacked app bundle
+bun run dist   # installable artifacts
 ```
 
 ## Workflow

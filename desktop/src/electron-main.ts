@@ -164,6 +164,12 @@ function buildBackendArgs(state: DesktopState): string[] {
     if (port && /^\d+$/.test(port) && !args.includes('--port')) {
       args.push('--port', port);
     }
+    if (!args.includes('--host')) {
+      const host = url.hostname || '127.0.0.1';
+      if (host) {
+        args.push('--host', host);
+      }
+    }
   } catch {
     // Ignore invalid URLs here; the renderer validates what it stores.
   }

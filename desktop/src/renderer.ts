@@ -245,10 +245,10 @@ async function installDesktopUpdate(): Promise<void> {
   await desktop.installUpdate();
 }
 
-function openLiveInBrowser(): void {
+async function openLiveInBrowser(): Promise<void> {
   const url = desktopState.value.backendUrl.trim();
   if (!url) return;
-  void desktop.openExternal(url);
+  await desktop.openExternal(url);
 }
 
 function reloadLiveView(): void {
@@ -758,7 +758,7 @@ async function handleAction(action: string): Promise<void> {
         await stopBackend();
         break;
       case 'open-browser':
-        openLiveInBrowser();
+        await openLiveInBrowser();
         break;
       case 'reload-live':
         reloadLiveView();
@@ -813,15 +813,17 @@ async function handleAction(action: string): Promise<void> {
 
 function bindRootEvents(root: HTMLElement): void {
   root.addEventListener('click', (event) => {
-    const target = (event.target as HTMLElement).closest<HTMLElement>(
-      '[data-view], [data-action], [data-palette-action], [data-close-palette]',
-    );
-    if (!target) return;
+    if (!(event.target instanceof Element)) return;
 
-    if (target.hasAttribute('data-close-palette')) {
+    if (event.target.hasAttribute('data-close-palette')) {
       paletteOpen.value = false;
       return;
     }
+
+    const target = event.target.closest<HTMLElement>(
+      '[data-view], [data-action], [data-palette-action]',
+    );
+    if (!target) return;
 
     const view = target.dataset.view as DesktopView | undefined;
     if (view) {

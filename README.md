@@ -89,9 +89,9 @@ The repository now also includes a dedicated Electron desktop shell in `desktop/
 
 ```bash
 cd desktop
-npm ci
-npm run build
-npm run start
+bun install
+bun run build
+bun run start
 ```
 
 By default the desktop app targets `http://127.0.0.1:8080`, can persist backend launch settings between sessions, and can start a local `checkai serve` process for you. The embedded live workspace is intentionally limited to loopback URLs for safety; non-local targets can still be opened in your browser. Packaged desktop releases can also check GitHub Releases for updates, download them, and prompt for restart-based installation from inside the app. Release automation now publishes updater-compatible artifacts (AppImage/zip/NSIS) together with native installer packages per platform (`.deb`, `.dmg`, `.msi`). To keep Windows desktop updates working, release builds continue to ship the updater-compatible NSIS package alongside the MSI installer.
@@ -310,6 +310,7 @@ checkai/
 │   ├── src/index.mjs     # Library API exports
 │   └── README.md         # package documentation
 ├── desktop/              # Electron desktop UI (bQuery renderer + native shell)
+│   ├── bun.lock          # Bun lockfile for desktop workspace
 │   ├── package.json      # Desktop build + packaging scripts
 │   ├── index.html        # Renderer entry point
 │   └── src/
