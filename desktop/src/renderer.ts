@@ -1,4 +1,4 @@
-import './styles.css';
+import './styles.scss';
 
 import { component, html, safeHtml } from '@bquery/bquery/component';
 import { computed, effect, signal } from '@bquery/bquery/reactive';

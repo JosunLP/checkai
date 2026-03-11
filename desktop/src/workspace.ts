@@ -62,6 +62,7 @@ const systemThemeMedia =
   typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: light)') : null;
 
 let analysisPollTimer: ReturnType<typeof setInterval> | null = null;
+let analysisRefreshInFlight = false;
 let workspaceRefreshTimer: ReturnType<typeof setInterval> | null = null;
 let workspaceRefreshInFlight = false;
 let workspacePollingBackoffUntil = 0;
@@ -458,22 +459,34 @@ function stopAnalysisPolling(): void {
     clearInterval(analysisPollTimer);
     analysisPollTimer = null;
   }
+  analysisRefreshInFlight = false;
   void desktop.setProgressBar(null);
 }
 
 function startAnalysisPolling(jobId: string): void {
   stopAnalysisPolling();
   analysisPollTimer = setInterval(async () => {
+    if (analysisRefreshInFlight) {
+      return;
+    }
+
     const currentJob = get(activeAnalysis);
     if (!currentJob || currentJob.id !== jobId) {
       stopAnalysisPolling();
       return;
     }
 
-    await refreshActiveAnalysisJob(true);
-    const nextJob = get(activeAnalysis);
-    if (!nextJob || isTerminalAnalysisStatus(nextJob.status)) {
-      stopAnalysisPolling();
+    analysisRefreshInFlight = true;
+    try {
+      await refreshActiveAnalysisJob(true);
+      const nextJob = get(activeAnalysis);
+      if (!nextJob || isTerminalAnalysisStatus(nextJob.status)) {
+        stopAnalysisPolling();
+      }
+    } finally {
+      if (analysisPollTimer) {
+        analysisRefreshInFlight = false;
+      }
     }
   }, ANALYSIS_POLL_INTERVAL_MS);
 }
