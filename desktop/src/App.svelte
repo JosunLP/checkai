@@ -37,12 +37,15 @@
       }
     };
 
-    void (async () => {
-      await loadDesktopState();
-      initializeBackendListener();
-      initializeUpdateListener();
-      document.documentElement.setAttribute('data-theme', $desktopState.theme);
-    })();
+    loadDesktopState()
+      .then(() => {
+        initializeBackendListener();
+        initializeUpdateListener();
+        document.documentElement.setAttribute('data-theme', $desktopState.theme);
+      })
+      .catch((error) => {
+        console.error('Failed to initialize desktop UI:', error);
+      });
 
     window.addEventListener('keydown', handleKeydown);
     return () => window.removeEventListener('keydown', handleKeydown);
