@@ -10,7 +10,8 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"],
-    "types": ["vite/client"]
+    "types": ["vite/client", "svelte"]
   },
-  "include": ["src/renderer.ts", "src/shared-types.ts"]
+  "include": ["src/**/*.ts", "src/**/*.svelte"],
+  "exclude": ["node_modules", "dist", "dist-electron"]
 }
