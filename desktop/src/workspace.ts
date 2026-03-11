@@ -63,6 +63,7 @@ const systemThemeMedia =
 
 let analysisPollTimer: ReturnType<typeof setInterval> | null = null;
 let analysisRefreshInFlight = false;
+let analysisPollingSession = 0;
 let workspaceRefreshTimer: ReturnType<typeof setInterval> | null = null;
 let workspaceRefreshInFlight = false;
 let workspacePollingBackoffUntil = 0;
@@ -459,13 +460,19 @@ function stopAnalysisPolling(): void {
     clearInterval(analysisPollTimer);
     analysisPollTimer = null;
   }
+  analysisPollingSession += 1;
   analysisRefreshInFlight = false;
   void desktop.setProgressBar(null);
 }
 
 function startAnalysisPolling(jobId: string): void {
   stopAnalysisPolling();
+  const pollingSession = analysisPollingSession;
   analysisPollTimer = setInterval(async () => {
+    if (pollingSession !== analysisPollingSession) {
+      return;
+    }
+
     if (analysisRefreshInFlight) {
       return;
     }
@@ -484,7 +491,7 @@ function startAnalysisPolling(jobId: string): void {
         stopAnalysisPolling();
       }
     } finally {
-      if (analysisPollTimer) {
+      if (pollingSession === analysisPollingSession) {
         analysisRefreshInFlight = false;
       }
     }
