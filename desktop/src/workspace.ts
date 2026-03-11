@@ -54,6 +54,7 @@ import type {
 
 const ANALYSIS_POLL_INTERVAL_MS = 2000;
 const WORKSPACE_REFRESH_INTERVAL_MS = 5000;
+const MAX_WORKSPACE_REFRESH_BACKOFF_MULTIPLIER = 6;
 const ID_DISPLAY_LENGTH = 8;
 const MIN_ANALYSIS_DEPTH = 30;
 const MAX_ANALYSIS_DEPTH = 99;
@@ -439,7 +440,10 @@ function startWorkspaceRefreshPolling(): void {
         workspacePollingBackoffUntil = 0;
       } else {
         workspacePollingFailureCount += 1;
-        const backoffMultiplier = Math.min(workspacePollingFailureCount, 6);
+        const backoffMultiplier = Math.min(
+          workspacePollingFailureCount,
+          MAX_WORKSPACE_REFRESH_BACKOFF_MULTIPLIER
+        );
         workspacePollingBackoffUntil =
           Date.now() + WORKSPACE_REFRESH_INTERVAL_MS * backoffMultiplier;
       }
