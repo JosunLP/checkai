@@ -36,6 +36,8 @@
 
   onMount(() => {
     let cleanupWorkspace: () => void = () => {};
+    let cleanupBackendListener: () => void = () => {};
+    let cleanupUpdateListener: () => void = () => {};
 
     const handleKeydown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
@@ -65,8 +67,8 @@
 
     initializeDesktopWorkspace()
       .then((cleanup) => {
-        initializeBackendListener();
-        initializeUpdateListener();
+        cleanupBackendListener = initializeBackendListener();
+        cleanupUpdateListener = initializeUpdateListener();
         return cleanup;
       })
       .then((cleanup) => {
@@ -79,6 +81,8 @@
     window.addEventListener('keydown', handleKeydown);
     return () => {
       cleanupWorkspace();
+      cleanupBackendListener();
+      cleanupUpdateListener();
       window.removeEventListener('keydown', handleKeydown);
     };
   });

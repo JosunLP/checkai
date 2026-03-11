@@ -26,6 +26,7 @@ import { normalizeBackendUrlOrFallback } from './backend-url.js';
 
 const MAX_LOG_LINES = 400;
 const LOG_PUSH_DELAY_MS = 250;
+const BACKEND_FORCE_KILL_TIMEOUT_MS = 10_000;
 const DEFAULT_NOTIFICATION_TITLE = 'CheckAI Desktop';
 
 let mainWindow: BrowserWindow | null = null;
@@ -36,6 +37,7 @@ let backendExitListener:
 let backendStopRequested = false;
 let backendLogs = '';
 let backendLogsFlushTimer: NodeJS.Timeout | null = null;
+let backendForceKillTimer: NodeJS.Timeout | null = null;
 let backendStatus: BackendStatusPayload = {
   running: false,
   pid: null,
@@ -271,16 +273,20 @@ function buildBackendArgs(state: DesktopState): string[] {
       args.push('--port', port);
     }
     if (!args.includes('--host')) {
-      const host = url.hostname || '127.0.0.1';
-      if (host) {
-        args.push('--host', host);
-      }
+      args.push('--host', '127.0.0.1');
     }
   } catch {
     // Ignore invalid URLs here; persisted desktop state is normalized before use.
   }
 
   return args;
+}
+
+function clearBackendForceKillTimer(): void {
+  if (backendForceKillTimer) {
+    clearTimeout(backendForceKillTimer);
+    backendForceKillTimer = null;
+  }
 }
 
 function notify(title: unknown, body: unknown): void {
@@ -705,6 +711,7 @@ function buildApplicationMenu(): Menu {
 function startBackend(state: DesktopState): BackendStatusPayload {
   if (!backendProcess && backendStopRequested) {
     backendStopRequested = false;
+    clearBackendForceKillTimer();
   }
 
   if (backendProcess && backendStopRequested) {
@@ -736,6 +743,7 @@ function startBackend(state: DesktopState): BackendStatusPayload {
   flushBackendLogs();
 
   try {
+    clearBackendForceKillTimer();
     backendStopRequested = false;
     backendProcess = spawn(executable, args, {
       cwd: state.backendWorkingDirectory.trim() || undefined,
@@ -785,6 +793,7 @@ function startBackend(state: DesktopState): BackendStatusPayload {
       backendExitListener = null;
     }
 
+    clearBackendForceKillTimer();
     backendStopRequested = false;
     backendProcess = null;
     backendStatus = {
@@ -808,6 +817,7 @@ function startBackend(state: DesktopState): BackendStatusPayload {
     }
 
     const stopRequested = backendStopRequested;
+    clearBackendForceKillTimer();
     backendProcess = null;
     backendExitListener = null;
     backendStatus = {
@@ -848,6 +858,7 @@ function stopBackend(): BackendStatusPayload {
   try {
     processRef.kill();
   } catch (error) {
+    clearBackendForceKillTimer();
     backendProcess = null;
     backendStopRequested = false;
     backendStatus = {
@@ -859,6 +870,38 @@ function stopBackend(): BackendStatusPayload {
     pushBackendStatus();
     return backendStatus;
   }
+
+  clearBackendForceKillTimer();
+  backendForceKillTimer = setTimeout(() => {
+    if (!backendStopRequested || backendProcess !== processRef) {
+      clearBackendForceKillTimer();
+      return;
+    }
+
+    if (backendExitListener) {
+      processRef.removeListener('exit', backendExitListener);
+      backendExitListener = null;
+    }
+
+    try {
+      processRef.kill('SIGKILL');
+    } catch {
+      // Ignore errors from killing an already-terminated process.
+    }
+
+    backendProcess = null;
+    backendStopRequested = false;
+    backendStatus = {
+      ...backendStatus,
+      running: false,
+      pid: null,
+      lastError:
+        backendStatus.lastError ??
+        'Backend did not exit after the stop request and was force-killed.',
+    };
+    pushBackendStatus();
+    clearBackendForceKillTimer();
+  }, BACKEND_FORCE_KILL_TIMEOUT_MS);
 
   backendStatus = { ...backendStatus, lastError: null };
   pushBackendStatus();

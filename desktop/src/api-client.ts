@@ -16,7 +16,9 @@ import type {
 let apiBase = 'http://127.0.0.1:8080/api';
 
 export function setApiBase(backendUrl: string): void {
-  apiBase = `${backendUrl.replace(/\/+$/, '')}/api`;
+  const withoutTrailingSlashes = backendUrl.replace(/\/+$/, '');
+  const withoutTrailingApi = withoutTrailingSlashes.replace(/\/api$/i, '');
+  apiBase = `${withoutTrailingApi}/api`;
 }
 
 async function request<T>(

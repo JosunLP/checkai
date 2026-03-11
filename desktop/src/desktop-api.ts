@@ -120,20 +120,29 @@ export async function saveDesktopState(): Promise<void> {
   }
 }
 
-export function initializeBackendListener(): void {
-  desktop.onBackendStatus((status) => {
+export function initializeBackendListener(): () => void {
+  const unsubscribeStatus = desktop.onBackendStatus((status) => {
     backendStatus.set(status);
   });
 
-  desktop.onBackendLogs((logs) => {
+  const unsubscribeLogs = desktop.onBackendLogs((logs) => {
     backendLogs.set(logs);
   });
+
+  return () => {
+    unsubscribeStatus();
+    unsubscribeLogs();
+  };
 }
 
-export function initializeUpdateListener(): void {
-  desktop.onUpdateStatus((status) => {
+export function initializeUpdateListener(): () => void {
+  const unsubscribeUpdate = desktop.onUpdateStatus((status) => {
     updateStatus.set(status);
   });
+
+  return () => {
+    unsubscribeUpdate();
+  };
 }
 
 export async function startBackend(): Promise<void> {

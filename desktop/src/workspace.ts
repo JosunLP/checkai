@@ -60,15 +60,29 @@ let analysisPollTimer: ReturnType<typeof setInterval> | null = null;
 let workspaceRefreshTimer: ReturnType<typeof setInterval> | null = null;
 let workspaceRefreshInFlight = false;
 let menuCommandCleanup: (() => void) | null = null;
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+let errorTimer: ReturnType<typeof setTimeout> | null = null;
 
 function pushToast(message: string): void {
   toastMsg.set(message);
-  setTimeout(() => toastMsg.set(null), 3200);
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+  }
+  toastTimer = setTimeout(() => {
+    toastMsg.set(null);
+    toastTimer = null;
+  }, 3200);
 }
 
 function pushError(message: string): void {
   errorMsg.set(message);
-  setTimeout(() => errorMsg.set(null), 5000);
+  if (errorTimer) {
+    clearTimeout(errorTimer);
+  }
+  errorTimer = setTimeout(() => {
+    errorMsg.set(null);
+    errorTimer = null;
+  }, 5000);
 }
 
 function slugify(value: string): string {
@@ -452,6 +466,14 @@ export async function initializeDesktopWorkspace(): Promise<() => void> {
   return () => {
     stopWorkspaceRefreshPolling();
     stopAnalysisPolling();
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+    if (errorTimer) {
+      clearTimeout(errorTimer);
+      errorTimer = null;
+    }
     if (menuCommandCleanup) {
       menuCommandCleanup();
       menuCommandCleanup = null;
