@@ -6,7 +6,7 @@ import {
   Notification,
   shell,
 } from 'electron';
-import electronUpdater from 'electron-updater';
+import { autoUpdater } from 'electron-updater';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -20,8 +20,6 @@ import {
   type SaveTextFileOptions,
   type UpdateStatusPayload,
 } from './shared-types.js';
-
-const { autoUpdater } = electronUpdater;
 
 const MAX_LOG_LINES = 400;
 const LOG_PUSH_DELAY_MS = 250;

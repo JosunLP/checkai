@@ -7,20 +7,18 @@ CheckAI now ships with a dedicated Electron desktop application in `desktop/` in
 The desktop app keeps the full engine workspace available while adding desktop-native workflows:
 
 - **Persistent sessions** for saved backend URLs, launch arguments, and the last active view
-- **Native file and folder dialogs** for engine executables, opening books, tablebases, and working directories
 - **Local backend launch controls** so the app can start and stop `checkai serve`
 - **Inline log inspection** for backend stdout/stderr
-- **Dedicated multi-panel layout** with workspace, live engine, engine configuration, logs, and help views
+- **Dedicated multi-panel layout** with dashboard, game, board, analysis, archive, engine, log, and settings views
 - **Keyboard shortcuts** including a quick-action palette (`⌘/Ctrl + K`)
-- **Desktop self-updates** for packaged builds via GitHub Releases
-- **Loopback-only embedded live view** so only local backends are rendered inside the Electron shell; non-local targets can still be opened externally
 
 ## Technology Stack
 
 | Layer | Technology |
 | --- | --- |
 | Main process | Electron |
-| Renderer | TypeScript + [@bquery/bquery](https://www.npmjs.com/package/@bquery/bquery) reactive signals |
+| Renderer | Svelte + TypeScript |
+| Styling | SCSS + Tailwind CSS v4 |
 | Bundler | Vite |
 | Packaging | electron-builder |
 
@@ -43,18 +41,16 @@ bun run dist   # installable artifacts
 
 ## Workflow
 
-1. Open the **Workspace** view and set the backend URL you want to target.
+1. Open the **Engine** view and set the backend URL you want to target.
 2. Optionally configure a local `checkai` executable, launch arguments, working directory, opening book, and tablebase paths in **Engine**.
 3. Use **Start backend** to launch the saved local profile.
-4. Switch to **Live** to access the complete CheckAI engine UI inside the desktop shell.
+4. Use **Dashboard**, **Games**, **Board**, **Analysis**, and **Archive** to move through the desktop workspace views.
 5. Use **Logs** to inspect stdout/stderr from the local backend process.
-6. Open **Help** to check for packaged desktop updates, download them, and install them on restart.
+6. Open **Settings** to adjust theme, compact mode, notifications, developer mode, and board orientation.
 
 ## Notes
 
 - The desktop app complements the existing web UI; it does not replace it.
-- The embedded live workspace is intentionally limited to loopback URLs (`localhost`, `127.0.0.1`, `::1`). Non-local targets can still be opened in your external browser.
 - Saved desktop state is stored in Electron's user data directory.
-- Desktop self-updates are available only in packaged builds; development runs keep the update controls visible but report that packaged builds are required.
 - Release automation publishes updater-compatible desktop artifacts alongside native installers for each platform (`.deb` on Linux, `.dmg` on macOS, `.msi` on Windows).
 - Windows release builds keep the updater-compatible NSIS installer in addition to the MSI package so in-app desktop updates can still be applied consistently.

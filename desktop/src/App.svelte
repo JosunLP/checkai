@@ -4,8 +4,6 @@
   import {
     desktopState,
     currentView,
-    backendStatus,
-    updateStatus,
     toastMsg,
     errorMsg,
     paletteOpen,
@@ -30,21 +28,21 @@
   import LogsView from './views/LogsView.svelte';
   import SettingsView from './views/SettingsView.svelte';
 
-  onMount(async () => {
-    await loadDesktopState();
-    initializeBackendListener();
-    initializeUpdateListener();
-
-    // Apply theme
-    document.documentElement.setAttribute('data-theme', $desktopState.theme);
-
-    // Keyboard shortcuts
+  onMount(() => {
     const handleKeydown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key === 'k') {
+      const key = event.key.toLowerCase();
+      if ((event.ctrlKey || event.metaKey) && key === 'k') {
         event.preventDefault();
         $paletteOpen = true;
       }
     };
+
+    void (async () => {
+      await loadDesktopState();
+      initializeBackendListener();
+      initializeUpdateListener();
+      document.documentElement.setAttribute('data-theme', $desktopState.theme);
+    })();
 
     window.addEventListener('keydown', handleKeydown);
     return () => window.removeEventListener('keydown', handleKeydown);
@@ -92,7 +90,3 @@
 {#if $paletteOpen}
   <CommandPalette />
 {/if}
-
-<style lang="scss">
-  @import './styles.scss';
-</style>

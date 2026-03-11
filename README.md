@@ -38,7 +38,7 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 ### Web & Deployment
 
 - **Modern Web UI** — TypeScript SPA with @bquery/bquery, Tailwind CSS v4, Vite — interactive SVG board, analysis panel, FEN/PGN tools, promotion dialog, WebSocket auto-reconnect. Compiled into the binary via `rust-embed`
-- **Desktop UI** — Electron workspace built with @bquery/bquery — dedicated desktop shell with persistent sessions, native file pickers, local backend launch controls, embedded live engine UI, inline log inspection, and packaged-app self-updates
+- **Desktop UI** — Electron app built with Svelte — dedicated desktop shell with persistent sessions, local backend launch controls, dashboard/game/analysis/archive views, inline log inspection, and desktop-focused settings
 - **Docker Support** — Multi-stage Dockerfile and docker-compose.yml with volume mounts for game data, opening books, and tablebases
 - **Internationalization** — 8 languages (EN, DE, FR, ES, ZH, JA, PT, RU) with auto-detection and per-request API selection
 - **Self-Update** — Automatic version checks and `checkai update` for in-place binary updates
@@ -309,16 +309,17 @@ checkai/
 │   ├── bin/checkai.mjs   # Node.js CLI entry point
 │   ├── src/index.mjs     # Library API exports
 │   └── README.md         # package documentation
-├── desktop/              # Electron desktop UI (bQuery renderer + native shell)
+├── desktop/              # Electron desktop UI (Svelte renderer + native shell)
 │   ├── bun.lock          # Bun lockfile for desktop workspace
 │   ├── package.json      # Desktop build + packaging scripts
 │   ├── index.html        # Renderer entry point
 │   └── src/
 │       ├── shared-types.ts   # Shared IPC contract (main, preload, renderer)
-│       ├── renderer.ts       # Desktop workspace shell UI
+│       ├── main.ts           # Svelte renderer bootstrap
+│       ├── App.svelte        # Root desktop UI component
 │       ├── electron-main.ts
 │       ├── preload.ts
-│       └── styles.css        # Desktop-specific styles
+│       └── styles.scss       # Desktop-specific styles
 ├── web/                  # TypeScript Web UI (bQuery + Tailwind + Vite)
 │   ├── src/              # 12 TypeScript source modules
 │   ├── dist/             # Vite production build (embedded into binary)

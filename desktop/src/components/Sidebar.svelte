@@ -5,7 +5,7 @@
 
   function navigateTo(view: DesktopView) {
     $currentView = view;
-    $desktopState.lastView = view;
+    desktopState.update((state) => ({ ...state, lastView: view }));
     saveDesktopState();
   }
 

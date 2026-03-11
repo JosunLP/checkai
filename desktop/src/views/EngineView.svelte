@@ -1,6 +1,15 @@
 <script lang="ts">
   import { desktopState, backendStatus } from '../stores.js';
   import { startBackend, stopBackend, saveDesktopState } from '../desktop-api.js';
+  import type { DesktopState } from '../shared-types.js';
+
+  function updateDesktopField<K extends keyof DesktopState>(
+    key: K,
+    value: DesktopState[K]
+  ) {
+    desktopState.update((state) => ({ ...state, [key]: value }));
+    saveDesktopState();
+  }
 </script>
 
 <div class="card">
@@ -12,8 +21,12 @@
     <span>Backend URL</span>
     <input
       type="text"
-      bind:value={$desktopState.backendUrl}
-      on:change={saveDesktopState}
+      value={$desktopState.backendUrl}
+      on:input={(event) =>
+        updateDesktopField(
+          'backendUrl',
+          (event.currentTarget as HTMLInputElement).value
+        )}
     />
   </div>
 
@@ -21,8 +34,12 @@
     <span>Backend Executable</span>
     <input
       type="text"
-      bind:value={$desktopState.backendExecutable}
-      on:change={saveDesktopState}
+      value={$desktopState.backendExecutable}
+      on:input={(event) =>
+        updateDesktopField(
+          'backendExecutable',
+          (event.currentTarget as HTMLInputElement).value
+        )}
     />
   </div>
 
@@ -30,16 +47,24 @@
     <span>Backend Arguments</span>
     <input
       type="text"
-      bind:value={$desktopState.backendArgs}
-      on:change={saveDesktopState}
+      value={$desktopState.backendArgs}
+      on:input={(event) =>
+        updateDesktopField(
+          'backendArgs',
+          (event.currentTarget as HTMLInputElement).value
+        )}
     />
   </div>
 
   <div class="checkbox-field">
     <input
       type="checkbox"
-      bind:checked={$desktopState.autoStartBackend}
-      on:change={saveDesktopState}
+      checked={$desktopState.autoStartBackend}
+      on:change={(event) =>
+        updateDesktopField(
+          'autoStartBackend',
+          (event.currentTarget as HTMLInputElement).checked
+        )}
     />
     <span>Auto-start backend</span>
   </div>

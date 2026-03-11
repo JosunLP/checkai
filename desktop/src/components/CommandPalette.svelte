@@ -1,7 +1,8 @@
 <script lang="ts">
   import { paletteOpen, paletteQuery, currentView } from '../stores.js';
+  import { desktopState } from '../stores.js';
   import { saveDesktopState } from '../desktop-api.js';
-  import type { DesktopView, DESKTOP_VIEWS } from '../shared-types.js';
+  import type { DesktopView } from '../shared-types.js';
 
   type Command = {
     id: string;
@@ -63,6 +64,7 @@
 
   function navigateTo(view: DesktopView) {
     $currentView = view;
+    desktopState.update((state) => ({ ...state, lastView: view }));
     saveDesktopState();
     closePalette();
   }
@@ -78,6 +80,17 @@
     }
   }
 
+  function handleOverlayKeydown(event: KeyboardEvent) {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
+    if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      closePalette();
+    }
+  }
+
   function handleCommand(command: Command) {
     command.action();
   }
@@ -87,7 +100,15 @@
   );
 </script>
 
-<div class="overlay" data-close-palette on:click={handleOverlayClick}>
+<div
+  class="overlay"
+  data-close-palette
+  role="button"
+  tabindex="0"
+  aria-label="Close command palette"
+  on:click={handleOverlayClick}
+  on:keydown={handleOverlayKeydown}
+>
   <div class="palette">
     <div class="palette-head">
       <h3>Command Palette</h3>
