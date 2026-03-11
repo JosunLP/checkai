@@ -22,7 +22,7 @@ import {
   type SaveTextFileOptions,
   type UpdateStatusPayload,
 } from './shared-types.js';
-import { normalizeBackendUrlOrFallback } from './backend-url.js';
+import { DEFAULT_BACKEND_PORT, normalizeBackendUrlOrFallback } from './backend-url.js';
 
 const MAX_LOG_LINES = 400;
 const LOG_PUSH_DELAY_MS = 250;
@@ -249,9 +249,9 @@ function splitArgs(value: string): string[] {
 function defaultPortForProtocol(protocol: string): string {
   switch (protocol) {
     case 'http:':
-      return '80';
+      return DEFAULT_BACKEND_PORT;
     case 'https:':
-      return '443';
+      return DEFAULT_BACKEND_PORT;
     default:
       return '';
   }

@@ -1,20 +1,39 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy } from 'svelte';
   import { toastMsg, errorMsg } from '../stores.js';
 
   export let message: string;
   export let type: 'ok' | 'error' = 'ok';
 
-  onMount(() => {
-    const timer = setTimeout(() => {
-      if (type === 'ok') {
-        toastMsg.set(null);
-      } else {
-        errorMsg.set(null);
-      }
-    }, 5000);
+  let timer: ReturnType<typeof setTimeout> | null = null;
 
-    return () => clearTimeout(timer);
+  $: {
+    if (!message) {
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    } else {
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+
+      timer = setTimeout(() => {
+        if (type === 'ok' && message) {
+          toastMsg.set(null);
+        } else if (type === 'error' && message) {
+          errorMsg.set(null);
+        }
+        timer = null;
+      }, 5000);
+    }
+  }
+
+  onDestroy(() => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
   });
 </script>
 

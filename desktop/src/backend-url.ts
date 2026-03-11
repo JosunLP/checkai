@@ -1,6 +1,7 @@
 const BACKEND_URL_EXAMPLE = 'http://127.0.0.1:8080';
 const URL_PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+export const DEFAULT_BACKEND_PORT = '8080';
 
 export function normalizeBackendUrl(value: string): string {
   const trimmed = value.trim();
@@ -36,6 +37,9 @@ export function normalizeBackendUrl(value: string): string {
   url.search = '';
   url.hash = '';
   url.hostname = '127.0.0.1';
+  if (!url.port) {
+    url.port = DEFAULT_BACKEND_PORT;
+  }
   url.pathname = url.pathname === '/' ? '' : url.pathname.replace(/\/+$/, '');
 
   return `${url.origin}${url.pathname}`;

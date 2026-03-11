@@ -55,6 +55,8 @@ import type {
 const ANALYSIS_POLL_INTERVAL_MS = 2000;
 const WORKSPACE_REFRESH_INTERVAL_MS = 5000;
 const ID_DISPLAY_LENGTH = 8;
+const systemThemeMedia =
+  typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: light)') : null;
 
 let analysisPollTimer: ReturnType<typeof setInterval> | null = null;
 let workspaceRefreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -201,10 +203,22 @@ async function saveTextExport(
 function applyDesktopState(nextState: DesktopState, persist = true): void {
   desktopState.set(nextState);
   setApiBase(nextState.backendUrl);
-  document.documentElement.setAttribute('data-theme', nextState.theme);
+  syncDocumentTheme(nextState.theme);
   if (persist) {
     void saveDesktopState();
   }
+}
+
+function resolveTheme(theme: DesktopState['theme']): 'dark' | 'light' {
+  if (theme === 'system') {
+    return systemThemeMedia?.matches ? 'light' : 'dark';
+  }
+
+  return theme;
+}
+
+function syncDocumentTheme(theme: DesktopState['theme']): void {
+  document.documentElement.setAttribute('data-theme', resolveTheme(theme));
 }
 
 export function updateDesktopState(
@@ -463,6 +477,14 @@ export async function initializeDesktopWorkspace(): Promise<() => void> {
     });
   }
 
+  const handleSystemThemeChange = () => {
+    if (get(desktopState).theme === 'system') {
+      syncDocumentTheme('system');
+    }
+  };
+
+  systemThemeMedia?.addEventListener('change', handleSystemThemeChange);
+
   return () => {
     stopWorkspaceRefreshPolling();
     stopAnalysisPolling();
@@ -478,6 +500,7 @@ export async function initializeDesktopWorkspace(): Promise<() => void> {
       menuCommandCleanup();
       menuCommandCleanup = null;
     }
+    systemThemeMedia?.removeEventListener('change', handleSystemThemeChange);
     void desktop.setProgressBar(null);
   };
 }
