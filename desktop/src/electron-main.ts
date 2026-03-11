@@ -3,8 +3,10 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  Menu,
   Notification,
   shell,
+  type MenuItemConstructorOptions,
 } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
@@ -334,6 +336,22 @@ function validateOpenPathTarget(target: unknown): string {
   return resolvedPath;
 }
 
+function validateProgressBarValue(value: unknown): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value !== 'number' || Number.isNaN(value) || !Number.isFinite(value)) {
+    throw new Error('Progress bar value must be a finite number between 0 and 1.');
+  }
+
+  if (value < 0 || value > 1) {
+    throw new Error('Progress bar value must be between 0 and 1.');
+  }
+
+  return value;
+}
+
 function validateExternalTarget(target: unknown): string {
   const value = normalizeString(target).trim();
   let url: URL;
@@ -530,6 +548,157 @@ function installUpdate(): void {
   }
 
   autoUpdater.quitAndInstall();
+}
+
+function dispatchMenuCommand(command: string): void {
+  mainWindow?.webContents.send('checkai:menu-command', command);
+}
+
+function buildApplicationMenu(): Menu {
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'New Game',
+          accelerator: 'CmdOrCtrl+N',
+          click: () => dispatchMenuCommand('new-game'),
+        },
+        {
+          label: 'Import FEN from File…',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => dispatchMenuCommand('import-fen-file'),
+        },
+        { type: 'separator' },
+        {
+          label: 'Copy FEN',
+          accelerator: 'CmdOrCtrl+Shift+C',
+          click: () => dispatchMenuCommand('export-fen'),
+        },
+        {
+          label: 'Save FEN…',
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: () => dispatchMenuCommand('save-fen'),
+        },
+        {
+          label: 'Copy PGN',
+          accelerator: 'CmdOrCtrl+Alt+C',
+          click: () => dispatchMenuCommand('export-pgn'),
+        },
+        {
+          label: 'Save PGN…',
+          accelerator: 'CmdOrCtrl+Alt+S',
+          click: () => dispatchMenuCommand('save-pgn'),
+        },
+        { type: 'separator' },
+        process.platform === 'darwin' ? { role: 'close' } : { role: 'quit' },
+      ],
+    },
+    {
+      label: 'Navigate',
+      submenu: [
+        {
+          label: 'Dashboard',
+          accelerator: 'CmdOrCtrl+1',
+          click: () => dispatchMenuCommand('nav:dashboard'),
+        },
+        {
+          label: 'Games',
+          accelerator: 'CmdOrCtrl+2',
+          click: () => dispatchMenuCommand('nav:games'),
+        },
+        {
+          label: 'Board',
+          accelerator: 'CmdOrCtrl+3',
+          click: () => dispatchMenuCommand('nav:board'),
+        },
+        {
+          label: 'Archive',
+          accelerator: 'CmdOrCtrl+4',
+          click: () => dispatchMenuCommand('nav:archive'),
+        },
+        {
+          label: 'Analysis',
+          accelerator: 'CmdOrCtrl+5',
+          click: () => dispatchMenuCommand('nav:analysis'),
+        },
+        {
+          label: 'Engine',
+          accelerator: 'CmdOrCtrl+6',
+          click: () => dispatchMenuCommand('nav:engine'),
+        },
+        {
+          label: 'Logs',
+          accelerator: 'CmdOrCtrl+7',
+          click: () => dispatchMenuCommand('nav:logs'),
+        },
+        {
+          label: 'Settings',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => dispatchMenuCommand('nav:settings'),
+        },
+        { type: 'separator' },
+        {
+          label: 'Command Palette',
+          accelerator: 'CmdOrCtrl+K',
+          click: () => dispatchMenuCommand('open-command-palette'),
+        },
+      ],
+    },
+    {
+      label: 'Tools',
+      submenu: [
+        {
+          label: 'Start Backend',
+          accelerator: 'CmdOrCtrl+Shift+R',
+          click: () => dispatchMenuCommand('start-backend'),
+        },
+        {
+          label: 'Stop Backend',
+          accelerator: 'CmdOrCtrl+Shift+.',
+          click: () => dispatchMenuCommand('stop-backend'),
+        },
+        { type: 'separator' },
+        {
+          label: 'Open Working Directory',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          click: () => dispatchMenuCommand('open-working-directory'),
+        },
+        {
+          label: 'Check for Updates',
+          accelerator: 'CmdOrCtrl+Shift+U',
+          click: () => dispatchMenuCommand('check-for-updates'),
+        },
+        { type: 'separator' },
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+      ],
+    },
+    {
+      label: 'Window',
+      submenu: [{ role: 'minimize' }, { role: 'zoom' }, { role: 'togglefullscreen' }],
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Open CheckAI Documentation',
+          click: () => {
+            void shell.openExternal('https://github.com/JosunLP/checkai/tree/main/docs');
+          },
+        },
+        {
+          label: 'Open Repository',
+          click: () => {
+            void shell.openExternal('https://github.com/JosunLP/checkai');
+          },
+        },
+      ],
+    },
+  ];
+
+  return Menu.buildFromTemplate(template);
 }
 
 function startBackend(state: DesktopState): BackendStatusPayload {
@@ -776,6 +945,7 @@ function createWindow(): void {
   });
 
   void mainWindow.loadFile(rendererIndex);
+  Menu.setApplicationMenu(buildApplicationMenu());
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -790,6 +960,10 @@ function registerIpcHandlers(): void {
   ipcMain.handle('checkai:get-backend-status', () => backendStatus);
   ipcMain.handle('checkai:get-backend-logs', () => backendLogs);
   ipcMain.handle('checkai:get-update-status', () => updateStatus);
+  ipcMain.handle('checkai:set-progress-bar', (_event, progress: unknown) => {
+    const normalized = validateProgressBarValue(progress);
+    mainWindow?.setProgressBar(normalized ?? -1);
+  });
   ipcMain.handle('checkai:start-backend', (_event, state: unknown) => {
     const saved = saveState(state);
     return startBackend(saved);

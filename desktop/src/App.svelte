@@ -6,19 +6,26 @@
     currentView,
     toastMsg,
     errorMsg,
+    modalState,
     paletteOpen,
   } from './stores.js';
   import {
-    loadDesktopState,
     initializeBackendListener,
     initializeUpdateListener,
   } from './desktop-api.js';
+  import {
+    createNewGame,
+    handleDesktopCommand,
+    initializeDesktopWorkspace,
+    refreshCurrentView,
+  } from './workspace.js';
 
   // View components
   import Sidebar from './components/Sidebar.svelte';
   import Topbar from './components/Topbar.svelte';
   import Toast from './components/Toast.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
+  import ModalDialog from './components/ModalDialog.svelte';
   import DashboardView from './views/DashboardView.svelte';
   import GamesView from './views/GamesView.svelte';
   import BoardView from './views/BoardView.svelte';
@@ -29,26 +36,51 @@
   import SettingsView from './views/SettingsView.svelte';
 
   onMount(() => {
+    let cleanupWorkspace = () => undefined;
+
     const handleKeydown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       if ((event.ctrlKey || event.metaKey) && key === 'k') {
         event.preventDefault();
         $paletteOpen = true;
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && key === 'n') {
+        event.preventDefault();
+        void createNewGame();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && key === 'o') {
+        event.preventDefault();
+        void handleDesktopCommand('import-fen-file');
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && key === 'r' && !event.shiftKey) {
+        event.preventDefault();
+        void refreshCurrentView();
       }
     };
 
-    loadDesktopState()
+    initializeDesktopWorkspace()
       .then(() => {
         initializeBackendListener();
         initializeUpdateListener();
-        document.documentElement.setAttribute('data-theme', $desktopState.theme);
+      })
+      .then((cleanup) => {
+        cleanupWorkspace = cleanup;
       })
       .catch((error) => {
         console.error('Failed to initialize desktop UI:', error);
       });
 
     window.addEventListener('keydown', handleKeydown);
-    return () => window.removeEventListener('keydown', handleKeydown);
+    return () => {
+      cleanupWorkspace();
+      window.removeEventListener('keydown', handleKeydown);
+    };
   });
 
   $: shellClass = $desktopState.compactMode ? 'shell shell-compact' : 'shell';
@@ -92,4 +124,8 @@
 
 {#if $paletteOpen}
   <CommandPalette />
+{/if}
+
+{#if $modalState}
+  <ModalDialog />
 {/if}

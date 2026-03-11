@@ -1,22 +1,22 @@
 <script lang="ts">
-  import { desktopState } from '../stores.js';
-  import { saveDesktopState } from '../desktop-api.js';
+  import { desktopState, updateStatus } from '../stores.js';
   import type { DesktopState } from '../shared-types.js';
+  import {
+    checkForDesktopUpdates,
+    downloadDesktopUpdate,
+    installDesktopUpdate,
+    updateDesktopState,
+  } from '../workspace.js';
 
-  function updateDesktopState(updater: (state: DesktopState) => DesktopState) {
-    desktopState.update((state) => {
-      const nextState = updater(state);
-      document.documentElement.setAttribute('data-theme', nextState.theme);
-      return nextState;
-    });
-    saveDesktopState();
+  function updateState(updater: (state: DesktopState) => DesktopState) {
+    updateDesktopState(updater);
   }
 
   function toggleTheme() {
     const themes: Array<'dark' | 'light' | 'system'> = ['dark', 'light', 'system'];
     const currentIndex = themes.indexOf($desktopState.theme);
     const nextIndex = (currentIndex + 1) % themes.length;
-    updateDesktopState((state) => ({ ...state, theme: themes[nextIndex] }));
+    updateState((state) => ({ ...state, theme: themes[nextIndex] }));
   }
 </script>
 
@@ -37,7 +37,7 @@
       type="checkbox"
       checked={$desktopState.compactMode}
       on:change={(event) =>
-        updateDesktopState((state) => ({
+        updateState((state) => ({
           ...state,
           compactMode: (event.currentTarget as HTMLInputElement).checked,
         }))}
@@ -50,7 +50,7 @@
       type="checkbox"
       checked={$desktopState.notificationsEnabled}
       on:change={(event) =>
-        updateDesktopState((state) => ({
+        updateState((state) => ({
           ...state,
           notificationsEnabled: (event.currentTarget as HTMLInputElement).checked,
         }))}
@@ -63,7 +63,7 @@
       type="checkbox"
       checked={$desktopState.developerMode}
       on:change={(event) =>
-        updateDesktopState((state) => ({
+        updateState((state) => ({
           ...state,
           developerMode: (event.currentTarget as HTMLInputElement).checked,
         }))}
@@ -76,11 +76,46 @@
       type="checkbox"
       checked={$desktopState.boardFlipped}
       on:change={(event) =>
-        updateDesktopState((state) => ({
+        updateState((state) => ({
           ...state,
           boardFlipped: (event.currentTarget as HTMLInputElement).checked,
         }))}
     />
     <span>Flip Board</span>
   </div>
+
+  <div class="card-head" style="margin-top: 1rem">
+    <h3>Desktop updates</h3>
+  </div>
+  <p class="dim">{$updateStatus.message ?? 'No update information yet.'}</p>
+  <div class="btn-row">
+    <button class="btn btn-sm" on:click={checkForDesktopUpdates}>Check now</button>
+    <button
+      class="btn btn-sm"
+      disabled={$updateStatus.state !== 'available'}
+      on:click={downloadDesktopUpdate}
+    >
+      Download
+    </button>
+    <button
+      class="btn btn-sm btn-primary"
+      disabled={$updateStatus.state !== 'downloaded'}
+      on:click={installDesktopUpdate}
+    >
+      Install
+    </button>
+  </div>
+
+  {#if $desktopState.recentWorkspaces.length > 0}
+    <div class="card-head" style="margin-top: 1rem">
+      <h3>Recent workspaces</h3>
+    </div>
+    <div class="mini-list">
+      {#each $desktopState.recentWorkspaces as workspace (workspace)}
+        <div class="mini-item">
+          <span class="mono">{workspace}</span>
+        </div>
+      {/each}
+    </div>
+  {/if}
 </div>

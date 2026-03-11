@@ -331,6 +331,11 @@ code {
   text-overflow: ellipsis;
 }
 
+.nav-btn-inline {
+  width: 100%;
+  margin-top: 0.55rem;
+}
+
 /* Nav */
 .sidebar-nav {
   display: flex;
@@ -899,6 +904,11 @@ code {
   flex-wrap: wrap;
 }
 
+.btn-row > input,
+.btn-row > .field-inline {
+  flex: 1 1 14rem;
+}
+
 /* ── Quick Strip (Dashboard) ───────────────────────────────────────────── */
 
 .quick-strip {
@@ -1152,6 +1162,10 @@ code {
 .data-table.compact td,
 .data-table.compact th {
   padding: 0.5rem 0.75rem;
+}
+
+.selected-row {
+  background: rgba(56, 189, 248, 0.08);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1450,6 +1464,8 @@ code {
   line-height: 1;
   user-select: none;
   position: relative;
+  border: none;
+  padding: 0;
   transition:
     background-color 80ms ease,
     filter 80ms ease,
@@ -1968,6 +1984,27 @@ code {
   padding: 0.5rem;
   max-height: 60vh;
   overflow-y: auto;
+}
+
+.palette-search {
+  margin: 0 0.5rem 0.5rem;
+}
+
+.modal-overlay {
+  z-index: 70;
+}
+
+.modal-card {
+  width: min(32rem, calc(100vw - 2rem));
+}
+
+.modal-field {
+  margin: 0.5rem;
+}
+
+.modal-actions {
+  justify-content: flex-end;
+  padding: 0.5rem;
 }
 
 .palette-btn {

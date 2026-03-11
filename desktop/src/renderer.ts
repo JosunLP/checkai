@@ -93,6 +93,7 @@ const fallbackApi: DesktopApi = {
       message: 'Desktop updates are available in packaged builds.',
     };
   },
+  async setProgressBar() {},
   async checkForUpdates() {
     return fallbackApi.getUpdateStatus();
   },
@@ -122,6 +123,9 @@ const fallbackApi: DesktopApi = {
     return () => undefined;
   },
   onUpdateStatus() {
+    return () => undefined;
+  },
+  onMenuCommand() {
     return () => undefined;
   },
 };

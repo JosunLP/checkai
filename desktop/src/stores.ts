@@ -14,6 +14,28 @@ import {
   type AnalysisJob,
 } from './shared-types.js';
 
+export type ConfirmModalState = {
+  kind: 'confirm';
+  title: string;
+  message: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  resolve: (value: boolean) => void;
+};
+
+export type PromptModalState = {
+  kind: 'prompt';
+  title: string;
+  message: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  initialValue: string;
+  placeholder?: string;
+  resolve: (value: string | null) => void;
+};
+
+export type ModalState = ConfirmModalState | PromptModalState;
+
 // Desktop state stores
 export const desktopState = writable<DesktopState>({ ...DEFAULT_DESKTOP_STATE });
 export const currentView = writable<DesktopView>('dashboard');
@@ -42,6 +64,7 @@ export const paletteOpen = writable(false);
 export const paletteQuery = writable('');
 export const toastMsg = writable<string | null>(null);
 export const errorMsg = writable<string | null>(null);
+export const modalState = writable<ModalState | null>(null);
 export const boardAscii = writable('');
 export const liveConnection = writable<'connecting' | 'connected' | 'disconnected'>(
   'disconnected'

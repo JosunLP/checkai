@@ -98,6 +98,7 @@ export interface DesktopApi {
   getBackendStatus(): Promise<BackendStatusPayload>;
   getBackendLogs(): Promise<string>;
   getUpdateStatus(): Promise<UpdateStatusPayload>;
+  setProgressBar(progress: number | null): Promise<void>;
   startBackend(state: DesktopState): Promise<BackendStatusPayload>;
   stopBackend(): Promise<BackendStatusPayload>;
   checkForUpdates(): Promise<UpdateStatusPayload>;
@@ -113,6 +114,7 @@ export interface DesktopApi {
   onBackendStatus(callback: (status: BackendStatusPayload) => void): () => void;
   onBackendLogs(callback: (logs: string) => void): () => void;
   onUpdateStatus(callback: (status: UpdateStatusPayload) => void): () => void;
+  onMenuCommand(callback: (command: string) => void): () => void;
 }
 
 export const DEFAULT_DESKTOP_STATE: DesktopState = {

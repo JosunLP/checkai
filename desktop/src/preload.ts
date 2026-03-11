@@ -18,6 +18,8 @@ const api: DesktopApi = {
     ipcRenderer.invoke('checkai:get-backend-logs'),
   getUpdateStatus: (): Promise<UpdateStatusPayload> =>
     ipcRenderer.invoke('checkai:get-update-status'),
+  setProgressBar: (progress: number | null): Promise<void> =>
+    ipcRenderer.invoke('checkai:set-progress-bar', progress),
   startBackend: (state: DesktopState): Promise<BackendStatusPayload> =>
     ipcRenderer.invoke('checkai:start-backend', state),
   stopBackend: (): Promise<BackendStatusPayload> =>
@@ -72,6 +74,13 @@ const api: DesktopApi = {
     };
     ipcRenderer.on('checkai:update-status', listener);
     return () => ipcRenderer.removeListener('checkai:update-status', listener);
+  },
+  onMenuCommand: (callback: (command: string) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: string) => {
+      callback(payload);
+    };
+    ipcRenderer.on('checkai:menu-command', listener);
+    return () => ipcRenderer.removeListener('checkai:menu-command', listener);
   },
 };
 

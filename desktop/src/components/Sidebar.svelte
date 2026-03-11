@@ -1,15 +1,20 @@
 <script lang="ts">
-  import { desktopState, currentView, backendStatus } from '../stores.js';
-  import { saveDesktopState } from '../desktop-api.js';
-  import type { DesktopView } from '../shared-types.js';
-
-  function navigateTo(view: DesktopView) {
-    $currentView = view;
-    desktopState.update((state) => ({ ...state, lastView: view }));
-    saveDesktopState();
-  }
+  import {
+    activeAnalysis,
+    activeGame,
+    analysisJobs,
+    archivedList,
+    backendStatus,
+    currentView,
+    desktopState,
+    gamesList,
+  } from '../stores.js';
+  import { navigateTo, openGame, viewAnalysisJob } from '../workspace.js';
 
   $: statusDot = $backendStatus.running ? 'online' : 'offline';
+  $: runningAnalyses = $analysisJobs.filter(
+    (job) => typeof job.status === 'object' && 'InProgress' in job.status
+  ).length;
 </script>
 
 <aside class="sidebar">
@@ -40,6 +45,7 @@
     >
       <span class="nav-icon">📊</span>
       <span>Dashboard</span>
+      <span class="badge badge-dim">Home</span>
     </button>
 
     <button
@@ -49,6 +55,7 @@
     >
       <span class="nav-icon">♟️</span>
       <span>Games</span>
+      <span class="badge badge-dim">{$gamesList.length}</span>
     </button>
 
     <button
@@ -58,6 +65,9 @@
     >
       <span class="nav-icon">🎮</span>
       <span>Board</span>
+      {#if $activeGame}
+        <span class="badge badge-active">Live</span>
+      {/if}
     </button>
 
     <span class="sidebar-section-label">Analysis</span>
@@ -69,6 +79,9 @@
     >
       <span class="nav-icon">🔍</span>
       <span>Analysis</span>
+      {#if runningAnalyses > 0}
+        <span class="badge badge-active">{runningAnalyses}</span>
+      {/if}
     </button>
 
     <button
@@ -78,6 +91,7 @@
     >
       <span class="nav-icon">📦</span>
       <span>Archive</span>
+      <span class="badge badge-dim">{$archivedList.length}</span>
     </button>
 
     <span class="sidebar-section-label">System</span>
@@ -89,6 +103,9 @@
     >
       <span class="nav-icon">⚙️</span>
       <span>Engine</span>
+      {#if $desktopState.backendPresets.length > 0}
+        <span class="badge badge-dim">{$desktopState.backendPresets.length}</span>
+      {/if}
     </button>
 
     <button
@@ -98,6 +115,9 @@
     >
       <span class="nav-icon">📝</span>
       <span>Logs</span>
+      {#if $backendStatus.lastError}
+        <span class="badge badge-danger">!</span>
+      {/if}
     </button>
 
     <button
@@ -109,6 +129,27 @@
       <span>Settings</span>
     </button>
   </nav>
+
+  {#if $activeGame || $activeAnalysis}
+    <div class="sidebar-workspace-card">
+      <strong>Quick resume</strong>
+      {#if $activeGame}
+        <button class="nav-btn nav-btn-inline" on:click={() => openGame($activeGame.game_id)}>
+          <span class="nav-icon">♞</span>
+          <span class="mono">{$activeGame.game_id.slice(0, 8)}…</span>
+        </button>
+      {/if}
+      {#if $activeAnalysis}
+        <button
+          class="nav-btn nav-btn-inline"
+          on:click={() => viewAnalysisJob($activeAnalysis.id)}
+        >
+          <span class="nav-icon">📈</span>
+          <span class="mono">{$activeAnalysis.id.slice(0, 8)}…</span>
+        </button>
+      {/if}
+    </div>
+  {/if}
 
   <div class="sidebar-footer">
     <div class="status-dot {statusDot}"></div>
