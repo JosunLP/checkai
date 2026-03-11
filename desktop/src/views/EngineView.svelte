@@ -144,7 +144,7 @@
       </div>
     </div>
 
-    <div class="checkbox-field">
+    <label class="checkbox-field">
       <input
         type="checkbox"
         checked={$desktopState.autoStartBackend}
@@ -152,7 +152,7 @@
           updateField('autoStartBackend', (event.currentTarget as HTMLInputElement).checked)}
       />
       <span>Auto-start backend on desktop launch</span>
-    </div>
+    </label>
 
     <div class="btn-row">
       <button class="btn btn-primary" on:click={startBackendProcess}>▶ Start backend</button>

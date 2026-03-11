@@ -250,6 +250,10 @@ function defaultBackendPort(): string {
   return DEFAULT_BACKEND_PORT;
 }
 
+function hasCliFlag(args: string[], flag: string): boolean {
+  return args.some((arg) => arg === flag || arg.startsWith(`${flag}=`));
+}
+
 function buildBackendArgs(state: DesktopState): string[] {
   const args = splitArgs(state.backendArgs);
 
@@ -263,20 +267,20 @@ function buildBackendArgs(state: DesktopState): string[] {
   }
 
   if (subcommand === 'serve') {
-    if (state.openingBookPath && !args.includes('--book-path')) {
+    if (state.openingBookPath && !hasCliFlag(args, '--book-path')) {
       args.push('--book-path', state.openingBookPath);
     }
-    if (state.tablebasePath && !args.includes('--tablebase-path')) {
+    if (state.tablebasePath && !hasCliFlag(args, '--tablebase-path')) {
       args.push('--tablebase-path', state.tablebasePath);
     }
 
     try {
       const url = new URL(state.backendUrl);
       const port = url.port || defaultBackendPort();
-      if (port && /^\d+$/.test(port) && !args.includes('--port')) {
+      if (port && /^\d+$/.test(port) && !hasCliFlag(args, '--port')) {
         args.push('--port', port);
       }
-      if (!args.includes('--host')) {
+      if (!hasCliFlag(args, '--host')) {
         args.push('--host', '127.0.0.1');
       }
     } catch {

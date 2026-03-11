@@ -55,12 +55,16 @@ import type {
 const ANALYSIS_POLL_INTERVAL_MS = 2000;
 const WORKSPACE_REFRESH_INTERVAL_MS = 5000;
 const ID_DISPLAY_LENGTH = 8;
+const MIN_ANALYSIS_DEPTH = 30;
+const MAX_ANALYSIS_DEPTH = 99;
 const systemThemeMedia =
   typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: light)') : null;
 
 let analysisPollTimer: ReturnType<typeof setInterval> | null = null;
 let workspaceRefreshTimer: ReturnType<typeof setInterval> | null = null;
 let workspaceRefreshInFlight = false;
+let workspacePollingBackoffUntil = 0;
+let workspacePollingFailureCount = 0;
 let menuCommandCleanup: (() => void) | null = null;
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 let errorTimer: ReturnType<typeof setTimeout> | null = null;
@@ -265,7 +269,7 @@ export async function refreshLogs(silent = false): Promise<void> {
   }
 }
 
-export async function refreshGamesList(silent = false): Promise<void> {
+export async function refreshGamesList(silent = false): Promise<boolean> {
   try {
     const result = await listGames();
     gamesList.set(result.games);
@@ -278,35 +282,41 @@ export async function refreshGamesList(silent = false): Promise<void> {
       boardAscii.set('');
       updateDesktopState((state) => ({ ...state, lastGameId: null }));
     }
+    return true;
   } catch (error) {
     if (!silent) {
       pushError(error instanceof Error ? error.message : String(error));
     }
+    return false;
   }
 }
 
-export async function refreshArchive(silent = false): Promise<void> {
+export async function refreshArchive(silent = false): Promise<boolean> {
   try {
     const result = await listArchived();
     archivedList.set(result.games);
     if (result.storage) {
       storageStats.set(result.storage);
     }
+    return true;
   } catch (error) {
     if (!silent) {
       pushError(error instanceof Error ? error.message : String(error));
     }
+    return false;
   }
 }
 
-export async function refreshAnalysisJobs(silent = false): Promise<void> {
+export async function refreshAnalysisJobs(silent = false): Promise<boolean> {
   try {
     const result = await listAnalysisJobs();
     analysisJobs.set(result.jobs);
+    return true;
   } catch (error) {
     if (!silent) {
       pushError(error instanceof Error ? error.message : String(error));
     }
+    return false;
   }
 }
 
@@ -325,10 +335,10 @@ async function updateAnalysisProgress(job: AnalysisJob | null): Promise<void> {
   await desktop.setProgressBar(moves_analyzed / total_moves);
 }
 
-async function refreshActiveAnalysisJob(silent = false): Promise<void> {
+async function refreshActiveAnalysisJob(silent = false): Promise<boolean> {
   const currentJob = get(activeAnalysis);
   if (!currentJob) {
-    return;
+    return false;
   }
 
   try {
@@ -351,10 +361,12 @@ async function refreshActiveAnalysisJob(silent = false): Promise<void> {
         pushError(nextJob.status.Failed.error);
       }
     }
+    return true;
   } catch (error) {
     if (!silent) {
       pushError(error instanceof Error ? error.message : String(error));
     }
+    return false;
   }
 }
 
@@ -366,10 +378,10 @@ async function refreshBoardAscii(gameId: string): Promise<void> {
   }
 }
 
-async function refreshActiveGame(silent = false): Promise<void> {
+async function refreshActiveGame(silent = false): Promise<boolean> {
   const game = get(activeGame);
   if (!game) {
-    return;
+    return false;
   }
 
   try {
@@ -384,10 +396,12 @@ async function refreshActiveGame(silent = false): Promise<void> {
     }
 
     await refreshBoardAscii(nextGame.game_id);
+    return true;
   } catch (error) {
     if (!silent) {
       pushError(error instanceof Error ? error.message : String(error));
     }
+    return false;
   }
 }
 
@@ -404,18 +418,30 @@ function startWorkspaceRefreshPolling(): void {
   }
 
   workspaceRefreshTimer = setInterval(async () => {
-    if (workspaceRefreshInFlight || !get(backendStatus).running) {
+    if (workspaceRefreshInFlight || Date.now() < workspacePollingBackoffUntil) {
       return;
     }
 
     workspaceRefreshInFlight = true;
     try {
-      await refreshGamesList(true);
-      await refreshArchive(true);
-      await refreshAnalysisJobs(true);
-      await refreshActiveGame(true);
+      const refreshResults = [
+        await refreshGamesList(true),
+        await refreshArchive(true),
+        await refreshAnalysisJobs(true),
+        await refreshActiveGame(true),
+      ];
       if (!analysisPollTimer) {
-        await refreshActiveAnalysisJob(true);
+        refreshResults.push(await refreshActiveAnalysisJob(true));
+      }
+
+      if (refreshResults.some(Boolean)) {
+        workspacePollingFailureCount = 0;
+        workspacePollingBackoffUntil = 0;
+      } else {
+        workspacePollingFailureCount += 1;
+        const backoffMultiplier = Math.min(workspacePollingFailureCount, 6);
+        workspacePollingBackoffUntil =
+          Date.now() + WORKSPACE_REFRESH_INTERVAL_MS * backoffMultiplier;
       }
     } finally {
       workspaceRefreshInFlight = false;
@@ -767,7 +793,10 @@ export function closeReplay(): void {
 }
 
 export function setAnalysisDepth(value: number): void {
-  const normalized = Math.min(99, Math.max(10, Math.round(value || 30)));
+  const normalized = Math.min(
+    MAX_ANALYSIS_DEPTH,
+    Math.max(MIN_ANALYSIS_DEPTH, Math.round(value || MIN_ANALYSIS_DEPTH))
+  );
   analysisDepth.set(normalized);
 }
 

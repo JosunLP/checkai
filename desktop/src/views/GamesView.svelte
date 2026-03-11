@@ -16,7 +16,7 @@
     submitAnalysisForGame,
   } from '../workspace.js';
 
-  const QUICK_ANALYSIS_DEPTH = 24;
+  const QUICK_ANALYSIS_DEPTH = 30;
 </script>
 
 <div class="view-grid">

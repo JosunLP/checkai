@@ -10,7 +10,7 @@
     submitAnalysisForGame,
   } from '../workspace.js';
 
-  const ARCHIVE_ANALYSIS_DEPTH = 28;
+  const ARCHIVE_ANALYSIS_DEPTH = 30;
 
   function isLightSquare(file: string, rank: string): boolean {
     return (file.charCodeAt(0) + Number.parseInt(rank, 10)) % 2 === 0;

@@ -79,7 +79,7 @@
         <span>Depth</span>
         <input
           type="number"
-          min="10"
+          min="30"
           max="99"
           value={$analysisDepth}
           on:input={(event) =>

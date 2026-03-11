@@ -32,7 +32,7 @@
     </button>
   </div>
 
-  <div class="checkbox-field">
+  <label class="checkbox-field">
     <input
       type="checkbox"
       checked={$desktopState.compactMode}
@@ -43,9 +43,9 @@
         }))}
     />
     <span>Compact Mode</span>
-  </div>
+  </label>
 
-  <div class="checkbox-field">
+  <label class="checkbox-field">
     <input
       type="checkbox"
       checked={$desktopState.notificationsEnabled}
@@ -56,9 +56,9 @@
         }))}
     />
     <span>Enable Notifications</span>
-  </div>
+  </label>
 
-  <div class="checkbox-field">
+  <label class="checkbox-field">
     <input
       type="checkbox"
       checked={$desktopState.developerMode}
@@ -69,9 +69,9 @@
         }))}
     />
     <span>Developer Mode</span>
-  </div>
+  </label>
 
-  <div class="checkbox-field">
+  <label class="checkbox-field">
     <input
       type="checkbox"
       checked={$desktopState.boardFlipped}
@@ -82,7 +82,7 @@
         }))}
     />
     <span>Flip Board</span>
-  </div>
+  </label>
 
   <div class="card-head" style="margin-top: 1rem">
     <h3>Desktop updates</h3>
