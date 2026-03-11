@@ -258,7 +258,7 @@ jobs:
 
       - name: Install desktop dependencies
         working-directory: desktop
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Build desktop app
         working-directory: desktop
