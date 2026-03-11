@@ -18,10 +18,11 @@
         clearTimeout(timer);
       }
 
+      const currentType = type;
       timer = setTimeout(() => {
-        if (type === 'ok') {
+        if (currentType === 'ok') {
           toastMsg.set(null);
-        } else if (type === 'error') {
+        } else if (currentType === 'error') {
           errorMsg.set(null);
         }
         timer = null;
