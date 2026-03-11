@@ -16,7 +16,7 @@
     "build": "bun run build:renderer && bun run build:electron",
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
-    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit && vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit && vite build",
     "start": "bun run build && bun x electron .",
     "pack": "bun run build && bun x electron-builder --config electron-builder.yml --dir --publish never",
     "dist": "bun run build && bun x electron-builder --config electron-builder.yml --publish never"
@@ -33,6 +33,7 @@
     "electron-builder": "^26.0.12",
     "sass": "^1.98.0",
     "svelte": "^5.53.10",
+    "svelte-check": "^4.4.5",
     "svelte-preprocess": "^6.0.3",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",

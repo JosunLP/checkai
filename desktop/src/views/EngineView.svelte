@@ -1,6 +1,7 @@
 <script lang="ts">
   import { backendStatus, desktopState } from '../stores.js';
   import type { DesktopState } from '../shared-types.js';
+  import { normalizeBackendUrl } from '../backend-url.js';
   import {
     deletePreset,
     loadPresetIntoState,
@@ -17,6 +18,36 @@
 
   function updateField<K extends keyof DesktopState>(key: K, value: DesktopState[K]): void {
     updateDesktopState((state) => ({ ...state, [key]: value }));
+  }
+
+  let backendUrlDraft = '';
+  let syncedBackendUrl = '';
+  let backendUrlError: string | null = null;
+
+  $: if ($desktopState.backendUrl !== syncedBackendUrl) {
+    backendUrlDraft = $desktopState.backendUrl;
+    syncedBackendUrl = $desktopState.backendUrl;
+    backendUrlError = null;
+  }
+
+  function persistBackendUrl(): void {
+    try {
+      const normalized = normalizeBackendUrl(backendUrlDraft);
+      updateField('backendUrl', normalized);
+      backendUrlDraft = normalized;
+      syncedBackendUrl = normalized;
+      backendUrlError = null;
+    } catch (error) {
+      backendUrlError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  function handleBackendUrlKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      persistBackendUrl();
+      (event.currentTarget as HTMLInputElement).blur();
+    }
   }
 </script>
 
@@ -38,10 +69,13 @@
       <span>Backend URL</span>
       <input
         type="text"
-        value={$desktopState.backendUrl}
-        on:input={(event) =>
-          updateField('backendUrl', (event.currentTarget as HTMLInputElement).value)}
+        bind:value={backendUrlDraft}
+        on:blur={persistBackendUrl}
+        on:keydown={handleBackendUrlKeydown}
       />
+      {#if backendUrlError}
+        <p class="field-error">{backendUrlError}</p>
+      {/if}
     </div>
 
     <div class="field">

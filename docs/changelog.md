@@ -8,7 +8,7 @@ All notable changes to CheckAI are documented here. The format follows [Keep a C
 
 ### Added
 
-- **Electron desktop app** — Added a dedicated `@bquery/bquery`-based Electron workspace alongside the web UI
+- **Electron desktop app** — Added a dedicated Svelte-based Electron renderer alongside the web UI
   - Includes persistent desktop sessions, native file/folder pickers, local backend launch controls, inline logs, and a multi-view workspace shell
   - Packaged desktop builds can check GitHub Releases for updates, download them, and install on restart
 - **Native desktop installers** — Release automation now publishes platform-native Electron installers in addition to updater-compatible artifacts

@@ -22,6 +22,7 @@ import {
   type SaveTextFileOptions,
   type UpdateStatusPayload,
 } from './shared-types.js';
+import { normalizeBackendUrlOrFallback } from './backend-url.js';
 
 const MAX_LOG_LINES = 400;
 const LOG_PUSH_DELAY_MS = 250;
@@ -84,7 +85,7 @@ function normalizePreset(value: unknown): BackendPreset | null {
     backendExecutable: normalizeString(record.backendExecutable),
     backendArgs: normalizeString(record.backendArgs),
     backendWorkingDirectory: normalizeString(record.backendWorkingDirectory),
-    backendUrl: normalizeString(
+    backendUrl: normalizeBackendUrlOrFallback(
       record.backendUrl,
       DEFAULT_DESKTOP_STATE.backendUrl
     ),
@@ -129,7 +130,7 @@ function normalizeDesktopState(value: unknown): DesktopState {
     DEFAULT_DESKTOP_STATE.lastView;
 
   return {
-    backendUrl: normalizeString(
+    backendUrl: normalizeBackendUrlOrFallback(
       record.backendUrl,
       DEFAULT_DESKTOP_STATE.backendUrl
     ),
@@ -276,7 +277,7 @@ function buildBackendArgs(state: DesktopState): string[] {
       }
     }
   } catch {
-    // Ignore invalid URLs here; the renderer validates what it stores.
+    // Ignore invalid URLs here; persisted desktop state is normalized before use.
   }
 
   return args;

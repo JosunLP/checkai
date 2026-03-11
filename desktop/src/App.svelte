@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { DesktopView } from './shared-types.js';
   import {
     desktopState,
     currentView,
@@ -36,7 +35,7 @@
   import SettingsView from './views/SettingsView.svelte';
 
   onMount(() => {
-    let cleanupWorkspace = () => undefined;
+    let cleanupWorkspace: () => void = () => {};
 
     const handleKeydown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
@@ -65,9 +64,10 @@
     };
 
     initializeDesktopWorkspace()
-      .then(() => {
+      .then((cleanup) => {
         initializeBackendListener();
         initializeUpdateListener();
+        return cleanup;
       })
       .then((cleanup) => {
         cleanupWorkspace = cleanup;

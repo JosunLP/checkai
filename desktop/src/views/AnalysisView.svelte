@@ -222,7 +222,7 @@
             {#each $analysisJobs as job (job.id)}
               <tr>
                 <td class="mono">{job.id.slice(0, 8)}…</td>
-                <td class="mono">{job.game_id?.slice(0, 8) ?? '—'}…</td>
+                <td class="mono">{job.game_id ? `${job.game_id.slice(0, 8)}…` : '—'}</td>
                 <td>{statusLabel(job)}</td>
                 <td>{new Date(job.created_at).toLocaleString()}</td>
                 <td class="btn-row">
