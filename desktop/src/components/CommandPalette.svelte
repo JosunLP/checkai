@@ -125,6 +125,12 @@
     if (event.key === 'Escape') {
       event.preventDefault();
       closePalette();
+    } else if (
+      event.target === event.currentTarget &&
+      (event.key === 'Enter' || event.code === 'Space')
+    ) {
+      event.preventDefault();
+      closePalette();
     }
   }}
 >

@@ -30,6 +30,47 @@
     return (file.charCodeAt(0) + Number.parseInt(rank, 10)) % 2 === 0;
   }
 
+  const PIECE_LABELS: Record<string, string> = {
+    K: 'white king',
+    Q: 'white queen',
+    R: 'white rook',
+    B: 'white bishop',
+    N: 'white knight',
+    P: 'white pawn',
+    k: 'black king',
+    q: 'black queen',
+    r: 'black rook',
+    b: 'black bishop',
+    n: 'black knight',
+    p: 'black pawn',
+  };
+
+  function squareAriaLabel(
+    square: string,
+    piece: string | null,
+    options: {
+      selected: boolean;
+      legalDestination: boolean;
+      lastMove: boolean;
+      inCheck: boolean;
+    }
+  ): string {
+    const parts = [`square ${square}`, piece ? `occupied by ${PIECE_LABELS[piece]}` : 'empty'];
+    if (options.selected) {
+      parts.push('selected');
+    }
+    if (options.legalDestination) {
+      parts.push('legal move');
+    }
+    if (options.lastMove) {
+      parts.push('last move');
+    }
+    if (options.inCheck) {
+      parts.push('king in check');
+    }
+    return parts.join(', ');
+  }
+
   function movePairs(): MovePair[] {
     const game = $activeGame;
     if (!game) {
@@ -96,18 +137,30 @@
               {#each boardFiles as file}
                 {@const square = `${file}${rank}`}
                 {@const piece = $activeGame.state.board[square]}
+                {@const isSelected = $selectedSquare === square}
+                {@const isLegalDestination = $highlightSquares.has(square)}
+                {@const isLastMove = $lastMove?.from === square || $lastMove?.to === square}
+                {@const isCheckSquare = $activeGame.is_check &&
+                  (($activeGame.state.turn === 'white' &&
+                    $activeGame.state.board[square] === 'K') ||
+                    ($activeGame.state.turn === 'black' &&
+                      $activeGame.state.board[square] === 'k'))}
                 <button
+                  type="button"
                   class:sq={true}
                   class:sq-light={isLightSquare(file, rank)}
                   class:sq-dark={!isLightSquare(file, rank)}
-                  class:sq-selected={$selectedSquare === square}
-                  class:sq-highlight={$highlightSquares.has(square)}
-                  class:sq-last-move={$lastMove?.from === square || $lastMove?.to === square}
-                  class:sq-check={$activeGame.is_check &&
-                    (($activeGame.state.turn === 'white' &&
-                      $activeGame.state.board[square] === 'K') ||
-                      ($activeGame.state.turn === 'black' &&
-                        $activeGame.state.board[square] === 'k'))}
+                  class:sq-selected={isSelected}
+                  class:sq-highlight={isLegalDestination}
+                  class:sq-last-move={isLastMove}
+                  class:sq-check={isCheckSquare}
+                  aria-label={squareAriaLabel(square, piece, {
+                    selected: isSelected,
+                    legalDestination: isLegalDestination,
+                    lastMove: isLastMove,
+                    inCheck: isCheckSquare,
+                  })}
+                  aria-pressed={isSelected}
                   on:click={() => handleBoardSquareClick(square)}
                 >
                   <span>{piece ? PIECE_UNICODE[piece] : ''}</span>

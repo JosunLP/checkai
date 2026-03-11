@@ -29,19 +29,52 @@
           <p class="dim">Move {$replayState.at_move} / {$replayState.total_moves}</p>
         </div>
         <div class="btn-row">
-          <button class="btn btn-sm" on:click={() => replayTo(0)}>⏮</button>
-          <button class="btn btn-sm" on:click={() => replayTo(Math.max(0, $replayState.at_move - 1))}>
+          <button
+            class="btn btn-sm"
+            type="button"
+            aria-label="First move"
+            title="First move"
+            on:click={() => replayTo(0)}
+          >
+            ⏮
+          </button>
+          <button
+            class="btn btn-sm"
+            type="button"
+            aria-label="Previous move"
+            title="Previous move"
+            on:click={() => replayTo(Math.max(0, $replayState.at_move - 1))}
+          >
             ◀
           </button>
           <button
             class="btn btn-sm"
+            type="button"
+            aria-label="Next move"
+            title="Next move"
             on:click={() =>
               replayTo(Math.min($replayState.total_moves, $replayState.at_move + 1))}
           >
             ▶
           </button>
-          <button class="btn btn-sm" on:click={() => replayTo($replayState.total_moves)}>⏭</button>
-          <button class="btn btn-ghost btn-sm" on:click={closeReplay}>✕ Close</button>
+          <button
+            class="btn btn-sm"
+            type="button"
+            aria-label="Last move"
+            title="Last move"
+            on:click={() => replayTo($replayState.total_moves)}
+          >
+            ⏭
+          </button>
+          <button
+            class="btn btn-ghost btn-sm"
+            type="button"
+            aria-label="Close replay"
+            title="Close replay"
+            on:click={closeReplay}
+          >
+            ✕ Close
+          </button>
         </div>
       </div>
 

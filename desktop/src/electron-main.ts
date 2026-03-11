@@ -252,24 +252,36 @@ function defaultBackendPort(): string {
 
 function buildBackendArgs(state: DesktopState): string[] {
   const args = splitArgs(state.backendArgs);
-  if (state.openingBookPath && !args.includes('--book-path')) {
-    args.push('--book-path', state.openingBookPath);
-  }
-  if (state.tablebasePath && !args.includes('--tablebase-path')) {
-    args.push('--tablebase-path', state.tablebasePath);
+
+  let subcommand: string;
+  const firstNonFlagIndex = args.findIndex((arg) => !arg.startsWith('-'));
+  if (firstNonFlagIndex === -1) {
+    subcommand = 'serve';
+    args.push(subcommand);
+  } else {
+    subcommand = args[firstNonFlagIndex];
   }
 
-  try {
-    const url = new URL(state.backendUrl);
-    const port = url.port || defaultBackendPort();
-    if (port && /^\d+$/.test(port) && !args.includes('--port')) {
-      args.push('--port', port);
+  if (subcommand === 'serve') {
+    if (state.openingBookPath && !args.includes('--book-path')) {
+      args.push('--book-path', state.openingBookPath);
     }
-    if (!args.includes('--host')) {
-      args.push('--host', '127.0.0.1');
+    if (state.tablebasePath && !args.includes('--tablebase-path')) {
+      args.push('--tablebase-path', state.tablebasePath);
     }
-  } catch {
-    // Ignore invalid URLs here; persisted desktop state is normalized before use.
+
+    try {
+      const url = new URL(state.backendUrl);
+      const port = url.port || defaultBackendPort();
+      if (port && /^\d+$/.test(port) && !args.includes('--port')) {
+        args.push('--port', port);
+      }
+      if (!args.includes('--host')) {
+        args.push('--host', '127.0.0.1');
+      }
+    } catch {
+      // Ignore invalid URLs here; persisted desktop state is normalized before use.
+    }
   }
 
   return args;
