@@ -19,9 +19,9 @@
       }
 
       timer = setTimeout(() => {
-        if (type === 'ok' && message) {
+        if (type === 'ok') {
           toastMsg.set(null);
-        } else if (type === 'error' && message) {
+        } else if (type === 'error') {
           errorMsg.set(null);
         }
         timer = null;

@@ -246,15 +246,8 @@ function splitArgs(value: string): string[] {
   return (matches ?? []).map((part) => part.replace(/^['"]|['"]$/g, ''));
 }
 
-function defaultPortForProtocol(protocol: string): string {
-  switch (protocol) {
-    case 'http:':
-      return DEFAULT_BACKEND_PORT;
-    case 'https:':
-      return DEFAULT_BACKEND_PORT;
-    default:
-      return '';
-  }
+function defaultBackendPort(): string {
+  return DEFAULT_BACKEND_PORT;
 }
 
 function buildBackendArgs(state: DesktopState): string[] {
@@ -268,7 +261,7 @@ function buildBackendArgs(state: DesktopState): string[] {
 
   try {
     const url = new URL(state.backendUrl);
-    const port = url.port || defaultPortForProtocol(url.protocol);
+    const port = url.port || defaultBackendPort();
     if (port && /^\d+$/.test(port) && !args.includes('--port')) {
       args.push('--port', port);
     }
