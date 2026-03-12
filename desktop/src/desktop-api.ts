@@ -112,7 +112,9 @@ export async function loadDesktopState(): Promise<void> {
 export async function saveDesktopState(): Promise<void> {
   try {
     const state = get(desktopState);
-    await desktop.saveState(state);
+    const savedState = await desktop.saveState(state);
+    desktopState.set(savedState);
+    currentView.set(savedState.lastView);
   } catch (error) {
     console.error('Failed to save desktop state:', error);
     pushError('Failed to save desktop state.');

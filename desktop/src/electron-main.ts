@@ -28,6 +28,7 @@ const MAX_LOG_LINES = 400;
 const LOG_PUSH_DELAY_MS = 250;
 const BACKEND_FORCE_KILL_TIMEOUT_MS = 10_000;
 const DEFAULT_NOTIFICATION_TITLE = 'CheckAI Desktop';
+const MAX_READABLE_FILE_SELECTIONS = 32;
 // Keep this in sync with CLI flags that consume the following argv entry as a value
 // before the subcommand appears, e.g. `checkai --lang de serve`.
 const CLI_FLAGS_WITH_SEPARATE_VALUE = new Set(['--lang', '-l']);
@@ -964,10 +965,13 @@ async function selectPath(kind: 'file' | 'directory'): Promise<string | null> {
   const resolvedPath = resolve(selectedPath);
   if (kind === 'file') {
     try {
-      readableFileSelections.set(
-        resolvedPath,
-        canonicalizeExistingPath(resolvedPath)
-      );
+      const canonicalPath = canonicalizeExistingPath(resolvedPath);
+      readableFileSelections.delete(resolvedPath);
+      readableFileSelections.set(resolvedPath, canonicalPath);
+      while (readableFileSelections.size > MAX_READABLE_FILE_SELECTIONS) {
+        const oldestPath = readableFileSelections.keys().next().value!;
+        readableFileSelections.delete(oldestPath);
+      }
     } catch {
       throw new Error('The selected file could not be prepared for reading.');
     }
