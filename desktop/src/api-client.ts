@@ -28,9 +28,11 @@ async function request<T>(
 ): Promise<T> {
   const opts: RequestInit = {
     method,
-    headers: { 'Content-Type': 'application/json' },
   };
-  if (body) opts.body = JSON.stringify(body);
+  if (body !== undefined) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(body);
+  }
 
   const res = await fetch(`${apiBase}${path}`, opts);
   if (!res.ok) {
