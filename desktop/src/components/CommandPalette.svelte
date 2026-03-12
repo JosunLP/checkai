@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { errorMsg, paletteOpen, paletteQuery } from '../stores.js';
+  import { paletteOpen, paletteQuery } from '../stores.js';
+  import { pushError } from '../notifications.js';
   import type { DesktopView } from '../shared-types.js';
   import {
     checkForDesktopUpdates,
@@ -90,6 +91,13 @@
     searchInput?.focus();
   });
 
+  function handleWindowKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closePalette();
+    }
+  }
+
   function handleOverlayClick(event: MouseEvent): void {
     if (event.target === event.currentTarget) {
       closePalette();
@@ -100,8 +108,7 @@
     try {
       await command.action();
     } catch (error) {
-      errorMsg.set(error instanceof Error ? error.message : String(error));
-      setTimeout(() => errorMsg.set(null), 5000);
+      pushError(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -115,24 +122,12 @@
   });
 </script>
 
+<svelte:window on:keydown={handleWindowKeydown} />
+
 <div
   class="overlay"
-  role="button"
-  tabindex="0"
-  aria-label="Close command palette"
+  role="presentation"
   on:click={handleOverlayClick}
-  on:keydown={(event) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      closePalette();
-    } else if (
-      event.target === event.currentTarget &&
-      (event.key === 'Enter' || event.code === 'Space')
-    ) {
-      event.preventDefault();
-      closePalette();
-    }
-  }}
 >
   <div class="palette">
     <div class="palette-head">

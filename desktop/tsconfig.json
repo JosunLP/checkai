@@ -13,5 +13,11 @@
     "types": ["vite/client", "svelte"]
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts"],
-  "exclude": ["node_modules", "dist", "dist-electron"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-electron",
+    "src/electron-main.ts",
+    "src/preload.ts"
+  ]
 }

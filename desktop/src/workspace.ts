@@ -20,6 +20,11 @@ import {
 } from './api-client.js';
 import { desktop, loadDesktopState, saveDesktopState } from './desktop-api.js';
 import {
+  clearNotificationTimers,
+  pushError,
+  pushToast,
+} from './notifications.js';
+import {
   activeAnalysis,
   activeGame,
   analysisDepth,
@@ -30,7 +35,6 @@ import {
   boardAscii,
   currentView,
   desktopState,
-  errorMsg,
   fenInput,
   gamesList,
   legalMoves,
@@ -40,7 +44,6 @@ import {
   replayState,
   selectedSquare,
   storageStats,
-  toastMsg,
   updateStatus,
 } from './stores.js';
 import type {
@@ -69,30 +72,6 @@ let workspaceRefreshInFlight = false;
 let workspacePollingBackoffUntil = 0;
 let workspacePollingFailureCount = 0;
 let menuCommandCleanup: (() => void) | null = null;
-let toastTimer: ReturnType<typeof setTimeout> | null = null;
-let errorTimer: ReturnType<typeof setTimeout> | null = null;
-
-function pushToast(message: string): void {
-  toastMsg.set(message);
-  if (toastTimer) {
-    clearTimeout(toastTimer);
-  }
-  toastTimer = setTimeout(() => {
-    toastMsg.set(null);
-    toastTimer = null;
-  }, 3200);
-}
-
-function pushError(message: string): void {
-  errorMsg.set(message);
-  if (errorTimer) {
-    clearTimeout(errorTimer);
-  }
-  errorTimer = setTimeout(() => {
-    errorMsg.set(null);
-    errorTimer = null;
-  }, 5000);
-}
 
 function slugify(value: string): string {
   return value
@@ -538,14 +517,7 @@ export async function initializeDesktopWorkspace(): Promise<() => void> {
   return () => {
     stopWorkspaceRefreshPolling();
     stopAnalysisPolling();
-    if (toastTimer) {
-      clearTimeout(toastTimer);
-      toastTimer = null;
-    }
-    if (errorTimer) {
-      clearTimeout(errorTimer);
-      errorTimer = null;
-    }
+    clearNotificationTimers();
     if (menuCommandCleanup) {
       menuCommandCleanup();
       menuCommandCleanup = null;

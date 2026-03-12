@@ -5,9 +5,8 @@ import {
   backendStatus,
   backendLogs,
   updateStatus,
-  toastMsg,
-  errorMsg,
 } from './stores.js';
+import { pushError, pushToast } from './notifications.js';
 import {
   DEFAULT_DESKTOP_STATE,
   type DesktopApi,
@@ -106,7 +105,7 @@ export async function loadDesktopState(): Promise<void> {
     currentView.set(state.lastView);
   } catch (error) {
     console.error('Failed to load desktop state:', error);
-    errorMsg.set('Failed to load desktop state.');
+    pushError('Failed to load desktop state.');
   }
 }
 
@@ -116,7 +115,7 @@ export async function saveDesktopState(): Promise<void> {
     await desktop.saveState(state);
   } catch (error) {
     console.error('Failed to save desktop state:', error);
-    errorMsg.set('Failed to save desktop state.');
+    pushError('Failed to save desktop state.');
   }
 }
 
@@ -151,13 +150,11 @@ export async function startBackend(): Promise<void> {
     const status = await desktop.startBackend(state);
     backendStatus.set(status);
     if (status.running) {
-      toastMsg.set('Backend started successfully');
-      setTimeout(() => toastMsg.set(null), 3000);
+      pushToast('Backend started successfully');
     }
   } catch (error) {
     console.error('Failed to start backend:', error);
-    errorMsg.set('Failed to start backend.');
-    setTimeout(() => errorMsg.set(null), 5000);
+    pushError('Failed to start backend.');
   }
 }
 
@@ -165,11 +162,9 @@ export async function stopBackend(): Promise<void> {
   try {
     const status = await desktop.stopBackend();
     backendStatus.set(status);
-    toastMsg.set('Backend stopped');
-    setTimeout(() => toastMsg.set(null), 3000);
+    pushToast('Backend stopped');
   } catch (error) {
     console.error('Failed to stop backend:', error);
-    errorMsg.set('Failed to stop backend.');
-    setTimeout(() => errorMsg.set(null), 5000);
+    pushError('Failed to stop backend.');
   }
 }
