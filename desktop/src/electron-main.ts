@@ -41,7 +41,7 @@ let backendStopRequested = false;
 let backendLogs = '';
 let backendLogsFlushTimer: NodeJS.Timeout | null = null;
 let backendForceKillTimer: NodeJS.Timeout | null = null;
-const readableFileSelections = new Set<string>();
+const readableFileSelections = new Map<string, string>();
 let backendStatus: BackendStatusPayload = {
   running: false,
   pid: null,
@@ -266,6 +266,8 @@ function findSubcommandIndex(args: string[]): number {
     }
 
     if (CLI_FLAGS_WITH_SEPARATE_VALUE.has(arg) && index + 1 < args.length) {
+      // Skip the flag value so tokens like `--lang de serve` do not treat `de`
+      // as the subcommand before we reach the real `serve` token.
       index += 1;
     }
   }
@@ -955,7 +957,10 @@ async function selectPath(kind: 'file' | 'directory'): Promise<string | null> {
 
   const resolvedPath = resolve(selectedPath);
   if (kind === 'file') {
-    readableFileSelections.add(canonicalizeExistingPath(resolvedPath));
+    readableFileSelections.set(
+      resolvedPath,
+      canonicalizeExistingPath(resolvedPath)
+    );
   }
   // Directory selections are not tracked because the renderer has no IPC that can
   // read directory contents; this allowlist only protects text-file reads.
@@ -964,12 +969,36 @@ async function selectPath(kind: 'file' | 'directory'): Promise<string | null> {
 }
 
 function validateReadableTextFileTarget(target: unknown): string {
-  const path = canonicalizeExistingPath(validateOpenPathTarget(target));
-  if (!readableFileSelections.has(path)) {
+  const value = normalizeString(target).trim();
+  if (!value) {
+    throw new Error('Select a local file first.');
+  }
+
+  const looksLikeWindowsDrivePath = /^[a-zA-Z]:[\\/]/.test(value);
+  if (!looksLikeWindowsDrivePath && /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)) {
+    throw new Error(
+      'Only files selected through the native picker can be read.'
+    );
+  }
+
+  const resolvedPath = resolve(value);
+  const expectedCanonicalPath = readableFileSelections.get(resolvedPath);
+  if (!expectedCanonicalPath) {
     throw new Error('Only files selected through the native picker can be read.');
   }
 
-  return path;
+  let canonicalPath: string;
+  try {
+    canonicalPath = canonicalizeExistingPath(resolvedPath);
+  } catch {
+    throw new Error('The selected file can no longer be read.');
+  }
+
+  if (canonicalPath !== expectedCanonicalPath) {
+    throw new Error('The selected file can no longer be read.');
+  }
+
+  return resolvedPath;
 }
 
 function readTextFile(target: unknown): string {
