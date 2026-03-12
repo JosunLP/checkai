@@ -28,6 +28,9 @@ const MAX_LOG_LINES = 400;
 const LOG_PUSH_DELAY_MS = 250;
 const BACKEND_FORCE_KILL_TIMEOUT_MS = 10_000;
 const DEFAULT_NOTIFICATION_TITLE = 'CheckAI Desktop';
+// Keep this in sync with CLI flags that consume the following argv entry as a value
+// before the subcommand appears, e.g. `checkai --lang de serve`.
+const CLI_FLAGS_WITH_SEPARATE_VALUE = new Set(['--lang', '-l']);
 
 let mainWindow: BrowserWindow | null = null;
 let backendProcess: ChildProcessWithoutNullStreams | null = null;
@@ -38,6 +41,7 @@ let backendStopRequested = false;
 let backendLogs = '';
 let backendLogsFlushTimer: NodeJS.Timeout | null = null;
 let backendForceKillTimer: NodeJS.Timeout | null = null;
+const readableFileSelections = new Set<string>();
 let backendStatus: BackendStatusPayload = {
   running: false,
   pid: null,
@@ -254,16 +258,31 @@ function hasCliFlag(args: string[], flag: string): boolean {
   return args.some((arg) => arg === flag || arg.startsWith(`${flag}=`));
 }
 
+function findSubcommandIndex(args: string[]): number {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (!arg.startsWith('-')) {
+      return index;
+    }
+
+    if (CLI_FLAGS_WITH_SEPARATE_VALUE.has(arg)) {
+      index += 1;
+    }
+  }
+
+  return -1;
+}
+
 function buildBackendArgs(state: DesktopState): string[] {
   const args = splitArgs(state.backendArgs);
 
   let subcommand: string;
-  const firstNonFlagIndex = args.findIndex((arg) => !arg.startsWith('-'));
-  if (firstNonFlagIndex === -1) {
+  const subcommandIndex = findSubcommandIndex(args);
+  if (subcommandIndex === -1) {
     subcommand = 'serve';
     args.push(subcommand);
   } else {
-    subcommand = args[firstNonFlagIndex];
+    subcommand = args[subcommandIndex];
   }
 
   if (subcommand === 'serve') {
@@ -925,12 +944,33 @@ async function selectPath(kind: 'file' | 'directory'): Promise<string | null> {
   if (result.canceled || result.filePaths.length === 0) {
     return null;
   }
-  return result.filePaths[0] ?? null;
+  const selectedPath = result.filePaths[0] ?? null;
+  if (!selectedPath) {
+    return null;
+  }
+
+  const resolvedPath = resolve(selectedPath);
+  if (kind === 'file') {
+    readableFileSelections.add(resolvedPath);
+  }
+
+  return resolvedPath;
+}
+
+function validateReadableTextFileTarget(target: unknown): string {
+  const path = validateOpenPathTarget(target);
+  if (!readableFileSelections.has(path)) {
+    throw new Error('Only files selected through the native picker can be read.');
+  }
+
+  return path;
 }
 
 function readTextFile(target: unknown): string {
-  const path = validateOpenPathTarget(target);
-  return readFileSync(path, 'utf8');
+  const path = validateReadableTextFileTarget(target);
+  const content = readFileSync(path, 'utf8');
+  readableFileSelections.delete(path);
+  return content;
 }
 
 async function saveTextFile(options: unknown): Promise<string | null> {

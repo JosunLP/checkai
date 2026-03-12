@@ -135,7 +135,14 @@
         <h3>Command Palette</h3>
         <p class="dim">Jump between views and launch desktop actions.</p>
       </div>
-      <button class="btn btn-ghost btn-sm" on:click={closePalette}>✕</button>
+      <button
+        class="btn btn-ghost btn-sm"
+        on:click={closePalette}
+        aria-label="Close command palette"
+        title="Close command palette"
+      >
+        ✕
+      </button>
     </div>
 
     <label class="field-inline palette-search">
