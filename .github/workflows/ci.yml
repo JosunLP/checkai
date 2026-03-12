@@ -119,7 +119,7 @@ jobs:
 
       - name: Install desktop dependencies
         working-directory: desktop
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Validate desktop app
         working-directory: desktop
