@@ -357,8 +357,7 @@ function validateOpenPathTarget(target: unknown): string {
     throw new Error('Select a local path first.');
   }
 
-  const looksLikeWindowsDrivePath = /^[a-zA-Z]:[\\/]/.test(value);
-  if (!looksLikeWindowsDrivePath && /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)) {
+  if (hasNonFileScheme(value)) {
     throw new Error(
       'Only local filesystem paths can be opened from the desktop shell.'
     );
@@ -375,6 +374,13 @@ function validateOpenPathTarget(target: unknown): string {
 
 function canonicalizeExistingPath(path: string): string {
   return realpathSync(path);
+}
+
+function hasNonFileScheme(value: string): boolean {
+  const looksLikeWindowsDrivePath = /^[a-zA-Z]:[\\/]/.test(value);
+  return (
+    !looksLikeWindowsDrivePath && /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)
+  );
 }
 
 function validateProgressBarValue(value: unknown): number | null {
@@ -957,10 +963,14 @@ async function selectPath(kind: 'file' | 'directory'): Promise<string | null> {
 
   const resolvedPath = resolve(selectedPath);
   if (kind === 'file') {
-    readableFileSelections.set(
-      resolvedPath,
-      canonicalizeExistingPath(resolvedPath)
-    );
+    try {
+      readableFileSelections.set(
+        resolvedPath,
+        canonicalizeExistingPath(resolvedPath)
+      );
+    } catch {
+      throw new Error('The selected file could not be prepared for reading.');
+    }
   }
   // Directory selections are not tracked because the renderer has no IPC that can
   // read directory contents; this allowlist only protects text-file reads.
@@ -974,8 +984,7 @@ function validateReadableTextFileTarget(target: unknown): string {
     throw new Error('Select a local file first.');
   }
 
-  const looksLikeWindowsDrivePath = /^[a-zA-Z]:[\\/]/.test(value);
-  if (!looksLikeWindowsDrivePath && /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)) {
+  if (hasNonFileScheme(value)) {
     throw new Error(
       'Only files selected through the native picker can be read.'
     );
@@ -1004,6 +1013,8 @@ function validateReadableTextFileTarget(target: unknown): string {
 function readTextFile(target: unknown): string {
   const path = validateReadableTextFileTarget(target);
   const content = readFileSync(path, 'utf8');
+  // Consume the selection token after one successful read so a compromised
+  // renderer cannot keep reusing an old picker approval indefinitely.
   readableFileSelections.delete(path);
   return content;
 }
