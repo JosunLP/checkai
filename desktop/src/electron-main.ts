@@ -10,7 +10,7 @@ import {
 } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -265,7 +265,7 @@ function findSubcommandIndex(args: string[]): number {
       return index;
     }
 
-    if (CLI_FLAGS_WITH_SEPARATE_VALUE.has(arg)) {
+    if (CLI_FLAGS_WITH_SEPARATE_VALUE.has(arg) && index + 1 < args.length) {
       index += 1;
     }
   }
@@ -369,6 +369,10 @@ function validateOpenPathTarget(target: unknown): string {
   }
 
   return resolvedPath;
+}
+
+function canonicalizeExistingPath(path: string): string {
+  return realpathSync(path);
 }
 
 function validateProgressBarValue(value: unknown): number | null {
@@ -951,14 +955,16 @@ async function selectPath(kind: 'file' | 'directory'): Promise<string | null> {
 
   const resolvedPath = resolve(selectedPath);
   if (kind === 'file') {
-    readableFileSelections.add(resolvedPath);
+    readableFileSelections.add(canonicalizeExistingPath(resolvedPath));
   }
+  // Directory selections are not tracked because the renderer has no IPC that can
+  // read directory contents; this allowlist only protects text-file reads.
 
   return resolvedPath;
 }
 
 function validateReadableTextFileTarget(target: unknown): string {
-  const path = validateOpenPathTarget(target);
+  const path = canonicalizeExistingPath(validateOpenPathTarget(target));
   if (!readableFileSelections.has(path)) {
     throw new Error('Only files selected through the native picker can be read.');
   }
