@@ -86,9 +86,15 @@
   ];
 
   let searchInput: HTMLInputElement | null = null;
+  let previousFocus: HTMLElement | null = null;
 
   onMount(() => {
+    previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     searchInput?.focus();
+
+    return () => {
+      previousFocus?.focus();
+    };
   });
 
   function handleWindowKeydown(event: KeyboardEvent): void {
@@ -129,10 +135,15 @@
   role="presentation"
   on:click={handleOverlayClick}
 >
-  <div class="palette">
+  <div
+    class="palette"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="command-palette-title"
+  >
     <div class="palette-head">
       <div>
-        <h3>Command Palette</h3>
+        <h3 id="command-palette-title">Command Palette</h3>
         <p class="dim">Jump between views and launch desktop actions.</p>
       </div>
       <button

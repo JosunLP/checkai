@@ -481,7 +481,7 @@ export async function refreshWorkspaceData(silent = false): Promise<void> {
   await Promise.all([
     refreshBackendState(silent),
     refreshUpdateState(silent),
-    refreshLogs(true),
+    refreshLogs(silent),
     refreshGamesList(silent),
     refreshArchive(silent),
     refreshAnalysisJobs(silent),
@@ -892,10 +892,21 @@ export async function installDesktopUpdate(): Promise<void> {
   }
 }
 
+let presetIdCounter = 0;
+
+function createPresetId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `preset-${crypto.randomUUID()}`;
+  }
+
+  presetIdCounter += 1;
+  return `preset-${Date.now()}-${presetIdCounter}`;
+}
+
 function currentPresetFromState(name: string): BackendPreset {
   const state = get(desktopState);
   return {
-    id: `preset-${Date.now()}`,
+    id: createPresetId(),
     name,
     backendExecutable: state.backendExecutable,
     backendArgs: state.backendArgs,
