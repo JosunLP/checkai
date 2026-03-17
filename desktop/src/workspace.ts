@@ -24,6 +24,7 @@ import {
   pushError,
   pushToast,
 } from './notifications.js';
+import { attemptRefresh, refreshStore } from './workspace/refresh.js';
 import {
   activeAnalysis,
   activeGame,
@@ -222,37 +223,25 @@ export function navigateTo(view: DesktopView): void {
 }
 
 async function refreshBackendState(silent = false): Promise<void> {
-  try {
-    backendStatus.set(await desktop.getBackendStatus());
-  } catch (error) {
-    if (!silent) {
-      pushError(error instanceof Error ? error.message : String(error));
-    }
-  }
+  await refreshStore(silent, () => desktop.getBackendStatus(), (status) => {
+    backendStatus.set(status);
+  });
 }
 
 async function refreshUpdateState(silent = false): Promise<void> {
-  try {
-    updateStatus.set(await desktop.getUpdateStatus());
-  } catch (error) {
-    if (!silent) {
-      pushError(error instanceof Error ? error.message : String(error));
-    }
-  }
+  await refreshStore(silent, () => desktop.getUpdateStatus(), (status) => {
+    updateStatus.set(status);
+  });
 }
 
 export async function refreshLogs(silent = false): Promise<void> {
-  try {
-    backendLogs.set(await desktop.getBackendLogs());
-  } catch (error) {
-    if (!silent) {
-      pushError(error instanceof Error ? error.message : String(error));
-    }
-  }
+  await refreshStore(silent, () => desktop.getBackendLogs(), (logs) => {
+    backendLogs.set(logs);
+  });
 }
 
 export async function refreshGamesList(silent = false): Promise<boolean> {
-  try {
+  return attemptRefresh(silent, async () => {
     const result = await listGames();
     gamesList.set(result.games);
 
@@ -264,42 +253,23 @@ export async function refreshGamesList(silent = false): Promise<boolean> {
       boardAscii.set('');
       updateDesktopState((state) => ({ ...state, lastGameId: null }));
     }
-    return true;
-  } catch (error) {
-    if (!silent) {
-      pushError(error instanceof Error ? error.message : String(error));
-    }
-    return false;
-  }
+  });
 }
 
 export async function refreshArchive(silent = false): Promise<boolean> {
-  try {
+  return attemptRefresh(silent, async () => {
     const result = await listArchived();
     archivedList.set(result.games);
     if (result.storage) {
       storageStats.set(result.storage);
     }
-    return true;
-  } catch (error) {
-    if (!silent) {
-      pushError(error instanceof Error ? error.message : String(error));
-    }
-    return false;
-  }
+  });
 }
 
 export async function refreshAnalysisJobs(silent = false): Promise<boolean> {
-  try {
-    const result = await listAnalysisJobs();
+  return refreshStore(silent, listAnalysisJobs, (result) => {
     analysisJobs.set(result.jobs);
-    return true;
-  } catch (error) {
-    if (!silent) {
-      pushError(error instanceof Error ? error.message : String(error));
-    }
-    return false;
-  }
+  });
 }
 
 async function updateAnalysisProgress(job: AnalysisJob | null): Promise<void> {
@@ -323,7 +293,7 @@ async function refreshActiveAnalysisJob(silent = false): Promise<boolean> {
     return false;
   }
 
-  try {
+  return attemptRefresh(silent, async () => {
     const previousJob = currentJob;
     const nextJob = await getAnalysisJob(currentJob.id);
     activeAnalysis.set(nextJob);
@@ -343,13 +313,7 @@ async function refreshActiveAnalysisJob(silent = false): Promise<boolean> {
         pushError(nextJob.status.Failed.error);
       }
     }
-    return true;
-  } catch (error) {
-    if (!silent) {
-      pushError(error instanceof Error ? error.message : String(error));
-    }
-    return false;
-  }
+  });
 }
 
 async function refreshBoardAscii(gameId: string): Promise<void> {
@@ -366,7 +330,7 @@ async function refreshActiveGame(silent = false): Promise<boolean> {
     return false;
   }
 
-  try {
+  return attemptRefresh(silent, async () => {
     const nextGame = await getGame(game.game_id);
     activeGame.set(nextGame);
 
@@ -378,13 +342,7 @@ async function refreshActiveGame(silent = false): Promise<boolean> {
     }
 
     await refreshBoardAscii(nextGame.game_id);
-    return true;
-  } catch (error) {
-    if (!silent) {
-      pushError(error instanceof Error ? error.message : String(error));
-    }
-    return false;
-  }
+  });
 }
 
 function stopWorkspaceRefreshPolling(): void {

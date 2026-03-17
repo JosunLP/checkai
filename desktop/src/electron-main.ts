@@ -10,7 +10,8 @@ import {
 } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -189,26 +190,22 @@ function normalizeDesktopState(value: unknown): DesktopState {
   };
 }
 
-function loadState(): DesktopState {
+async function loadState(): Promise<DesktopState> {
   const file = stateFilePath();
-  if (!existsSync(file)) {
-    return { ...DEFAULT_DESKTOP_STATE };
-  }
-
   try {
     return normalizeDesktopState(
-      JSON.parse(readFileSync(file, 'utf8')) as Partial<DesktopState>
+      JSON.parse(await readFile(file, 'utf8')) as Partial<DesktopState>
     );
   } catch {
     return { ...DEFAULT_DESKTOP_STATE };
   }
 }
 
-function saveState(next: unknown): DesktopState {
+async function saveState(next: unknown): Promise<DesktopState> {
   const sanitized = normalizeDesktopState(next);
   const file = stateFilePath();
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(sanitized, null, 2));
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, JSON.stringify(sanitized, null, 2), 'utf8');
   return sanitized;
 }
 
@@ -1130,8 +1127,8 @@ function registerIpcHandlers(): void {
     const normalized = validateProgressBarValue(progress);
     mainWindow?.setProgressBar(normalized ?? -1);
   });
-  ipcMain.handle('checkai:start-backend', (_event, state: unknown) => {
-    const saved = saveState(state);
+  ipcMain.handle('checkai:start-backend', async (_event, state: unknown) => {
+    const saved = await saveState(state);
     return startBackend(saved);
   });
   ipcMain.handle('checkai:stop-backend', () => stopBackend());
@@ -1163,11 +1160,11 @@ function registerIpcHandlers(): void {
 
 registerIpcHandlers();
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   configureAutoUpdater();
   createWindow();
 
-  const state = loadState();
+  const state = await loadState();
   if (state.autoStartBackend) {
     startBackend(state);
   }
