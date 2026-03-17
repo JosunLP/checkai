@@ -259,6 +259,28 @@ function hasCliFlag(args: string[], flag: string): boolean {
   return args.some((arg) => arg === flag || arg.startsWith(`${flag}=`));
 }
 
+function withoutCliFlag(args: string[], flag: string): string[] {
+  const nextArgs: string[] = [];
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === flag) {
+      if (index + 1 < args.length) {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (arg.startsWith(`${flag}=`)) {
+      continue;
+    }
+
+    nextArgs.push(arg);
+  }
+
+  return nextArgs;
+}
+
 function findSubcommandIndex(args: string[]): number {
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -298,13 +320,13 @@ function buildBackendArgs(state: DesktopState): string[] {
 
     try {
       const url = new URL(state.backendUrl);
+      const loopbackHost = url.hostname;
       const port = url.port || defaultBackendPort();
       if (port && /^\d+$/.test(port) && !hasCliFlag(args, '--port')) {
         args.push('--port', port);
       }
-      if (!hasCliFlag(args, '--host')) {
-        args.push('--host', '127.0.0.1');
-      }
+      args.splice(0, args.length, ...withoutCliFlag(args, '--host'));
+      args.push('--host', loopbackHost);
     } catch {
       // Ignore invalid URLs here; persisted desktop state is normalized before use.
     }

@@ -36,7 +36,6 @@ export function normalizeBackendUrl(value: string): string {
   url.password = '';
   url.search = '';
   url.hash = '';
-  url.hostname = '127.0.0.1';
   if (!url.port) {
     url.port = DEFAULT_BACKEND_PORT;
   }

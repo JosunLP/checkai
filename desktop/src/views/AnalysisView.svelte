@@ -2,6 +2,9 @@
   import { activeAnalysis, activeGame, analysisDepth, analysisJobs } from '../stores.js';
   import {
     cancelAnalysis,
+    isFailedStatus,
+    isInProgressStatus,
+    isTerminalAnalysisStatus,
     refreshAnalysisJobs,
     setAnalysisDepth,
     submitAnalysisForGame,
@@ -14,24 +17,12 @@
     AnalysisStatus,
   } from '../shared-types.js';
 
-  function isInProgress(
-    status: AnalysisStatus
-  ): status is { InProgress: { moves_analyzed: number; total_moves: number } } {
-    return typeof status === 'object' && status !== null && 'InProgress' in status;
-  }
-
-  function isFailed(
-    status: AnalysisStatus
-  ): status is { Failed: { error: string } } {
-    return typeof status === 'object' && status !== null && 'Failed' in status;
-  }
-
   function statusLabel(job: AnalysisJob): string {
-    if (isInProgress(job.status)) {
+    if (isInProgressStatus(job.status)) {
       return `${job.status.InProgress.moves_analyzed}/${job.status.InProgress.total_moves}`;
     }
 
-    if (isFailed(job.status)) {
+    if (isFailedStatus(job.status)) {
       return `Failed: ${job.status.Failed.error}`;
     }
 
@@ -55,7 +46,7 @@
   }
 
   function isTerminal(status: AnalysisStatus): boolean {
-    return status === 'Completed' || status === 'Cancelled' || isFailed(status);
+    return isTerminalAnalysisStatus(status);
   }
 
   function annotationMove(annotation: AnalysisMoveAnnotation): string {
@@ -127,7 +118,7 @@
         {/if}
       </div>
 
-        {#if isInProgress($activeAnalysis.status)}
+        {#if isInProgressStatus($activeAnalysis.status)}
           <progress
             class="analysis-progress"
             max={$activeAnalysis.status.InProgress.total_moves}

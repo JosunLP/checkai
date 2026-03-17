@@ -81,19 +81,19 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '') || 'checkai-game';
 }
 
-function isInProgressStatus(
+export function isInProgressStatus(
   status: AnalysisStatus
 ): status is { InProgress: { moves_analyzed: number; total_moves: number } } {
   return typeof status === 'object' && status !== null && 'InProgress' in status;
 }
 
-function isFailedStatus(
+export function isFailedStatus(
   status: AnalysisStatus
 ): status is { Failed: { error: string } } {
   return typeof status === 'object' && status !== null && 'Failed' in status;
 }
 
-function isTerminalAnalysisStatus(status: AnalysisStatus): boolean {
+export function isTerminalAnalysisStatus(status: AnalysisStatus): boolean {
   return status === 'Completed' || status === 'Cancelled' || isFailedStatus(status);
 }
 
