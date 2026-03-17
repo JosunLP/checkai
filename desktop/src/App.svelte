@@ -13,8 +13,6 @@
     initializeUpdateListener,
   } from './desktop-api.js';
   import {
-    createNewGame,
-    handleDesktopCommand,
     initializeDesktopWorkspace,
     refreshCurrentView,
   } from './workspace.js';
@@ -34,32 +32,35 @@
   import LogsView from './views/LogsView.svelte';
   import SettingsView from './views/SettingsView.svelte';
 
+  function isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+
+    return (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target.isContentEditable
+    );
+  }
+
   onMount(() => {
     let cleanupWorkspace: () => void = () => {};
     let cleanupBackendListener: () => void = () => {};
     let cleanupUpdateListener: () => void = () => {};
 
     const handleKeydown = (event: KeyboardEvent) => {
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        isEditableTarget(event.target) ||
+        $modalState !== null ||
+        $paletteOpen
+      ) {
+        return;
+      }
+
       const key = event.key.toLowerCase();
-      if ((event.ctrlKey || event.metaKey) && key === 'k') {
-        event.preventDefault();
-        $paletteOpen = true;
-        return;
-      }
-
-      if ((event.ctrlKey || event.metaKey) && key === 'n') {
-        event.preventDefault();
-        void createNewGame();
-        return;
-      }
-
-      if ((event.ctrlKey || event.metaKey) && key === 'o') {
-        event.preventDefault();
-        void handleDesktopCommand('import-fen-file');
-        return;
-      }
-
-      if ((event.ctrlKey || event.metaKey) && key === 'r' && !event.shiftKey) {
+      if (key === 'r' && !event.shiftKey) {
         event.preventDefault();
         void refreshCurrentView();
       }

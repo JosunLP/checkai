@@ -1082,6 +1082,7 @@ function createWindow(): void {
     title: 'CheckAI Desktop',
     webPreferences: {
       preload,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
     },

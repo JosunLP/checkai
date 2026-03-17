@@ -156,6 +156,10 @@ jobs:
           cd artifacts
           shopt -s nullglob
           files=(checkai-* latest*.yml)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No release artifacts found for checksum generation." >&2
+            exit 1
+          fi
           sha256sum "${files[@]}" > checksums-sha256.txt
           cat checksums-sha256.txt
 
