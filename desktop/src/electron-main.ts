@@ -192,11 +192,16 @@ function normalizeDesktopState(value: unknown): DesktopState {
 
 async function loadState(): Promise<DesktopState> {
   const file = stateFilePath();
+  if (!existsSync(file)) {
+    return { ...DEFAULT_DESKTOP_STATE };
+  }
+
   try {
     return normalizeDesktopState(
       JSON.parse(await readFile(file, 'utf8')) as Partial<DesktopState>
     );
-  } catch {
+  } catch (error) {
+    console.error('Failed to load desktop state:', error);
     return { ...DEFAULT_DESKTOP_STATE };
   }
 }
