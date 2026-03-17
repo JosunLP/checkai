@@ -12,6 +12,15 @@
     promptValue = $modalState.initialValue;
   }
 
+  function canRestoreFocus(element: HTMLElement): boolean {
+    return (
+      document.contains(element) &&
+      (!('disabled' in element) || !(element as HTMLButtonElement | HTMLInputElement).disabled) &&
+      element.getAttribute('aria-hidden') !== 'true' &&
+      element.getClientRects().length > 0
+    );
+  }
+
   async function focusActiveControl(): Promise<void> {
     await tick();
 
@@ -32,7 +41,9 @@
     void focusActiveControl();
 
     return () => {
-      restoreFocusElement?.focus();
+      if (restoreFocusElement && canRestoreFocus(restoreFocusElement)) {
+        restoreFocusElement.focus();
+      }
     };
   });
 
@@ -55,6 +66,10 @@
   }
 
   function handleWindowKeydown(event: KeyboardEvent): void {
+    if (!$modalState) {
+      return;
+    }
+
     if (event.key === 'Escape') {
       event.preventDefault();
       if ($modalState?.kind === 'confirm') {

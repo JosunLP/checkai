@@ -88,12 +88,23 @@
   let searchInput: HTMLInputElement | null = null;
   let previousFocus: HTMLElement | null = null;
 
+  function canRestoreFocus(element: HTMLElement): boolean {
+    return (
+      document.contains(element) &&
+      (!('disabled' in element) || !(element as HTMLButtonElement | HTMLInputElement).disabled) &&
+      element.getAttribute('aria-hidden') !== 'true' &&
+      element.getClientRects().length > 0
+    );
+  }
+
   onMount(() => {
     previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     searchInput?.focus();
 
     return () => {
-      previousFocus?.focus();
+      if (previousFocus && canRestoreFocus(previousFocus)) {
+        previousFocus.focus();
+      }
     };
   });
 
