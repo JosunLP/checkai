@@ -144,10 +144,19 @@ jobs:
           fileName: "checkai-*"
           out-file-path: artifacts
 
+      - name: Download updater manifests
+        uses: robinraju/release-downloader@v1
+        with:
+          tag: ${{ github.ref_name }}
+          fileName: "latest*.yml"
+          out-file-path: artifacts
+
       - name: Generate SHA256 checksums
         run: |
           cd artifacts
-          sha256sum checkai-* > checksums-sha256.txt
+          shopt -s nullglob
+          files=(checkai-* latest*.yml)
+          sha256sum "${files[@]}" > checksums-sha256.txt
           cat checksums-sha256.txt
 
       - name: Upload checksums
@@ -260,7 +269,7 @@ jobs:
 
       - name: Install desktop dependencies
         working-directory: desktop
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Build desktop app
         working-directory: desktop

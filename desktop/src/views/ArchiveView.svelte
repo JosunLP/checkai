@@ -11,6 +11,7 @@
   } from '../workspace.js';
 
   const ARCHIVE_ANALYSIS_DEPTH = 30;
+  let replaySliderValue = 0;
 
   function isLightSquare(file: string, rank: string): boolean {
     return (file.charCodeAt(0) + Number.parseInt(rank, 10)) % 2 === 0;
@@ -18,6 +19,7 @@
 
   $: boardFiles = $desktopState.boardFlipped ? [...FILES].reverse() : [...FILES];
   $: boardRanks = $desktopState.boardFlipped ? [...RANKS] : [...RANKS].reverse();
+  $: replaySliderValue = $replayState?.at_move ?? 0;
 </script>
 
 <div class="view-grid">
@@ -26,7 +28,7 @@
       <div class="card-head">
         <div>
           <h2>Replay · <span class="mono">{$replayState.game_id.slice(0, 8)}…</span></h2>
-          <p class="dim">Move {$replayState.at_move} / {$replayState.total_moves}</p>
+          <p class="dim">Move {replaySliderValue} / {$replayState.total_moves}</p>
         </div>
         <div class="btn-row">
           <button
@@ -110,8 +112,8 @@
         type="range"
         min="0"
         max={$replayState.total_moves}
-        value={$replayState.at_move}
-        on:input={(event) => replayTo(Number.parseInt((event.currentTarget as HTMLInputElement).value, 10))}
+        bind:value={replaySliderValue}
+        on:change={() => void replayTo(replaySliderValue)}
       />
     </div>
   {/if}
