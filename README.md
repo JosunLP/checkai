@@ -89,7 +89,7 @@ The repository now also includes a dedicated Electron desktop shell in `desktop/
 
 ```bash
 cd desktop
-bun install
+bun install --frozen-lockfile
 bun run build
 bun run start
 ```

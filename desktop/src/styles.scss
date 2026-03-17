@@ -660,6 +660,10 @@ code {
   font-size: 0.95rem;
 }
 
+.card-head-spaced {
+  margin-top: 1rem;
+}
+
 /* Hero card — full-width gradient header */
 .hero-card {
   position: relative;
@@ -1108,6 +1112,10 @@ code {
   border-radius: var(--radius-lg);
   background: var(--color-surface-glass);
   backdrop-filter: blur(12px);
+}
+
+.table-wrap-spaced {
+  margin-top: 1rem;
 }
 
 [data-theme='light'] .table-wrap {
@@ -1600,6 +1608,11 @@ code {
   height: 4px;
 }
 
+.analysis-progress {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    COMPONENTS · Analysis
    ══════════════════════════════════════════════════════════════════════════ */
@@ -1682,6 +1695,22 @@ code {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+.quality-dot.quality-good {
+  color: var(--success);
+}
+
+.quality-dot.quality-info {
+  color: var(--primary);
+}
+
+.quality-dot.quality-warning {
+  color: var(--warning);
+}
+
+.quality-dot.quality-danger {
+  color: var(--danger);
 }
 
 .annotation-list {

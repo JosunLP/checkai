@@ -26,7 +26,7 @@ The desktop app keeps the full engine workspace available while adding desktop-n
 
 ```bash
 cd desktop
-bun install
+bun install --frozen-lockfile
 bun run build
 bun run start
 ```

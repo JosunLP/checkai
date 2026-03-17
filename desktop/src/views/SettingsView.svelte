@@ -84,7 +84,7 @@
     <span>Flip Board</span>
   </label>
 
-  <div class="card-head" style="margin-top: 1rem">
+  <div class="card-head card-head-spaced">
     <h3>Desktop updates</h3>
   </div>
   <p class="dim">{$updateStatus.message ?? 'No update information yet.'}</p>
@@ -107,7 +107,7 @@
   </div>
 
   {#if $desktopState.recentWorkspaces.length > 0}
-    <div class="card-head" style="margin-top: 1rem">
+    <div class="card-head card-head-spaced">
       <h3>Recent workspaces</h3>
     </div>
     <div class="mini-list">

@@ -38,19 +38,19 @@
     return String(job.status);
   }
 
-  function qualityColor(quality: AnalysisMoveQuality): string {
+  function qualityClass(quality: AnalysisMoveQuality): string {
     switch (quality) {
       case 'Best':
       case 'Excellent':
-        return 'var(--success)';
+        return 'quality-good';
       case 'Good':
       case 'Book':
-        return 'var(--primary)';
+        return 'quality-info';
       case 'Inaccuracy':
-        return 'var(--warning)';
+        return 'quality-warning';
       case 'Mistake':
       case 'Blunder':
-        return 'var(--danger)';
+        return 'quality-danger';
     }
   }
 
@@ -127,13 +127,13 @@
         {/if}
       </div>
 
-      {#if isInProgress($activeAnalysis.status)}
-        <progress
-          max={$activeAnalysis.status.InProgress.total_moves}
-          value={$activeAnalysis.status.InProgress.moves_analyzed}
-          style="width: 100%; margin-bottom: 1rem"
-        ></progress>
-      {/if}
+        {#if isInProgress($activeAnalysis.status)}
+          <progress
+            class="analysis-progress"
+            max={$activeAnalysis.status.InProgress.total_moves}
+            value={$activeAnalysis.status.InProgress.moves_analyzed}
+          ></progress>
+        {/if}
 
       {#if $activeAnalysis.result}
         <div class="stat-grid">
@@ -155,7 +155,7 @@
           </div>
         </div>
 
-        <div class="table-wrap" style="margin-top: 1rem">
+          <div class="table-wrap table-wrap-spaced">
           <table class="data-table compact">
             <thead>
               <tr>
@@ -178,7 +178,7 @@
                   </td>
                   <td>{annotation.centipawn_loss}</td>
                   <td>
-                    <span class="quality-dot" style={`color: ${qualityColor(annotation.quality)}`}>
+                    <span class={`quality-dot ${qualityClass(annotation.quality)}`}>
                       {annotation.quality}
                     </span>
                   </td>

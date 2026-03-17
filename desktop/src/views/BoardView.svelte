@@ -230,7 +230,7 @@
         </div>
       {/if}
 
-      <div class="card-head" style="margin-top: 1rem">
+      <div class="card-head card-head-spaced">
         <div>
           <h3>Advanced board view</h3>
           <p class="dim">Desktop-native debugging aids for the active position.</p>

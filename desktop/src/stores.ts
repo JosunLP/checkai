@@ -66,11 +66,6 @@ export const toastMsg = writable<string | null>(null);
 export const errorMsg = writable<string | null>(null);
 export const modalState = writable<ModalState | null>(null);
 export const boardAscii = writable('');
-export const liveConnection = writable<'connecting' | 'connected' | 'disconnected'>(
-  'disconnected'
-);
-export const liveMessage = writable('Live sync offline');
-export const importDropActive = writable(false);
 
 // Engine data stores
 export const gamesList = writable<GameSummary[]>([]);
@@ -85,7 +80,6 @@ export const analysisJobs = writable<AnalysisJob[]>([]);
 export const activeAnalysis = writable<AnalysisJob | null>(null);
 export const fenInput = writable('');
 export const analysisDepth = writable(30);
-export const analysisPolling = writable(false);
 
 // Computed stores (derived)
 export const boardFlipped: Readable<boolean> = derived(
