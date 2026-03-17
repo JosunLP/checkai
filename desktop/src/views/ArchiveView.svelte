@@ -12,6 +12,8 @@
 
   const ARCHIVE_ANALYSIS_DEPTH = 30;
   let replaySliderValue = 0;
+  let boardFiles: string[] = [...FILES];
+  let boardRanks: string[] = [...RANKS].reverse();
 
   function isLightSquare(file: string, rank: string): boolean {
     return (file.charCodeAt(0) + Number.parseInt(rank, 10)) % 2 === 0;

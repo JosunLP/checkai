@@ -26,6 +26,10 @@
     black?: string;
   };
 
+  let boardFiles: string[] = [...FILES];
+  let boardRanks: string[] = [...RANKS].reverse();
+  let historyPairs: MovePair[] = [];
+
   function isLightSquare(file: string, rank: string): boolean {
     return (file.charCodeAt(0) + Number.parseInt(rank, 10)) % 2 === 0;
   }
