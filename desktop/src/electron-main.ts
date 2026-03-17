@@ -209,8 +209,13 @@ async function loadState(): Promise<DesktopState> {
 async function saveState(next: unknown): Promise<DesktopState> {
   const sanitized = normalizeDesktopState(next);
   const file = stateFilePath();
-  await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, JSON.stringify(sanitized, null, 2), 'utf8');
+  try {
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(file, JSON.stringify(sanitized, null, 2), 'utf8');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to save desktop state: ${message}`);
+  }
   return sanitized;
 }
 
