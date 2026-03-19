@@ -2,7 +2,7 @@
 
 **CheckAI chess engine compiled to WebAssembly** — use as a Node.js CLI tool or JavaScript library.
 
-Current package release: **0.5.2**.
+Current package release: **0.6.0**.
 
 Implements complete FIDE 2023 chess rules with move generation, position evaluation, deep search, full game management, and export (PGN/JSON/text).
 
