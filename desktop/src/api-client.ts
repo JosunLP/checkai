@@ -63,7 +63,7 @@ export function getGame(id: string): Promise<Game> {
   return request('GET', `/games/${encodeURIComponent(id)}`);
 }
 
-export function deleteGame(id: string): Promise<void> {
+export function deleteGame(id: string): Promise<{ message: string }> {
   return request('DELETE', `/games/${encodeURIComponent(id)}`);
 }
 
