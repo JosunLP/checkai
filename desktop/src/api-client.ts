@@ -152,7 +152,9 @@ export function getAnalysisJob(jobId: string): Promise<AnalysisJob> {
   return request('GET', `/analysis/jobs/${encodeURIComponent(jobId)}`);
 }
 
-export function cancelAnalysisJob(jobId: string): Promise<void> {
+export function cancelAnalysisJob(
+  jobId: string
+): Promise<{ message: string }> {
   return request('DELETE', `/analysis/jobs/${encodeURIComponent(jobId)}`);
 }
 
