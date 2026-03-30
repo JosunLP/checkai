@@ -32,6 +32,10 @@ irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.ps1 |
 These commands fetch the current install script directly and install the latest CheckAI release for your platform.
 If you prefer to inspect the script first, open or download the same URL before running it manually.
 
+> [!WARNING]
+> The one-line commands above execute a remote script immediately.
+> Only use them if you trust the source. If you want a manual review step, open or download the same URL first and inspect it before running it yourself.
+
 ### Build from Source
 
 You need [Rust](https://www.rust-lang.org/tools/install) and [Bun](https://bun.sh/) installed.

@@ -15,7 +15,10 @@ echo ""
 prompt_yes_no() {
     if [ -r /dev/tty ]; then
         printf "%s" "$1" >/dev/tty
-        read -r REPLY </dev/tty || return 1
+        if ! read -r REPLY </dev/tty; then
+            echo "No input received. Aborting." >&2
+            return 1
+        fi
         case "$REPLY" in
             [yY]|[yY][eE][sS]) return 0 ;;
         esac
