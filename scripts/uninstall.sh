@@ -35,6 +35,23 @@ prompt_yes_no() {
     esac
 }
 
+handle_prompt_result() {
+    PROMPT_STATUS=0
+    prompt_yes_no "$1" || PROMPT_STATUS=$?
+
+    case "$PROMPT_STATUS" in
+        0)
+            return 0
+            ;;
+        1)
+            return 1
+            ;;
+        2)
+            exit 1
+            ;;
+    esac
+}
+
 # --- Check if installed ---
 if [ ! -f "$BINARY_PATH" ]; then
     echo "CheckAI is not installed at ${BINARY_PATH}."
@@ -52,21 +69,10 @@ fi
 # --- Confirm removal ---
 echo "Found CheckAI at: ${BINARY_PATH}"
 
-if prompt_yes_no "Do you want to uninstall CheckAI? [y/N] "; then
-    PROMPT_STATUS=0
-else
-    PROMPT_STATUS=$?
+if ! handle_prompt_result "Do you want to uninstall CheckAI? [y/N] "; then
+    echo "Aborted."
+    exit 0
 fi
-
-case "$PROMPT_STATUS" in
-    1)
-        echo "Aborted."
-        exit 0
-        ;;
-    2)
-        exit 1
-        ;;
-esac
 
 # --- Remove binary ---
 echo "Removing ${BINARY_PATH}..."
@@ -81,24 +87,12 @@ fi
 # --- Clean up data directory (optional) ---
 DATA_DIR="${HOME}/.local/share/checkai"
 if [ -d "$DATA_DIR" ]; then
-    if prompt_yes_no "Remove data directory (${DATA_DIR})? [y/N] "; then
-        PROMPT_STATUS=0
+    if handle_prompt_result "Remove data directory (${DATA_DIR})? [y/N] "; then
+        rm -rf "$DATA_DIR"
+        echo "Data directory removed."
     else
-        PROMPT_STATUS=$?
+        echo "Data directory kept."
     fi
-
-    case "$PROMPT_STATUS" in
-        0)
-            rm -rf "$DATA_DIR"
-            echo "Data directory removed."
-            ;;
-        1)
-            echo "Data directory kept."
-            ;;
-        2)
-            exit 1
-            ;;
-    esac
 fi
 
 echo ""
