@@ -23,6 +23,7 @@ prompt_yes_no() {
             [yY]|[yY][eE][sS]) return 0 ;;
         esac
     fi
+    echo "No terminal available for interactive prompts. Aborting." >&2
     return 1
 }
 
