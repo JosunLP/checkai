@@ -6,6 +6,10 @@
 #   Windows (PS):   irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | iex
 #
 # The script automatically detects the operating system.
+#
+# Polyglot boundary — sh treats the rest of this line as a no-op;
+# PowerShell outputs harmless text and pipes it to out-null, then
+# <#' opens a block comment that hides the entire shell section.
 echo --% >/dev/null;: ' | out-null
 <#'
 

@@ -7,6 +7,10 @@
 #
 # The script automatically detects the operating system and CPU architecture.
 # No manual version entry is required — the latest GitHub release is fetched.
+#
+# Polyglot boundary — sh treats the rest of this line as a no-op;
+# PowerShell outputs harmless text and pipes it to out-null, then
+# <#' opens a block comment that hides the entire shell section.
 echo --% >/dev/null;: ' | out-null
 <#'
 
