@@ -16,7 +16,7 @@ prompt_yes_no() {
     if [ -r /dev/tty ]; then
         printf "%s" "$1" >/dev/tty
         if ! read -r REPLY </dev/tty; then
-            echo "No input received. Aborting." >&2
+            echo "No input received from the terminal. Aborting." >&2
             return 1
         fi
         case "$REPLY" in
@@ -24,6 +24,7 @@ prompt_yes_no() {
         esac
     fi
     echo "No terminal available for interactive prompts. Aborting." >&2
+    echo "Run the uninstall script directly instead of piping it if you need to answer the prompts." >&2
     return 1
 }
 

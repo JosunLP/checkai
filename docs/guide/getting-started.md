@@ -34,7 +34,7 @@ If you prefer to inspect the script first, open or download the same URL before 
 
 > [!WARNING]
 > The one-line commands above execute a remote script immediately.
-> Only use them if you trust the source. If you want a manual review step, open or download the same URL first, read through the script carefully, and only then run it yourself.
+> Only use them if you trust the source. If you want a manual review step, open or download the same URL first, read through the script carefully, and only then run it yourself. You can also inspect the matching script in the repository's `scripts/` directory before executing it.
 
 ### Build from Source
 
