@@ -17,15 +17,17 @@ prompt_yes_no() {
         printf "%s" "$1" >/dev/tty
         if ! read -r REPLY </dev/tty; then
             echo "Failed to read user input from /dev/tty. Aborting." >&2
-            return 1
+            return 2
         fi
         case "$REPLY" in
             [yY]|[yY][eE][sS]) return 0 ;;
+            *) return 1 ;;
         esac
+    else
+        echo "No /dev/tty is available for confirmation prompts. Aborting." >&2
+        echo "Re-run the uninstall command from a terminal session that can provide interactive input." >&2
+        return 2
     fi
-    echo "No /dev/tty is available for confirmation prompts. Aborting." >&2
-    echo "Re-run the uninstall command from a terminal session that can provide interactive input." >&2
-    return 1
 }
 
 # --- Check if installed ---
@@ -45,9 +47,18 @@ fi
 # --- Confirm removal ---
 echo "Found CheckAI at: ${BINARY_PATH}"
 
-if ! prompt_yes_no "Do you want to uninstall CheckAI? [y/N] "; then
-    echo "Aborted."
-    exit 0
+if prompt_yes_no "Do you want to uninstall CheckAI? [y/N] "; then
+    :
+else
+    case "$?" in
+        1)
+            echo "Aborted."
+            exit 0
+            ;;
+        2)
+            exit 1
+            ;;
+    esac
 fi
 
 # --- Remove binary ---
@@ -67,7 +78,14 @@ if [ -d "$DATA_DIR" ]; then
         rm -rf "$DATA_DIR"
         echo "Data directory removed."
     else
-        echo "Data directory kept."
+        case "$?" in
+            1)
+                echo "Data directory kept."
+                ;;
+            2)
+                exit 1
+                ;;
+        esac
     fi
 fi
 
