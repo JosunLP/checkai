@@ -32,9 +32,10 @@ irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.ps1 |
 These commands fetch the current install script directly and install the latest CheckAI release for your platform.
 If you prefer to inspect the script first, open or download the same URL before running it manually.
 
-> [!WARNING]
-> The one-line commands above execute a remote script immediately.
-> Only use them if you trust the source. If you want a manual review step, open or download the same URL first, read through the script carefully, and only then run it yourself. You can also inspect the matching script in the repository's `scripts/` directory before executing it.
+::: warning
+The one-line commands above execute a remote script immediately.
+Only use them if you trust the source. If you want a manual review step, open or download the same URL first, read through the script carefully, and only then run it yourself. You can also inspect the matching script in the repository's `scripts/` directory before executing it.
+:::
 
 ### Build from Source
 
@@ -118,9 +119,10 @@ irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.ps1
 
 :::
 
-> [!WARNING]
-> The one-line commands in the Uninstall section execute a remote script immediately.
-> Only use them if you trust the source. If you want a manual review step, open or download the same URL first, read through the script carefully, and only then run it yourself. You can also inspect the matching script in the repository's `scripts/` directory before executing it.
+::: warning
+The one-line commands in the Uninstall section execute a remote script immediately.
+Only use them if you trust the source. If you want a manual review step, open or download the same URL first, read through the script carefully, and only then run it yourself. You can also inspect the matching script in the repository's `scripts/` directory before executing it.
+:::
 
 ## Next Steps
 
