@@ -118,6 +118,10 @@ irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.ps1
 
 :::
 
+> [!WARNING]
+> The one-line commands in the Uninstall section execute a remote script immediately.
+> Only use them if you trust the source. If you want a manual review step, open or download the same URL first, read through the script carefully, and only then run it yourself. You can also inspect the matching script in the repository's `scripts/` directory before executing it.
+
 ## Next Steps
 
 - [CLI Commands](./cli) — All available commands and flags

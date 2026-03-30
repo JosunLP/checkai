@@ -74,7 +74,7 @@ curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninst
 irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.ps1 | iex
 ```
 
-> **Tip:** The one-line commands are the quickest setup, but they execute a remote script immediately.
+> **Tip:** The one-line commands are the quickest way to install or uninstall CheckAI, but they execute a remote script immediately.
 > Only use them if you trust the source; otherwise open or download the same URL first and review it before running it, or inspect the matching script in the `scripts/` directory of this repository.
 > See the [Getting Started guide](https://josunlp.github.io/checkai/guide/getting-started) for details.
 

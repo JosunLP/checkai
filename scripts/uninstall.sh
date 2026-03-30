@@ -13,8 +13,11 @@ echo "╚═══════════════════════�
 echo ""
 
 prompt_yes_no() {
-    if [ -r /dev/tty ]; then
-        printf "%s" "$1" >/dev/tty
+    if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+        if ! printf "%s" "$1" >/dev/tty; then
+            echo "Failed to write to /dev/tty. Aborting." >&2
+            return 2
+        fi
         if ! read -r REPLY </dev/tty; then
             echo "Failed to read user input from /dev/tty. Aborting." >&2
             return 2
@@ -24,7 +27,7 @@ prompt_yes_no() {
             *) return 1 ;;
         esac
     else
-        echo "No /dev/tty is available for confirmation prompts. Aborting." >&2
+        echo "No readable and writable /dev/tty is available for confirmation prompts. Aborting." >&2
         echo "Re-run the uninstall command from a terminal session that can provide interactive input." >&2
         return 2
     fi
