@@ -15,59 +15,27 @@
 
 ### Pre-built Binaries (Recommended)
 
-Download the install script for a **pinned release**, verify its checksum, then run it:
+Run the installer directly in a single command:
 
 ::: code-group
 
 ```bash [Linux / macOS]
-# 1. Set the version you want to install
-VERSION="0.6.0"
-
-# 2. Download the install script from the pinned release tag
-curl -fsSL -o install.sh \
-  "https://raw.githubusercontent.com/JosunLP/checkai/v${VERSION}/scripts/install.sh"
-
-# 3. Download the checksum file and verify
-curl -fsSL -o install.sh.sha256 \
-  "https://github.com/JosunLP/checkai/releases/download/v${VERSION}/install.sh.sha256"
-sha256sum -c install.sh.sha256
-
-# 4. Inspect the script before running it
-less install.sh
-
-# 5. Execute
-sh install.sh
+curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | sh
 ```
 
 ```powershell [Windows]
-# 1. Set the version you want to install
-$Version = "0.6.0"
-
-# 2. Download the install script from the pinned release tag
-Invoke-WebRequest `
-  -Uri "https://raw.githubusercontent.com/JosunLP/checkai/v$Version/scripts/install.ps1" `
-  -OutFile install.ps1
-
-# 3. Download the checksum file and verify
-Invoke-WebRequest `
-  -Uri "https://github.com/JosunLP/checkai/releases/download/v$Version/install.ps1.sha256" `
-  -OutFile install.ps1.sha256
-$expected = (Get-Content install.ps1.sha256).Split(' ')[0]
-$actual   = (Get-FileHash install.ps1 -Algorithm SHA256).Hash.ToLower()
-if ($actual -ne $expected) { throw "Checksum mismatch! Aborting." }
-
-# 4. Inspect the script before running it
-Get-Content install.ps1 | Out-Host -Paging
-
-# 5. Execute
-.\install.ps1
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.ps1 | iex
 ```
 
 :::
 
-> [!WARNING]
-> **Never** pipe remote scripts directly into a shell (`curl | sh`, `irm | iex`).
-> Always download, verify, and inspect scripts before executing them.
+These commands fetch the current install script directly and install the latest CheckAI release for your platform.
+If you prefer to inspect the script first, open or download the same URL before running it manually.
+
+::: warning
+The one-line commands above execute a remote script immediately.
+Only use them if you trust the source. If you want a manual review step, open or download the same URL first, read through the script carefully, and only then run it yourself. You can also inspect the matching script in the repository's `scripts/` directory before executing it.
+:::
 
 ### Build from Source
 
@@ -142,45 +110,18 @@ This starts an interactive two-player game with a colored board display. Type `h
 ::: code-group
 
 ```bash [Linux / macOS]
-# 1. Set the version that was installed
-VERSION="0.6.0"
-
-# 2. Download the uninstall script from the pinned release tag
-curl -fsSL -o uninstall.sh \
-  "https://raw.githubusercontent.com/JosunLP/checkai/v${VERSION}/scripts/uninstall.sh"
-
-# 3. Download the checksum file and verify
-curl -fsSL -o uninstall.sh.sha256 \
-  "https://github.com/JosunLP/checkai/releases/download/v${VERSION}/uninstall.sh.sha256"
-sha256sum -c uninstall.sh.sha256
-
-# 4. Inspect, then execute
-less uninstall.sh
-sh uninstall.sh
+curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | sh
 ```
 
 ```powershell [Windows]
-# 1. Set the version that was installed
-$Version = "0.6.0"
-
-# 2. Download the uninstall script from the pinned release tag
-Invoke-WebRequest `
-  -Uri "https://raw.githubusercontent.com/JosunLP/checkai/v$Version/scripts/uninstall.ps1" `
-  -OutFile uninstall.ps1
-
-# 3. Download the checksum file and verify
-Invoke-WebRequest `
-  -Uri "https://github.com/JosunLP/checkai/releases/download/v$Version/uninstall.ps1.sha256" `
-  -OutFile uninstall.ps1.sha256
-$expected = (Get-Content uninstall.ps1.sha256).Split(' ')[0]
-$actual   = (Get-FileHash uninstall.ps1 -Algorithm SHA256).Hash.ToLower()
-if ($actual -ne $expected) { throw "Checksum mismatch! Aborting." }
-
-# 4. Inspect, then execute
-Get-Content uninstall.ps1 | Out-Host -Paging
-.\uninstall.ps1
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.ps1 | iex
 ```
 
+:::
+
+::: warning
+The one-line commands in the Uninstall section execute a remote script immediately.
+Only use them if you trust the source. If you want a manual review step, open or download the same URL first, read through the script carefully, and only then run it yourself. You can also inspect the matching script in the repository's `scripts/` directory before executing it.
 :::
 
 ## Next Steps

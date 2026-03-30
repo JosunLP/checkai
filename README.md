@@ -51,23 +51,31 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 **Linux / macOS:**
 
 ```bash
-VERSION="0.6.0"
-curl -fsSL -o install.sh \
-  "https://raw.githubusercontent.com/JosunLP/checkai/v${VERSION}/scripts/install.sh"
-sh install.sh
+curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | sh
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-$Version = "0.6.0"
-Invoke-WebRequest `
-  -Uri "https://raw.githubusercontent.com/JosunLP/checkai/v$Version/scripts/install.ps1" `
-  -OutFile install.ps1
-.\install.ps1
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.ps1 | iex
 ```
 
-> **Tip:** For production use, download and verify the script before running it.
+### Uninstall
+
+**Linux / macOS:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | sh
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.ps1 | iex
+```
+
+> **Tip:** The one-line commands are the quickest way to install or uninstall CheckAI, but they execute a remote script immediately.
+> Only use them if you trust the source; otherwise open or download the same URL first and review it before running it, or inspect the matching script in the `scripts/` directory of this repository.
 > See the [Getting Started guide](https://josunlp.github.io/checkai/guide/getting-started) for details.
 
 ### Build from Source
