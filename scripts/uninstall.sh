@@ -12,25 +12,27 @@ echo "║       CheckAI Uninstaller             ║"
 echo "╚═══════════════════════════════════════╝"
 echo ""
 
+prompt_tty_unavailable() {
+    echo "No readable and writable /dev/tty is available for confirmation prompts. Aborting." >&2
+    echo "Re-run the uninstall command from a terminal session that can provide interactive input." >&2
+    return 2
+}
+
 prompt_yes_no() {
-    if [ -r /dev/tty ] && [ -w /dev/tty ]; then
-        if ! printf "%s" "$1" >/dev/tty; then
-            echo "Failed to write to /dev/tty. Aborting." >&2
-            return 2
-        fi
-        if ! read -r REPLY </dev/tty; then
-            echo "Failed to read user input from /dev/tty. Aborting." >&2
-            return 2
-        fi
-        case "$REPLY" in
-            [yY]|[yY][eE][sS]) return 0 ;;
-            *) return 1 ;;
-        esac
-    else
-        echo "No readable and writable /dev/tty is available for confirmation prompts. Aborting." >&2
-        echo "Re-run the uninstall command from a terminal session that can provide interactive input." >&2
-        return 2
+    if ! printf "%s" "$1" >/dev/tty 2>/dev/null; then
+        prompt_tty_unavailable
+        return $?
     fi
+
+    if ! read -r REPLY </dev/tty 2>/dev/null; then
+        prompt_tty_unavailable
+        return $?
+    fi
+
+    case "$REPLY" in
+        [yY]|[yY][eE][sS]) return 0 ;;
+        *) return 1 ;;
+    esac
 }
 
 # --- Check if installed ---
