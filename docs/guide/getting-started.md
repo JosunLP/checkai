@@ -21,7 +21,7 @@ Download the install script for a **pinned release**, verify its checksum, then 
 
 ```bash [Linux / macOS]
 # 1. Set the version you want to install
-VERSION="0.5.2"
+VERSION="0.6.0"
 
 # 2. Download the install script from the pinned release tag
 curl -fsSL -o install.sh \
@@ -41,7 +41,7 @@ sh install.sh
 
 ```powershell [Windows]
 # 1. Set the version you want to install
-$Version = "0.5.2"
+$Version = "0.6.0"
 
 # 2. Download the install script from the pinned release tag
 Invoke-WebRequest `
@@ -143,7 +143,7 @@ This starts an interactive two-player game with a colored board display. Type `h
 
 ```bash [Linux / macOS]
 # 1. Set the version that was installed
-VERSION="0.5.2"
+VERSION="0.6.0"
 
 # 2. Download the uninstall script from the pinned release tag
 curl -fsSL -o uninstall.sh \
@@ -161,7 +161,7 @@ sh uninstall.sh
 
 ```powershell [Windows]
 # 1. Set the version that was installed
-$Version = "0.5.2"
+$Version = "0.6.0"
 
 # 2. Download the uninstall script from the pinned release tag
 Invoke-WebRequest `
