@@ -15,7 +15,8 @@
 
 ### Pre-built Binaries (Recommended)
 
-Run the installer directly in a single command:
+Run the installer directly in a single command — it automatically detects your
+operating system, architecture, and the latest release:
 
 ::: code-group
 
@@ -23,13 +24,14 @@ Run the installer directly in a single command:
 curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | sh
 ```
 
-```powershell [Windows]
-irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.ps1 | iex
+```powershell [Windows (PowerShell)]
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | iex
 ```
 
 :::
 
-These commands fetch the current install script directly and install the latest CheckAI release for your platform.
+Both commands invoke the same script. It fetches the current release and installs
+the correct binary for your platform — no manual changes required.
 If you prefer to inspect the script first, open or download the same URL before running it manually.
 
 ::: warning
@@ -113,8 +115,8 @@ This starts an interactive two-player game with a colored board display. Type `h
 curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | sh
 ```
 
-```powershell [Windows]
-irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.ps1 | iex
+```powershell [Windows (PowerShell)]
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | iex
 ```
 
 :::

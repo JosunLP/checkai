@@ -1,15 +1,25 @@
 #!/bin/sh
-# CheckAI Uninstaller — Linux & macOS
-# Usage: curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | sh
+# CheckAI Uninstaller — Linux, macOS & Windows
+# Cross-platform polyglot: valid in sh/bash and PowerShell.
+#
+#   Linux / macOS:  curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | sh
+#   Windows (PS):   irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | iex
+#
+# The script automatically detects the operating system.
+echo --% >/dev/null;: ' | out-null
+<#'
+
+# ====================== POSIX Shell Section (Linux / macOS) ======================
 set -e
 
 INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="checkai"
 BINARY_PATH="${INSTALL_DIR}/${BINARY_NAME}"
 
-echo "╔═══════════════════════════════════════╗"
-echo "║       CheckAI Uninstaller             ║"
-echo "╚═══════════════════════════════════════╝"
+echo ""
+echo "====================================="
+echo "       CheckAI Uninstaller"
+echo "====================================="
 echo ""
 
 prompt_tty_unavailable() {
@@ -113,7 +123,114 @@ if [ -d "$DATA_DIR" ]; then
 fi
 
 echo ""
-echo "╔═══════════════════════════════════════╗"
-echo "║  CheckAI uninstalled successfully.    ║"
-echo "╚═══════════════════════════════════════╝"
+echo "====================================="
+echo "  CheckAI uninstalled successfully."
+echo "====================================="
 echo ""
+
+exit 0
+: '<#'
+#>
+
+# ====================== PowerShell Section (Windows / Linux / macOS) ======================
+
+$ErrorActionPreference = "Stop"
+
+Write-Host ""
+Write-Host "=====================================" -ForegroundColor Cyan
+Write-Host "       CheckAI Uninstaller" -ForegroundColor Cyan
+Write-Host "=====================================" -ForegroundColor Cyan
+Write-Host ""
+
+# --- Detect OS ---
+if ($IsLinux) {
+    $binaryName = "checkai"
+    $installDir = "/usr/local/bin"
+    $dataDir = "$env:HOME/.local/share/checkai"
+} elseif ($IsMacOS) {
+    $binaryName = "checkai"
+    $installDir = "/usr/local/bin"
+    $dataDir = "$env:HOME/.local/share/checkai"
+} else {
+    $binaryName = "checkai.exe"
+    $installDir = "$env:LOCALAPPDATA\checkai"
+    $dataDir = "$env:LOCALAPPDATA\checkai-data"
+}
+
+$binaryPath = Join-Path $installDir $binaryName
+
+# --- Check if installed ---
+if (!(Test-Path $binaryPath)) {
+    Write-Host "CheckAI is not installed at $binaryPath."
+    Write-Host ""
+
+    # Try to find it elsewhere
+    $found = Get-Command $binaryName -ErrorAction SilentlyContinue
+    if ($found) {
+        Write-Host "Found checkai at: $($found.Source)"
+        Write-Host "Remove it manually."
+    }
+    exit 0
+}
+
+Write-Host "Found CheckAI at: $binaryPath"
+
+# --- Confirm removal ---
+$confirm = Read-Host "Do you want to uninstall CheckAI? [y/N]"
+if ($confirm -notmatch "^[yY]") {
+    Write-Host "Aborted."
+    exit 0
+}
+
+# --- Remove binary ---
+Write-Host "Removing $binaryPath..."
+
+if ($IsLinux -or $IsMacOS) {
+    try {
+        Remove-Item -Path $binaryPath -Force
+    } catch {
+        Write-Host "Requires elevated permissions. Using sudo..."
+        sudo rm -f $binaryPath
+    }
+} else {
+    Remove-Item -Path $binaryPath -Force
+
+    # Also remove old version file if it exists
+    $oldBinary = Join-Path $installDir "checkai.old.exe"
+    if (Test-Path $oldBinary) {
+        Remove-Item -Path $oldBinary -Force
+    }
+
+    # --- Remove install directory if empty ---
+    $remaining = Get-ChildItem -Path $installDir -ErrorAction SilentlyContinue
+    if (-not $remaining) {
+        Remove-Item -Path $installDir -Force
+        Write-Host "Removed empty install directory."
+    }
+
+    # --- Remove from PATH ---
+    $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+    if ($currentPath -like "*$installDir*") {
+        Write-Host "Removing $installDir from user PATH..."
+        $newPath = ($currentPath -split ";" | Where-Object { $_ -ne $installDir }) -join ";"
+        [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+        Write-Host "  PATH updated. You may need to restart your terminal." -ForegroundColor Yellow
+    }
+}
+
+# --- Clean up data directory (optional) ---
+if (Test-Path $dataDir) {
+    $confirmData = Read-Host "Remove data directory ($dataDir)? [y/N]"
+    if ($confirmData -match "^[yY]") {
+        Remove-Item -Path $dataDir -Recurse -Force
+        Write-Host "Data directory removed."
+    } else {
+        Write-Host "Data directory kept."
+    }
+}
+
+Write-Host ""
+Write-Host "=====================================" -ForegroundColor Green
+Write-Host "  CheckAI uninstalled successfully." -ForegroundColor Green
+Write-Host "=====================================" -ForegroundColor Green
+Write-Host ""

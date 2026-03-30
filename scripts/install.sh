@@ -1,15 +1,26 @@
 #!/bin/sh
-# CheckAI Installer — Linux & macOS
-# Usage: curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | sh
+# CheckAI Installer — Linux, macOS & Windows
+# Cross-platform polyglot: valid in sh/bash and PowerShell.
+#
+#   Linux / macOS:  curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | sh
+#   Windows (PS):   irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | iex
+#
+# The script automatically detects the operating system and CPU architecture.
+# No manual version entry is required — the latest GitHub release is fetched.
+echo --% >/dev/null;: ' | out-null
+<#'
+
+# ====================== POSIX Shell Section (Linux / macOS) ======================
 set -e
 
 REPO="JosunLP/checkai"
 INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="checkai"
 
-echo "╔═══════════════════════════════════════╗"
-echo "║       CheckAI Installer               ║"
-echo "╚═══════════════════════════════════════╝"
+echo ""
+echo "====================================="
+echo "       CheckAI Installer"
+echo "====================================="
 echo ""
 
 # --- Detect OS ---
@@ -20,7 +31,6 @@ case "$OS" in
     *)
         echo "Error: Unsupported operating system: $OS"
         echo "This installer supports Linux and macOS."
-        echo "For Windows, use install.ps1 instead."
         exit 1
         ;;
 esac
@@ -87,9 +97,9 @@ else
 fi
 
 echo ""
-echo "╔═══════════════════════════════════════╗"
-echo "║  CheckAI installed successfully!      ║"
-echo "╚═══════════════════════════════════════╝"
+echo "====================================="
+echo "  CheckAI installed successfully!"
+echo "====================================="
 echo ""
 echo "Version: ${VERSION}"
 echo "Location: ${INSTALL_DIR}/${BINARY_NAME}"
@@ -99,3 +109,145 @@ echo "  checkai --help      Show help"
 echo "  checkai serve       Start the API server"
 echo "  checkai play        Play in the terminal"
 echo ""
+
+exit 0
+: '<#'
+#>
+
+# ====================== PowerShell Section (Windows / Linux / macOS) ======================
+
+$ErrorActionPreference = "Stop"
+
+$repo = "JosunLP/checkai"
+
+Write-Host ""
+Write-Host "=====================================" -ForegroundColor Cyan
+Write-Host "       CheckAI Installer" -ForegroundColor Cyan
+Write-Host "=====================================" -ForegroundColor Cyan
+Write-Host ""
+
+# --- Detect OS ---
+if ($IsLinux) {
+    $os = "linux"
+    $binaryName = "checkai"
+    $installDir = "/usr/local/bin"
+} elseif ($IsMacOS) {
+    $os = "darwin"
+    $binaryName = "checkai"
+    $installDir = "/usr/local/bin"
+} else {
+    $os = "windows"
+    $binaryName = "checkai.exe"
+    $installDir = "$env:LOCALAPPDATA\checkai"
+}
+
+# --- Detect Architecture ---
+$arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq [System.Runtime.InteropServices.Architecture]::Arm64) {
+    "aarch64"
+} else {
+    "x86_64"
+}
+
+if ($os -eq "windows") {
+    $assetName = "checkai-windows-${arch}.exe"
+} else {
+    $assetName = "checkai-${os}-${arch}"
+}
+
+Write-Host "Detected platform: ${os}/${arch}"
+Write-Host "Asset: ${assetName}"
+Write-Host ""
+
+# --- Get latest release info ---
+Write-Host "Fetching latest release..."
+$latestUrl = "https://api.github.com/repos/$repo/releases/latest"
+
+try {
+    $release = Invoke-RestMethod -Uri $latestUrl -Headers @{
+        "User-Agent" = "checkai-installer"
+    }
+} catch {
+    Write-Error "Failed to fetch latest release: $_"
+    exit 1
+}
+
+$version = $release.tag_name
+$asset = $release.assets | Where-Object { $_.name -eq $assetName }
+
+if (-not $asset) {
+    Write-Error "Could not find release asset '$assetName'."
+    Write-Host "Available assets:"
+    $release.assets | ForEach-Object { Write-Host "  - $($_.name)" }
+    exit 1
+}
+
+Write-Host "Latest version: $version"
+Write-Host ""
+
+$downloadUrl = $asset.browser_download_url
+
+if ($os -eq "windows") {
+    # --- Windows: install to LOCALAPPDATA ---
+    if (!(Test-Path $installDir)) {
+        Write-Host "Creating install directory: $installDir"
+        New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+    }
+
+    $targetPath = Join-Path $installDir $binaryName
+    Write-Host "Downloading $assetName..."
+    try {
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $targetPath -UseBasicParsing
+    } catch {
+        Write-Error "Failed to download: $_"
+        exit 1
+    }
+
+    # --- Add to PATH ---
+    $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+    if ($currentPath -notlike "*$installDir*") {
+        Write-Host "Adding $installDir to user PATH..."
+        [Environment]::SetEnvironmentVariable("PATH", "$currentPath;$installDir", "User")
+        $env:PATH = "$env:PATH;$installDir"
+        Write-Host "  PATH updated. You may need to restart your terminal." -ForegroundColor Yellow
+    }
+} else {
+    # --- Linux / macOS: install to /usr/local/bin ---
+    $tempFile = [System.IO.Path]::GetTempFileName()
+    Write-Host "Downloading $assetName..."
+    try {
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -UseBasicParsing
+    } catch {
+        Write-Error "Failed to download: $_"
+        exit 1
+    }
+
+    chmod +x $tempFile
+
+    $targetPath = Join-Path $installDir $binaryName
+    if (Test-Path $installDir -PathType Container) {
+        try {
+            Move-Item -Force $tempFile $targetPath
+        } catch {
+            Write-Host "Requires elevated permissions. Using sudo..."
+            sudo mv $tempFile $targetPath
+            sudo chmod +x $targetPath
+        }
+    } else {
+        sudo mv $tempFile $targetPath
+        sudo chmod +x $targetPath
+    }
+}
+
+Write-Host ""
+Write-Host "=====================================" -ForegroundColor Green
+Write-Host "  CheckAI installed successfully!" -ForegroundColor Green
+Write-Host "=====================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Version:  $version"
+Write-Host "Location: $targetPath"
+Write-Host ""
+Write-Host "Get started:"
+Write-Host "  checkai --help      Show help"
+Write-Host "  checkai serve       Start the API server"
+Write-Host "  checkai play        Play in the terminal"
+Write-Host ""
