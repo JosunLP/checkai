@@ -12,6 +12,46 @@ echo "║       CheckAI Uninstaller             ║"
 echo "╚═══════════════════════════════════════╝"
 echo ""
 
+prompt_tty_unavailable() {
+    echo "No readable and writable /dev/tty is available for confirmation prompts. Aborting." >&2
+    echo "Re-run the uninstall command from a terminal session that can provide interactive input." >&2
+    return 2
+}
+
+prompt_yes_no() {
+    if ! printf "%s" "$1" >/dev/tty 2>/dev/null; then
+        prompt_tty_unavailable
+        return $?
+    fi
+
+    if ! read -r REPLY </dev/tty 2>/dev/null; then
+        prompt_tty_unavailable
+        return $?
+    fi
+
+    case "$REPLY" in
+        [yY]|[yY][eE][sS]) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+handle_prompt_result() {
+    PROMPT_STATUS=0
+    prompt_yes_no "$1" || PROMPT_STATUS=$?
+
+    case "$PROMPT_STATUS" in
+        0)
+            return 0
+            ;;
+        1)
+            return 1
+            ;;
+        2)
+            return 2
+            ;;
+    esac
+}
+
 # --- Check if installed ---
 if [ ! -f "$BINARY_PATH" ]; then
     echo "CheckAI is not installed at ${BINARY_PATH}."
@@ -29,17 +69,18 @@ fi
 # --- Confirm removal ---
 echo "Found CheckAI at: ${BINARY_PATH}"
 
-if [ -t 0 ]; then
-    printf "Do you want to uninstall CheckAI? [y/N] "
-    read -r CONFIRM
-    case "$CONFIRM" in
-        [yY]|[yY][eE][sS]) ;;
-        *)
-            echo "Aborted."
-            exit 0
-            ;;
-    esac
-fi
+PROMPT_STATUS=0
+handle_prompt_result "Do you want to uninstall CheckAI? [y/N] " || PROMPT_STATUS=$?
+
+case "$PROMPT_STATUS" in
+    1)
+        echo "Aborted."
+        exit 0
+        ;;
+    2)
+        exit 1
+        ;;
+esac
 
 # --- Remove binary ---
 echo "Removing ${BINARY_PATH}..."
@@ -54,19 +95,21 @@ fi
 # --- Clean up data directory (optional) ---
 DATA_DIR="${HOME}/.local/share/checkai"
 if [ -d "$DATA_DIR" ]; then
-    if [ -t 0 ]; then
-        printf "Remove data directory (%s)? [y/N] " "$DATA_DIR"
-        read -r CONFIRM_DATA
-        case "$CONFIRM_DATA" in
-            [yY]|[yY][eE][sS])
-                rm -rf "$DATA_DIR"
-                echo "Data directory removed."
-                ;;
-            *)
-                echo "Data directory kept."
-                ;;
-        esac
-    fi
+    PROMPT_STATUS=0
+    handle_prompt_result "Remove data directory (${DATA_DIR})? [y/N] " || PROMPT_STATUS=$?
+
+    case "$PROMPT_STATUS" in
+        0)
+            rm -rf "$DATA_DIR"
+            echo "Data directory removed."
+            ;;
+        1)
+            echo "Data directory kept."
+            ;;
+        2)
+            exit 1
+            ;;
+    esac
 fi
 
 echo ""
