@@ -144,6 +144,21 @@ function Invoke-CheckAIDownload {
     Invoke-WebRequest @requestParams
 }
 
+function Assert-CheckAINativeCommandSucceeded {
+    param(
+        [string]$ErrorMessage
+    )
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error $ErrorMessage
+        if ($LASTEXITCODE) {
+            exit $LASTEXITCODE
+        }
+
+        exit 1
+    }
+}
+
 Write-Host ""
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host "       CheckAI Installer" -ForegroundColor Cyan
@@ -246,6 +261,7 @@ if ($os -eq "windows") {
     }
 
     chmod +x $tempFile
+    Assert-CheckAINativeCommandSucceeded "Failed to mark $tempFile as executable."
 
     $targetPath = Join-Path $installDir $binaryName
     if (Test-Path $installDir -PathType Container) {
@@ -254,11 +270,15 @@ if ($os -eq "windows") {
         } catch {
             Write-Host "Requires elevated permissions. Using sudo..."
             sudo mv $tempFile $targetPath
+            Assert-CheckAINativeCommandSucceeded "Failed to move $tempFile to $targetPath with sudo."
             sudo chmod +x $targetPath
+            Assert-CheckAINativeCommandSucceeded "Failed to mark $targetPath as executable with sudo."
         }
     } else {
         sudo mv $tempFile $targetPath
+        Assert-CheckAINativeCommandSucceeded "Failed to move $tempFile to $targetPath with sudo."
         sudo chmod +x $targetPath
+        Assert-CheckAINativeCommandSucceeded "Failed to mark $targetPath as executable with sudo."
     }
 }
 

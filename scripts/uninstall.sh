@@ -140,6 +140,21 @@ exit 0
 
 $ErrorActionPreference = "Stop"
 
+function Assert-CheckAINativeCommandSucceeded {
+    param(
+        [string]$ErrorMessage
+    )
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error $ErrorMessage
+        if ($LASTEXITCODE) {
+            exit $LASTEXITCODE
+        }
+
+        exit 1
+    }
+}
+
 Write-Host ""
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host "       CheckAI Uninstaller" -ForegroundColor Cyan
@@ -195,6 +210,7 @@ if ($IsLinux -or $IsMacOS) {
     } catch {
         Write-Host "Requires elevated permissions. Using sudo..."
         sudo rm -f $binaryPath
+        Assert-CheckAINativeCommandSucceeded "Failed to remove $binaryPath with sudo rm."
     }
 } else {
     Remove-Item -Path $binaryPath -Force
