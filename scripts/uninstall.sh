@@ -218,7 +218,7 @@ if ($IsLinux -or $IsMacOS) {
     }
 
     # --- Remove install directory if empty ---
-    $remaining = Get-ChildItem -Path $installDir -ErrorAction SilentlyContinue
+    $remaining = Get-ChildItem -Path $installDir -Force -ErrorAction SilentlyContinue
     if (-not $remaining) {
         Remove-Item -Path $installDir -Force
         Write-Host "Removed empty install directory."
