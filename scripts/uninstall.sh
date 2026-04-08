@@ -147,11 +147,7 @@ function Assert-NativeCommandSucceeded {
 
     if ($LASTEXITCODE -ne 0) {
         Write-Error $ErrorMessage
-        if ($LASTEXITCODE) {
-            exit $LASTEXITCODE
-        }
-
-        exit 1
+        exit $LASTEXITCODE
     }
 }
 
