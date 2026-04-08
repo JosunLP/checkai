@@ -275,6 +275,9 @@ if ($os -eq "windows") {
             Assert-NativeCommandSucceeded "Failed to mark $targetPath as executable with sudo."
         }
     } else {
+        Write-Host "Creating install directory with sudo: $installDir"
+        sudo mkdir -p $installDir
+        Assert-NativeCommandSucceeded "Failed to create install directory $installDir with sudo."
         sudo mv $tempFile $targetPath
         Assert-NativeCommandSucceeded "Failed to move $tempFile to $targetPath with sudo."
         sudo chmod +x $targetPath
