@@ -8,11 +8,10 @@
 # The script automatically detects the operating system and CPU architecture.
 # No manual version entry is required — the latest GitHub release is fetched.
 #
-# Polyglot boundary — sh treats the rest of this line as a no-op;
-# PowerShell outputs harmless text and pipes it to out-null, then
-# <#' opens a block comment that hides the entire shell section.
-echo --% >/dev/null;: ' | out-null
-<#'
+# Polyglot boundary — in sh, the backticks run a comment so echo emits
+# a harmless blank line; in PowerShell, `# becomes a literal # and <#
+# starts a block comment that hides the shell section.
+echo `# <#`
 
 # ====================== POSIX Shell Section (Linux / macOS) ======================
 set -e
@@ -117,14 +116,31 @@ echo "  checkai play        Play in the terminal"
 echo ""
 
 exit 0
-: '<#'
-#>
+#> > $null
 
 # ====================== PowerShell Section (Windows / Linux / macOS) ======================
 
 $ErrorActionPreference = "Stop"
 
 $repo = "JosunLP/checkai"
+
+function Invoke-CheckAIDownload {
+    param(
+        [string]$Uri,
+        [string]$OutFile
+    )
+
+    $requestParams = @{
+        Uri = $Uri
+        OutFile = $OutFile
+    }
+
+    if ($PSVersionTable.PSVersion.Major -lt 6) {
+        $requestParams.UseBasicParsing = $true
+    }
+
+    Invoke-WebRequest @requestParams
+}
 
 Write-Host ""
 Write-Host "=====================================" -ForegroundColor Cyan
@@ -202,7 +218,7 @@ if ($os -eq "windows") {
     $targetPath = Join-Path $installDir $binaryName
     Write-Host "Downloading $assetName..."
     try {
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $targetPath
+        Invoke-CheckAIDownload -Uri $downloadUrl -OutFile $targetPath
     } catch {
         Write-Error "Failed to download: $_"
         exit 1
@@ -221,7 +237,7 @@ if ($os -eq "windows") {
     $tempFile = [System.IO.Path]::GetTempFileName()
     Write-Host "Downloading $assetName..."
     try {
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
+        Invoke-CheckAIDownload -Uri $downloadUrl -OutFile $tempFile
     } catch {
         Write-Error "Failed to download: $_"
         exit 1

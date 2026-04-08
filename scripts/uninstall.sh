@@ -7,11 +7,10 @@
 #
 # The script automatically detects the operating system.
 #
-# Polyglot boundary — sh treats the rest of this line as a no-op;
-# PowerShell outputs harmless text and pipes it to out-null, then
-# <#' opens a block comment that hides the entire shell section.
-echo --% >/dev/null;: ' | out-null
-<#'
+# Polyglot boundary — in sh, the backticks run a comment so echo emits
+# a harmless blank line; in PowerShell, `# becomes a literal # and <#
+# starts a block comment that hides the shell section.
+echo `# <#`
 
 # ====================== POSIX Shell Section (Linux / macOS) ======================
 set -e
@@ -133,8 +132,7 @@ echo "====================================="
 echo ""
 
 exit 0
-: '<#'
-#>
+#> > $null
 
 # ====================== PowerShell Section (Windows / Linux / macOS) ======================
 
