@@ -8,9 +8,11 @@
 # The script automatically detects the operating system and CPU architecture.
 # No manual version entry is required — the latest GitHub release is fetched.
 #
-# Polyglot boundary — in sh, the backticks run a comment so echo emits
-# a harmless blank line; in PowerShell, `# becomes a literal # and <#
-# starts a block comment that hides the shell section.
+# Polyglot boundary — in sh, the backticks run `# <#` as a command
+# substitution, where `#` starts a shell comment so it expands to an
+# empty string and echo emits a harmless blank line. In PowerShell, `#
+# becomes a literal # so <# starts a block comment that hides the shell
+# section.
 echo `# <#`
 
 # ====================== POSIX Shell Section (Linux / macOS) ======================
