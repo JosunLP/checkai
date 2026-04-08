@@ -8,12 +8,12 @@
 # The script automatically detects the operating system and CPU architecture.
 # No manual version entry is required — the latest GitHub release is fetched.
 #
-# Polyglot boundary — in sh, the backticks run `# <#` as a command
-# substitution, where `#` starts a shell comment so it expands to an
-# empty string and echo emits a harmless blank line. In PowerShell, `#
-# becomes a literal # so <# starts a block comment that hides the shell
-# section.
-echo `# <#`
+# Polyglot boundary — in sh, the backticks run `# | Out-Null <#` as a
+# command substitution, where `#` starts a shell comment so it expands
+# to an empty string and echo emits a harmless blank line. In
+# PowerShell, `# becomes a literal #, the output is piped to Out-Null,
+# and <# starts a block comment that hides the shell section.
+echo `# | Out-Null <#`
 
 # ====================== POSIX Shell Section (Linux / macOS) ======================
 set -e
@@ -118,7 +118,7 @@ echo "  checkai play        Play in the terminal"
 echo ""
 
 exit 0
-#> > $null
+#>
 
 # ====================== PowerShell Section (Windows / Linux / macOS) ======================
 
@@ -177,10 +177,14 @@ if ($IsLinux) {
 }
 
 # --- Detect Architecture ---
-$arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq [System.Runtime.InteropServices.Architecture]::Arm64) {
+$osArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+$arch = if ($osArchitecture -eq [System.Runtime.InteropServices.Architecture]::X64) {
+    "x86_64"
+} elseif ($osArchitecture -eq [System.Runtime.InteropServices.Architecture]::Arm64) {
     "aarch64"
 } else {
-    "x86_64"
+    Write-Error "Unsupported architecture: $osArchitecture. Supported architectures are X64 and Arm64."
+    exit 1
 }
 
 if ($os -eq "windows") {

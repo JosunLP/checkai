@@ -7,12 +7,12 @@
 #
 # The script automatically detects the operating system.
 #
-# Polyglot boundary — in sh, the backticks run `# <#` as a command
-# substitution, where `#` starts a shell comment so it expands to an
-# empty string and echo emits a harmless blank line. In PowerShell, `#
-# becomes a literal # so <# starts a block comment that hides the shell
-# section.
-echo `# <#`
+# Polyglot boundary — in sh, the backticks run `# | Out-Null <#` as a
+# command substitution, where `#` starts a shell comment so it expands
+# to an empty string and echo emits a harmless blank line. In
+# PowerShell, `# becomes a literal #, the output is piped to Out-Null,
+# and <# starts a block comment that hides the shell section.
+echo `# | Out-Null <#`
 
 # ====================== POSIX Shell Section (Linux / macOS) ======================
 set -e
@@ -134,7 +134,7 @@ echo "====================================="
 echo ""
 
 exit 0
-#> > $null
+#>
 
 # ====================== PowerShell Section (Windows / Linux / macOS) ======================
 
