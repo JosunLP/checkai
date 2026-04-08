@@ -91,6 +91,8 @@ jobs:
           key: ${{ matrix.target }}
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
 
       - name: Build web UI
         run: |
@@ -132,7 +134,7 @@ jobs:
   # Build checksums for all artifacts
   checksums:
     name: Generate checksums
-    needs: build-and-upload
+    needs: [build-and-upload, desktop]
     runs-on: ubuntu-latest
     steps:
       - name: Download all release assets
@@ -142,10 +144,23 @@ jobs:
           fileName: "checkai-*"
           out-file-path: artifacts
 
+      - name: Download updater manifests
+        uses: robinraju/release-downloader@v1
+        with:
+          tag: ${{ github.ref_name }}
+          fileName: "latest*.yml"
+          out-file-path: artifacts
+
       - name: Generate SHA256 checksums
         run: |
           cd artifacts
-          sha256sum checkai-* > checksums-sha256.txt
+          shopt -s nullglob
+          files=(checkai-* latest*.yml)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No release artifacts found for checksum generation." >&2
+            exit 1
+          fi
+          sha256sum "${files[@]}" > checksums-sha256.txt
           cat checksums-sha256.txt
 
       - name: Upload checksums
@@ -213,6 +228,66 @@ jobs:
           echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> .npmrc
           bun publish --ignore-scripts
           rm -f .npmrc
+
+  desktop:
+    name: Desktop ${{ matrix.label }}
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Linux
+            os: ubuntu-latest
+            build_command: bun x electron-builder --config electron-builder.yml --publish never --linux AppImage deb
+            artifact_glob: |
+              desktop/release/checkai-desktop-*.AppImage
+              desktop/release/checkai-desktop-*.deb
+              desktop/release/latest-linux.yml
+          - label: macOS
+            os: macos-latest
+            build_command: bun x electron-builder --config electron-builder.yml --publish never --mac zip dmg
+            artifact_glob: |
+              desktop/release/checkai-desktop-*.dmg
+              desktop/release/checkai-desktop-*.zip
+              desktop/release/checkai-desktop-*.zip.blockmap
+              desktop/release/latest-mac.yml
+          - label: Windows
+            os: windows-latest
+            build_command: bun x electron-builder --config electron-builder.yml --publish never --win nsis msi
+            artifact_glob: |
+              desktop/release/checkai-desktop-*.exe
+              desktop/release/checkai-desktop-*.exe.blockmap
+              desktop/release/checkai-desktop-*.msi
+              desktop/release/latest.yml
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: bun install --frozen-lockfile
+
+      - name: Build desktop app
+        working-directory: desktop
+        run: bun run build
+
+      - name: Build desktop release artifact
+        working-directory: desktop
+        run: ${{ matrix.build_command }}
+
+      - name: Upload desktop release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: ${{ matrix.artifact_glob }}
 
   # Build and push Docker image to GHCR
   docker:
