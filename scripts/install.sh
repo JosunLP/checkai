@@ -33,8 +33,10 @@ case "$OS" in
     Linux)  OS="linux"  ;;
     Darwin) OS="darwin" ;;
     *)
-        echo "Error: Unsupported operating system: $OS"
-        echo "This installer supports Linux and macOS."
+        echo "Error: Unsupported operating system for the POSIX shell installer: $OS"
+        echo "This shell path supports Linux and macOS."
+        echo "On Windows, run the installer in PowerShell instead:"
+        echo "  irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | iex"
         exit 1
         ;;
 esac
@@ -200,7 +202,7 @@ if ($os -eq "windows") {
     $targetPath = Join-Path $installDir $binaryName
     Write-Host "Downloading $assetName..."
     try {
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $targetPath -UseBasicParsing
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $targetPath
     } catch {
         Write-Error "Failed to download: $_"
         exit 1
@@ -219,7 +221,7 @@ if ($os -eq "windows") {
     $tempFile = [System.IO.Path]::GetTempFileName()
     Write-Host "Downloading $assetName..."
     try {
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -UseBasicParsing
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
     } catch {
         Write-Error "Failed to download: $_"
         exit 1
