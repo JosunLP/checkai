@@ -48,33 +48,29 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 
 ### Install
 
-**Linux / macOS:**
-
 ```bash
+# Linux / macOS
 curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | sh
 ```
 
-**Windows (PowerShell):**
-
 ```powershell
-irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.ps1 | iex
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | iex
 ```
 
 ### Uninstall
 
-**Linux / macOS:**
-
 ```bash
+# Linux / macOS
 curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | sh
 ```
 
-**Windows (PowerShell):**
-
 ```powershell
-irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.ps1 | iex
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | iex
 ```
 
-> **Tip:** The one-line commands are the quickest way to install or uninstall CheckAI, but they execute a remote script immediately.
+> **Tip:** The installer script automatically detects the operating system, architecture, and latest release, while the uninstaller script detects the operating system — no manual changes required. The one-line commands are the quickest way to install or uninstall CheckAI, but they execute a remote script immediately.
 > Only use them if you trust the source; otherwise open or download the same URL first and review it before running it, or inspect the matching script in the `scripts/` directory of this repository.
 > See the [Getting Started guide](https://josunlp.github.io/checkai/guide/getting-started) for details.
 
@@ -301,10 +297,8 @@ checkai/
 │   ├── release.yml       # Release (binaries + Docker image)
 │   └── docs.yml          # Documentation → GitHub Pages
 ├── scripts/
-│   ├── install.sh        # Installer (Linux / macOS)
-│   ├── install.ps1       # Installer (Windows)
-│   ├── uninstall.sh      # Uninstaller (Linux / macOS)
-│   └── uninstall.ps1     # Uninstaller (Windows)
+│   ├── install.sh        # Installer (Linux / macOS / Windows)
+│   └── uninstall.sh      # Uninstaller (Linux / macOS / Windows)
 ├── docs/                 # VitePress documentation site
 ├── locales/              # i18n YAML files (8 languages)
 ├── wasm/                 # WebAssembly crate (wasm-pack)
