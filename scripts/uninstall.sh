@@ -8,10 +8,10 @@
 # The script automatically detects the operating system.
 #
 # Polyglot boundary — in sh, the backticks run `# | Out-Null <#` as a
-# command substitution, where `#` starts a shell comment so it expands
-# to an empty string and echo emits a harmless blank line. In
-# PowerShell, `# becomes a literal #, the output is piped to Out-Null,
-# and <# starts a block comment that hides the shell section.
+# command substitution, where `#` starts a shell comment so the rest of
+# the line is ignored and the substitution expands to an empty string.
+# In PowerShell, `# becomes a literal #, the output is piped to
+# Out-Null, and <# starts a block comment that hides the shell section.
 echo `# | Out-Null <#`
 
 # ====================== POSIX Shell Section (Linux / macOS) ======================
