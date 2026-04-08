@@ -140,7 +140,7 @@ exit 0
 
 $ErrorActionPreference = "Stop"
 
-function Assert-CheckAINativeCommandSucceeded {
+function Assert-NativeCommandSucceeded {
     param(
         [string]$ErrorMessage
     )
@@ -210,7 +210,7 @@ if ($IsLinux -or $IsMacOS) {
     } catch {
         Write-Host "Requires elevated permissions. Using sudo..."
         sudo rm -f $binaryPath
-        Assert-CheckAINativeCommandSucceeded "Failed to remove $binaryPath with sudo rm."
+        Assert-NativeCommandSucceeded "Failed to remove $binaryPath with sudo rm."
     }
 } else {
     Remove-Item -Path $binaryPath -Force

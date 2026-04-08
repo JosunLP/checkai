@@ -144,7 +144,7 @@ function Invoke-CheckAIDownload {
     Invoke-WebRequest @requestParams
 }
 
-function Assert-CheckAINativeCommandSucceeded {
+function Assert-NativeCommandSucceeded {
     param(
         [string]$ErrorMessage
     )
@@ -261,7 +261,7 @@ if ($os -eq "windows") {
     }
 
     chmod +x $tempFile
-    Assert-CheckAINativeCommandSucceeded "Failed to mark $tempFile as executable."
+    Assert-NativeCommandSucceeded "Failed to mark $tempFile as executable."
 
     $targetPath = Join-Path $installDir $binaryName
     if (Test-Path $installDir -PathType Container) {
@@ -270,15 +270,15 @@ if ($os -eq "windows") {
         } catch {
             Write-Host "Requires elevated permissions. Using sudo..."
             sudo mv $tempFile $targetPath
-            Assert-CheckAINativeCommandSucceeded "Failed to move $tempFile to $targetPath with sudo."
+            Assert-NativeCommandSucceeded "Failed to move $tempFile to $targetPath with sudo."
             sudo chmod +x $targetPath
-            Assert-CheckAINativeCommandSucceeded "Failed to mark $targetPath as executable with sudo."
+            Assert-NativeCommandSucceeded "Failed to mark $targetPath as executable with sudo."
         }
     } else {
         sudo mv $tempFile $targetPath
-        Assert-CheckAINativeCommandSucceeded "Failed to move $tempFile to $targetPath with sudo."
+        Assert-NativeCommandSucceeded "Failed to move $tempFile to $targetPath with sudo."
         sudo chmod +x $targetPath
-        Assert-CheckAINativeCommandSucceeded "Failed to mark $targetPath as executable with sudo."
+        Assert-NativeCommandSucceeded "Failed to mark $targetPath as executable with sudo."
     }
 }
 
