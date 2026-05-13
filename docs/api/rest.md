@@ -321,8 +321,8 @@ statistics.
     {
       "game_id": "550e8400-e29b-41d4-a716-446655440000",
       "move_count": 42,
-      "result": "white_wins",
-      "end_reason": "checkmate",
+      "result": "WhiteWins",
+      "end_reason": "Checkmate",
       "start_timestamp": 1731000000,
       "end_timestamp": 1731003600,
       "compressed_bytes": 312,
@@ -397,11 +397,12 @@ reconstruct any earlier position.
     "en_passant": null,
     "halfmove_clock": 0,
     "fullmove_number": 22,
-    "status": "white_wins",
-    "move_history": []
+    "position_history": [
+      "rnb1kbnr/pppp1ppp/8/4p3/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 1 2"
+    ]
   },
   "is_over": true,
-  "result": "white_wins",
+  "result": "WhiteWins",
   "is_check": true
 }
 ```
