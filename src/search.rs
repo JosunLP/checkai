@@ -1594,28 +1594,8 @@ mod tests {
         assert_eq!(perft(&pos, 3), 97_862);
     }
 
-    /// Mate-in-2: classic "Légal Trap" mating sequence.
-    /// Position after 1.e4 e5 2.Nf3 d6 3.Bc4 Bg4 4.Nc3 g6 5.Nxe5 Bxd1
-    /// — White plays 6.Bxf7+ Ke7 7.Nd5#. We use a simpler verified
-    /// mate-in-2 position from White's side: a back-rank mate setup.
-    ///
-    /// Position: white queen + rook vs lone black king on h8.
-    /// FEN: `7k/8/8/8/8/8/R7/4K2R w K - 0 1`
-    /// Solution: 1.Ra8+ Kh7 2... no — too simple.
-    ///
-    /// Use a well-known mate-in-2: `6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1`
-    /// White wins with Ra8+. Actually that's mate in 1. Instead:
-    ///
-    /// "Mate in 2" from a tactics database:
-    /// `r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4`
-    /// — this is already mate (Scholar's mate). Use a position that requires
-    /// finding a real mate-in-2 sequence:
-    ///
-    /// `r2qk2r/ppp2ppp/2n5/2bpp3/4P3/2P2N2/PP1P1PPP/RNBQKB1R w KQkq - 0 1`
-    /// is not a mate position. Skipping a tricky construction — instead we
-    /// verify that the engine finds mate-in-1 (already covered by
-    /// `test_checkmate_detection`) and that searching from a known mating
-    /// attack returns a mate-range score.
+    /// Verify search prefers an immediate back-rank mate and returns a
+    /// mate-range score for the position `6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1`.
     #[test]
     fn test_search_finds_back_rank_mate_in_one() {
         // Back-rank mate: White rook on a1, Black king trapped on g8 by own pawns.

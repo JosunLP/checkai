@@ -887,6 +887,7 @@ function startBackend(state: DesktopState): BackendStatusPayload {
     }
 
     const stopRequested = backendStopRequested;
+    const lastError = getBackendExitError(code, signal, stopRequested);
     clearBackendForceKillTimer();
     backendProcess = null;
     backendExitListener = null;
@@ -896,12 +897,17 @@ function startBackend(state: DesktopState): BackendStatusPayload {
       command,
       startedAt,
       exitCode: code,
-      lastError: getBackendExitError(code, signal, stopRequested),
+      lastError,
     };
     flushBackendLogs();
     pushBackendStatus();
     backendStopRequested = false;
-    notify('CheckAI Desktop', 'Local backend stopped.');
+    notify(
+      'CheckAI Desktop',
+      stopRequested || lastError === null
+        ? 'Local backend stopped.'
+        : `Local backend exited unexpectedly: ${lastError}`
+    );
   };
   processRef.on('exit', backendExitListener);
 
