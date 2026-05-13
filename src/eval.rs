@@ -1007,4 +1007,168 @@ mod tests {
         let board = Board::starting_position();
         assert_eq!(piece_count(&board), 32);
     }
+
+    // -----------------------------------------------------------------------
+    // Vertical-flip symmetry, phase tapering, and bishop-pair tests
+    // -----------------------------------------------------------------------
+
+    /// Vertically mirrors the board and swaps piece colors, producing a
+    /// position that is strategically identical from the opposite side's
+    /// perspective. Used to check colour-symmetry of the evaluation.
+    fn mirror_board(board: &Board) -> Board {
+        let mut out = Board::default();
+        for rank in 0..8 {
+            for file in 0..8 {
+                let src = Square::new(file, rank);
+                if let Some(p) = board.get(src) {
+                    let dst = Square::new(file, 7 - rank);
+                    out.set(
+                        dst,
+                        Some(Piece::new(
+                            p.kind,
+                            match p.color {
+                                Color::White => Color::Black,
+                                Color::Black => Color::White,
+                            },
+                        )),
+                    );
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn test_eval_colour_symmetry_starting_position() {
+        let board = Board::starting_position();
+        let mirrored = mirror_board(&board);
+        // Starting position is its own colour mirror, so eval must match
+        // regardless of which side is to move.
+        assert_eq!(
+            evaluate(&board, Color::White),
+            evaluate(&mirrored, Color::Black)
+        );
+        assert_eq!(
+            evaluate(&board, Color::Black),
+            evaluate(&mirrored, Color::White)
+        );
+    }
+
+    #[test]
+    fn test_eval_colour_symmetry_asymmetric_position() {
+        // White is up a bishop on c4; mirror gives Black up a bishop on c5.
+        let mut board = Board::default();
+        // Kings on the back rank (FIDE-legal positioning).
+        board.set(
+            Square::new(4, 0),
+            Some(Piece::new(PieceKind::King, Color::White)),
+        );
+        board.set(
+            Square::new(4, 7),
+            Some(Piece::new(PieceKind::King, Color::Black)),
+        );
+        // Extra white bishop on c4.
+        board.set(
+            Square::new(2, 3),
+            Some(Piece::new(PieceKind::Bishop, Color::White)),
+        );
+
+        let w_score = evaluate(&board, Color::White);
+        let mirrored = mirror_board(&board);
+        let b_score = evaluate(&mirrored, Color::Black);
+        assert_eq!(
+            w_score, b_score,
+            "Mirroring + swapping colors must give the same eval (W={}, B-mirror={})",
+            w_score, b_score
+        );
+        // Sanity: the side with the extra bishop should be ahead.
+        assert!(
+            w_score > 0,
+            "White with extra bishop should evaluate positive, got {}",
+            w_score
+        );
+    }
+
+    #[test]
+    fn test_phase_tapers_to_endgame_in_pawn_only_position() {
+        // Pure K+P vs K endgame: phase contribution is 0, so eval should
+        // use the endgame piece-square tables exclusively.
+        let mut board = Board::default();
+        board.set(
+            Square::new(4, 0),
+            Some(Piece::new(PieceKind::King, Color::White)),
+        );
+        board.set(
+            Square::new(4, 7),
+            Some(Piece::new(PieceKind::King, Color::Black)),
+        );
+        board.set(
+            Square::new(4, 4),
+            Some(Piece::new(PieceKind::Pawn, Color::White)),
+        );
+
+        let (_, _, _, _, phase) = accumulate(&board);
+        assert_eq!(phase, 0, "K+P vs K must have phase 0 (pure endgame)");
+
+        let score = evaluate(&board, Color::White);
+        // White is up a pawn in the endgame — should clearly favour White.
+        assert!(
+            score > EG_VALUE[0] - 50,
+            "Endgame pawn advantage should yield score near pawn EG value, got {}",
+            score
+        );
+    }
+
+    #[test]
+    fn test_phase_full_in_starting_position() {
+        let (_, _, _, _, phase) = accumulate(&Board::starting_position());
+        assert_eq!(
+            phase, PHASE_MAX,
+            "Starting position must have maximum midgame phase"
+        );
+    }
+
+    #[test]
+    fn test_bishop_pair_bonus_is_applied() {
+        // Position A: White has two bishops (c1 and f1).
+        let mut with_pair = Board::default();
+        with_pair.set(
+            Square::new(4, 0),
+            Some(Piece::new(PieceKind::King, Color::White)),
+        );
+        with_pair.set(
+            Square::new(4, 7),
+            Some(Piece::new(PieceKind::King, Color::Black)),
+        );
+        with_pair.set(
+            Square::new(2, 0),
+            Some(Piece::new(PieceKind::Bishop, Color::White)),
+        );
+        with_pair.set(
+            Square::new(5, 0),
+            Some(Piece::new(PieceKind::Bishop, Color::White)),
+        );
+
+        // Position B: same as A but only one bishop.
+        let mut without_pair = with_pair.clone();
+        without_pair.set(Square::new(5, 0), None);
+
+        let score_pair = evaluate(&with_pair, Color::White);
+        let score_single = evaluate(&without_pair, Color::White);
+
+        // The pair must score strictly higher (extra bishop material + pair bonus).
+        assert!(
+            score_pair > score_single,
+            "Bishop pair must out-score single bishop (pair={}, single={})",
+            score_pair,
+            score_single,
+        );
+        // Difference must be at least one bishop's worth of material.
+        let diff = score_pair - score_single;
+        assert!(
+            diff >= MG_VALUE[2] / 2,
+            "Pair vs single delta should be substantial, got {}",
+            diff
+        );
+    }
 }

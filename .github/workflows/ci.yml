@@ -128,3 +128,8 @@ jobs:
       - name: Validate desktop app
         working-directory: desktop
         run: bun run check
+
+      - name: Smoke-test desktop packaging (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: desktop
+        run: bun run pack

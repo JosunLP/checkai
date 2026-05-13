@@ -7,7 +7,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2026-05-13
+
+### Added
+
+- **Engine test coverage** — Added perft suites for the standard starting position (depths 1–3, with depth-4 guarded by `#[ignore]`) and the Kiwipete benchmark (depths 1–2, depth-3 ignored); new mate-in-one verification through the full search; transposition-table reuse test across consecutive iterative-deepening runs
+- **Evaluation test coverage** — Added colour-mirror symmetry tests (starting position and asymmetric material imbalance), tapered-evaluation phase verification (full midgame phase at startpos, pure endgame phase in K+P vs K), and bishop-pair bonus delta test
+- **REST API documentation for the archive** — Added an "Archive & Storage" section to `docs/api/rest.md` covering `GET /api/archive`, `GET /api/archive/stats`, `GET /api/archive/{game_id}`, and `GET /api/archive/{game_id}/replay`, including request/response shapes and error codes
+- **Desktop packaging smoke test in CI** — The desktop CI job now runs `bun run pack` on Ubuntu to validate the full electron-builder pipeline end-to-end on every push
+
+### Changed
+
+- **Version metadata** — Bumped Rust crate, WASM crate, npm package, web UI, desktop app, and VitePress version label to 0.7.0
+- **Released previously unreleased 0.6.0 desktop work** — Promoted the prior `[Unreleased]` section to a proper `[0.6.0] - 2026-03-09` entry
 
 ## [0.6.0] - 2026-03-09
 
@@ -243,7 +255,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Web UI for browser-based game viewing
 
 [Unreleased]: https://github.com/JosunLP/checkai/compare/v0.6.0...HEAD
-[0.6.0]: https://github.com/JosunLP/checkai/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/JosunLP/checkai/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/JosunLP/checkai/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/JosunLP/checkai/compare/v0.4.0...v0.5.0

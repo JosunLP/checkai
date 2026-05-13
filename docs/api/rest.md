@@ -298,6 +298,158 @@ Returns the game in PGN (Portable Game Notation) format with standard Seven Tag 
 
 ---
 
+## Archive & Storage
+
+Completed games are compressed and persisted to disk. The archive endpoints
+list, retrieve, and replay archived games. The matching WebSocket actions
+are documented under [WebSocket → Archive](./websocket.md).
+
+### List Archived Games
+
+```http
+GET /api/archive
+```
+
+Returns summaries of all archived games together with overall storage
+statistics.
+
+**Response** `200 OK`:
+
+```json
+{
+  "games": [
+    {
+      "game_id": "550e8400-e29b-41d4-a716-446655440000",
+      "move_count": 42,
+      "result": "white_wins",
+      "end_reason": "checkmate",
+      "start_timestamp": 1731000000,
+      "end_timestamp": 1731003600,
+      "compressed_bytes": 312,
+      "raw_bytes": 1024
+    }
+  ],
+  "total": 1,
+  "storage": {
+    "active_count": 0,
+    "archived_count": 1,
+    "active_bytes": 0,
+    "archive_bytes": 312,
+    "total_bytes": 312
+  }
+}
+```
+
+---
+
+### Storage Statistics
+
+```http
+GET /api/archive/stats
+```
+
+Returns disk-usage statistics for both active and archived game files.
+
+**Response** `200 OK`:
+
+```json
+{
+  "active_count": 3,
+  "archived_count": 42,
+  "active_bytes": 8192,
+  "archive_bytes": 73216,
+  "total_bytes": 81408
+}
+```
+
+---
+
+### Get Archived Game
+
+```http
+GET /api/archive/{game_id}
+```
+
+Loads a completed game from the archive and returns the **final** position
+together with the full game metadata. Use the replay endpoint below to
+reconstruct any earlier position.
+
+**Path Parameters**:
+
+| Name      | Type   | Description               |
+| --------- | ------ | ------------------------- |
+| `game_id` | string | UUID of the archived game |
+
+**Response** `200 OK`:
+
+```json
+{
+  "game_id": "550e8400-e29b-41d4-a716-446655440000",
+  "at_move": 42,
+  "total_moves": 42,
+  "state": {
+    "board": { "a1": "R", "e1": "K", "h8": "k" },
+    "turn": "black",
+    "castling": {
+      "white": { "kingside": false, "queenside": false },
+      "black": { "kingside": false, "queenside": false }
+    },
+    "en_passant": null,
+    "halfmove_clock": 0,
+    "fullmove_number": 22,
+    "status": "white_wins",
+    "move_history": []
+  },
+  "is_over": true,
+  "result": "white_wins",
+  "is_check": true
+}
+```
+
+**Errors**:
+
+| Status            | Cause                           |
+| ----------------- | ------------------------------- |
+| `400 Bad Request` | `game_id` is not a valid UUID   |
+| `404 Not Found`   | No archived game with this UUID |
+
+---
+
+### Replay Archived Game
+
+```http
+GET /api/archive/{game_id}/replay?move_number={n}
+```
+
+Reconstructs the exact position after `move_number` half-moves of the
+archived game. This is the primary endpoint for post-game analysis.
+
+**Path Parameters**:
+
+| Name      | Type   | Description               |
+| --------- | ------ | ------------------------- |
+| `game_id` | string | UUID of the archived game |
+
+**Query Parameters**:
+
+| Name          | Type    | Default        | Description                                                      |
+| ------------- | ------- | -------------- | ---------------------------------------------------------------- |
+| `move_number` | integer | final position | Half-move index to replay to. `0` returns the starting position. |
+
+**Response** `200 OK`: same shape as `GET /api/archive/{game_id}` —
+`at_move` reflects the replayed half-move index (clamped to
+`total_moves` when the requested number exceeds the game length).
+
+**Example**:
+
+```bash
+curl "http://localhost:8080/api/archive/550e8400-e29b-41d4-a716-446655440000/replay?move_number=10"
+```
+
+**Errors**: same as `GET /api/archive/{game_id}`.
+
+---
+
 ## Localization
 
 All API responses respect the requested locale:
