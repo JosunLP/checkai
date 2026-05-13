@@ -144,13 +144,6 @@ jobs:
           fileName: "checkai-*"
           out-file-path: artifacts
 
-      - name: Download desktop release assets
-        uses: robinraju/release-downloader@v1
-        with:
-          tag: ${{ github.ref_name }}
-          fileName: "checkai-desktop-*"
-          out-file-path: artifacts
-
       - name: Download updater manifests
         uses: robinraju/release-downloader@v1
         with:
@@ -162,7 +155,7 @@ jobs:
         run: |
           cd artifacts
           shopt -s nullglob
-          files=(checkai-* checkai-desktop-* latest*.yml)
+          files=(checkai-* latest*.yml)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No release artifacts found for checksum generation." >&2
             exit 1

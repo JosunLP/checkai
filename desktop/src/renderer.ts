@@ -1025,7 +1025,7 @@ function renderBoard(
     let cells = '';
     for (const f of files) {
       const sq = `${f}${r}`;
-      const piece = board[sq] as FenChar | null;
+      const piece = board[sq] as FenChar | undefined;
       const isLight = (f.charCodeAt(0) + parseInt(r)) % 2 === 0;
       const classes = [
         'sq',

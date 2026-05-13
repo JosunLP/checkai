@@ -153,7 +153,7 @@ export type FenChar =
   | 'n'
   | 'p';
 export type SquareName = string;
-export type BoardMap = Record<SquareName, FenChar | null>;
+export type BoardMap = Partial<Record<SquareName, FenChar>>;
 
 export interface SideCastling {
   kingside: boolean;
@@ -235,7 +235,9 @@ export interface ArchivedGameSummary {
   end_reason: EndReason | null;
   move_count: number;
   compressed_bytes: number;
-  start_timestamp: number | null;
+  start_timestamp: number;
+  end_timestamp: number;
+  raw_bytes: number;
 }
 
 export interface StorageStats {
@@ -243,6 +245,7 @@ export interface StorageStats {
   archived_count: number;
   active_bytes: number;
   archive_bytes: number;
+  total_bytes: number;
 }
 
 export interface ReplayState {

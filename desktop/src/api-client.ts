@@ -107,7 +107,8 @@ export function getBoardAscii(id: string): Promise<string> {
 
 export function listArchived(): Promise<{
   games: ArchivedGameSummary[];
-  storage?: StorageStats;
+  total: number;
+  storage: StorageStats;
 }> {
   return request('GET', '/archive');
 }
