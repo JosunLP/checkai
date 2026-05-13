@@ -485,7 +485,7 @@ fn score_moves(
 
 /// Sort scored moves in descending order.
 fn sort_moves(scored: &mut [(ChessMove, i32)]) {
-    scored.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+    scored.sort_unstable_by_key(|m| std::cmp::Reverse(m.1));
 }
 
 // ---------------------------------------------------------------------------
@@ -993,7 +993,7 @@ impl SearchEngine {
             .iter()
             .map(|mv| (*mv, mvv_lva_score(&pos.board, mv)))
             .collect();
-        scored.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        scored.sort_unstable_by_key(|m| std::cmp::Reverse(m.1));
 
         for (mv, _) in scored {
             let child = pos.make_move(&mv);
