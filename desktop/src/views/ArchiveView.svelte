@@ -11,12 +11,30 @@
   } from '../workspace.js';
 
   const ARCHIVE_ANALYSIS_DEPTH = 30;
+  const PIECE_LABELS: Record<string, string> = {
+    K: 'white king',
+    Q: 'white queen',
+    R: 'white rook',
+    B: 'white bishop',
+    N: 'white knight',
+    P: 'white pawn',
+    k: 'black king',
+    q: 'black queen',
+    r: 'black rook',
+    b: 'black bishop',
+    n: 'black knight',
+    p: 'black pawn',
+  };
   let replaySliderValue = 0;
   let boardFiles: string[] = [...FILES];
   let boardRanks: string[] = [...RANKS].reverse();
 
   function isLightSquare(file: string, rank: string): boolean {
     return (file.charCodeAt(0) + Number.parseInt(rank, 10)) % 2 === 0;
+  }
+
+  function replaySquareAriaLabel(square: string, piece: string | undefined): string {
+    return piece ? `square ${square}, occupied by ${PIECE_LABELS[piece]}` : `square ${square}, empty`;
   }
 
   $: boardFiles = $desktopState.boardFlipped ? [...FILES].reverse() : [...FILES];
@@ -83,7 +101,7 @@
       </div>
 
       <div class="board-container">
-        <div class="chess-board">
+        <div class="chess-board" role="img" aria-label="Replay chess board">
           {#each boardRanks as rank}
             <div class="board-row">
               <span class="rank-label">{rank}</span>
@@ -94,6 +112,8 @@
                   class:sq={true}
                   class:sq-light={isLightSquare(file, rank)}
                   class:sq-dark={!isLightSquare(file, rank)}
+                  role="img"
+                  aria-label={replaySquareAriaLabel(square, piece)}
                 >
                   {piece ? PIECE_UNICODE[piece] : ''}
                 </div>

@@ -327,7 +327,7 @@ function buildBackendArgs(state: DesktopState): string[] {
 
     try {
       const url = new URL(state.backendUrl);
-      const loopbackHost = url.hostname;
+      const loopbackHost = url.hostname.replace(/^\[(.*)\]$/, '$1');
       const port = url.port || defaultBackendPort();
       if (port && /^\d+$/.test(port) && !hasCliFlag(args, '--port')) {
         args.push('--port', port);

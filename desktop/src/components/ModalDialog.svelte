@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import { trapTabKey } from '../accessibility.js';
   import { modalState } from '../stores.js';
 
   let dialogElement: HTMLDivElement | null = null;
@@ -67,6 +68,11 @@
 
   function handleWindowKeydown(event: KeyboardEvent): void {
     if (!$modalState) {
+      return;
+    }
+
+    if (event.key === 'Tab') {
+      trapTabKey(event, dialogElement);
       return;
     }
 

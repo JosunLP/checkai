@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { trapTabKey } from '../accessibility.js';
   import { paletteOpen, paletteQuery } from '../stores.js';
   import { pushError } from '../notifications.js';
   import type { DesktopView } from '../shared-types.js';
@@ -86,6 +87,7 @@
   ];
 
   let searchInput: HTMLInputElement | null = null;
+  let paletteElement: HTMLDivElement | null = null;
   let previousFocus: HTMLElement | null = null;
 
   function canRestoreFocus(element: HTMLElement): boolean {
@@ -109,6 +111,11 @@
   });
 
   function handleWindowKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Tab') {
+      trapTabKey(event, paletteElement);
+      return;
+    }
+
     if (event.key === 'Escape') {
       event.preventDefault();
       closePalette();
@@ -147,8 +154,10 @@
   on:click={handleOverlayClick}
 >
   <div
+    bind:this={paletteElement}
     class="palette"
     role="dialog"
+    tabindex="-1"
     aria-modal="true"
     aria-labelledby="command-palette-title"
   >
