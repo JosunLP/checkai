@@ -19,7 +19,7 @@ export function normalizeBackendUrl(value: string): string {
   }
 
   if (url.protocol !== 'http:') {
-    throw new Error('Backend URL must start with http://.');
+    throw new Error(`Backend URL must start with http://, for example ${BACKEND_URL_EXAMPLE}.`);
   }
 
   if (!url.hostname) {
