@@ -187,8 +187,14 @@ $arch = if ($osArchitecture -eq [System.Runtime.InteropServices.Architecture]::X
     exit 1
 }
 
+$assetArch = $arch
+if ($os -eq "windows" -and $arch -eq "aarch64") {
+    Write-Host "Windows ARM64 release asset is not published yet; using the x86_64 CLI binary under emulation."
+    $assetArch = "x86_64"
+}
+
 if ($os -eq "windows") {
-    $assetName = "checkai-windows-${arch}.exe"
+    $assetName = "checkai-windows-${assetArch}.exe"
 } else {
     $assetName = "checkai-${os}-${arch}"
 }
