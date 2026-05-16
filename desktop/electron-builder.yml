@@ -1,12 +1,15 @@
 appId: io.github.josunlp.checkai.desktop
 productName: CheckAI Desktop
 artifactName: checkai-desktop-${version}-${os}-${arch}.${ext}
+icon: icon.png
+beforePack: scripts/generate-icons.mjs
 publish:
   provider: github
   owner: JosunLP
   repo: checkai
   releaseType: release
 directories:
+  buildResources: build
   output: release
 files:
   - dist/**/*
