@@ -30,6 +30,9 @@ export function trapTabKey(event: KeyboardEvent, container: HTMLElement | null):
 
   if (focusable.length === 0) {
     event.preventDefault();
+    if (!container.hasAttribute('tabindex')) {
+      container.tabIndex = -1;
+    }
     container.focus();
     return;
   }

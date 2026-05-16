@@ -37,7 +37,7 @@
     if (!piece) {
       return `square ${square}, empty`;
     }
-    return `square ${square}, occupied by ${PIECE_LABELS[piece] ?? 'piece'}`;
+    return `square ${square}, occupied by ${PIECE_LABELS[piece] ?? 'unknown piece'}`;
   }
 
   $: boardFiles = $desktopState.boardFlipped ? [...FILES].reverse() : [...FILES];
