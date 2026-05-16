@@ -25,12 +25,14 @@
     n: 'black knight',
     p: 'black pawn',
   };
+  type BoardFile = (typeof FILES)[number];
+  type BoardRank = (typeof RANKS)[number];
   let replaySliderValue = 0;
-  let boardFiles: string[] = [...FILES];
-  let boardRanks: string[] = [...RANKS].reverse();
+  let boardFiles: BoardFile[] = [...FILES];
+  let boardRanks: BoardRank[] = [...RANKS].reverse();
 
-  function isLightSquare(file: string, rank: string): boolean {
-    return (file.charCodeAt(0) + Number.parseInt(rank, 10)) % 2 === 0;
+  function isLightSquare(file: BoardFile, rank: BoardRank): boolean {
+    return (FILES.indexOf(file) + Number.parseInt(rank, 10) - 1) % 2 === 1;
   }
 
   function replaySquareAriaLabel(square: string, piece: string | undefined): string {

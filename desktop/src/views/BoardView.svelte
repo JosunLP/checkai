@@ -26,12 +26,15 @@
     black?: string;
   };
 
-  let boardFiles: string[] = [...FILES];
-  let boardRanks: string[] = [...RANKS].reverse();
+  type BoardFile = (typeof FILES)[number];
+  type BoardRank = (typeof RANKS)[number];
+
+  let boardFiles: BoardFile[] = [...FILES];
+  let boardRanks: BoardRank[] = [...RANKS].reverse();
   let historyPairs: MovePair[] = [];
 
-  function isLightSquare(file: string, rank: string): boolean {
-    return (file.charCodeAt(0) + Number.parseInt(rank, 10)) % 2 === 0;
+  function isLightSquare(file: BoardFile, rank: BoardRank): boolean {
+    return (FILES.indexOf(file) + Number.parseInt(rank, 10) - 1) % 2 === 1;
   }
 
   const PIECE_LABELS: Record<string, string> = {
@@ -82,14 +85,22 @@
     }
 
     const pairs: MovePair[] = [];
-    for (let index = 0; index < game.move_history.length; index += 2) {
-      const white = game.move_history[index];
-      const black = game.move_history[index + 1];
-      pairs.push({
-        moveNumber: white.move_number,
-        white: white.notation,
-        black: black?.notation,
-      });
+    let currentPair: MovePair | null = null;
+
+    for (const entry of game.move_history) {
+      if (!currentPair || currentPair.moveNumber !== entry.move_number) {
+        currentPair = {
+          moveNumber: entry.move_number,
+          white: '',
+        };
+        pairs.push(currentPair);
+      }
+
+      if (entry.side === 'white') {
+        currentPair.white = entry.notation;
+      } else {
+        currentPair.black = entry.notation;
+      }
     }
 
     return pairs;
