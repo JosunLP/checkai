@@ -394,7 +394,10 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
     accumulate_internal(board, true)
 }
 
-fn accumulate_internal(board: &Board, include_bishop_pair_bonus: bool) -> (i32, i32, i32, i32, i32) {
+fn accumulate_internal(
+    board: &Board,
+    include_bishop_pair_bonus: bool,
+) -> (i32, i32, i32, i32, i32) {
     let mut mg_white = 0i32;
     let mut eg_white = 0i32;
     let mut mg_black = 0i32;
