@@ -27,6 +27,7 @@ import {
   DEFAULT_DESKTOP_STATE,
   FILES,
   PIECE_UNICODE,
+  PROMOTION_PIECE_LIST,
   RANKS,
   type AnalysisJob,
   type AnalysisResultPayload,
@@ -377,7 +378,7 @@ async function selectPromotionMove(moves: LegalMove[]): Promise<LegalMove | null
 
   while (true) {
     const choice = window.prompt(
-      'Choose promotion piece: enter Q, R, B, or N.',
+      `Choose promotion piece: enter ${PROMOTION_PIECE_LIST}.`,
       moves[0].promotion ?? 'Q'
     );
     if (choice === null) return null;
@@ -386,7 +387,7 @@ async function selectPromotionMove(moves: LegalMove[]): Promise<LegalMove | null
     const move = moves.find((candidate) => candidate.promotion?.toUpperCase() === normalized);
     if (move) return move;
 
-    showError('Enter Q, R, B, or N to choose a promotion piece.');
+    showError(`Enter ${PROMOTION_PIECE_LIST} to choose a promotion piece.`);
   }
 }
 

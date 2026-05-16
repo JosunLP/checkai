@@ -56,6 +56,7 @@ import type {
   LegalMove,
   SaveTextFileOptions,
 } from './shared-types.js';
+import { PROMOTION_PIECE_LIST } from './shared-types.js';
 
 const ANALYSIS_POLL_INTERVAL_MS = 2000;
 const WORKSPACE_REFRESH_INTERVAL_MS = 5000;
@@ -166,7 +167,7 @@ async function selectPromotionMove(moves: LegalMove[]): Promise<LegalMove | null
   while (true) {
     const choice = await promptForValue({
       title: 'Choose promotion piece',
-      message: 'Enter Q, R, B, or N for the piece you want to promote to.',
+      message: `Enter ${PROMOTION_PIECE_LIST} for the piece you want to promote to.`,
       confirmLabel: 'Promote',
       initialValue: 'Q',
       placeholder: 'Q',
@@ -181,7 +182,7 @@ async function selectPromotionMove(moves: LegalMove[]): Promise<LegalMove | null
       return move;
     }
 
-    pushError('Enter Q, R, B, or N to choose a promotion piece.');
+    pushError(`Enter ${PROMOTION_PIECE_LIST} to choose a promotion piece.`);
   }
 }
 
@@ -644,11 +645,11 @@ export async function handleBoardSquareClick(square: string): Promise<void> {
           square,
           move.promotion
         );
-        if (response.success) {
-          await openGame(game.game_id, { keepCurrentView: true });
-        } else {
+        if (!response.success) {
           pushError(response.message);
+          return;
         }
+        await openGame(game.game_id, { keepCurrentView: true });
       } catch (error) {
         pushError(error instanceof Error ? error.message : String(error));
       } finally {
