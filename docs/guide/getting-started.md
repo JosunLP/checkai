@@ -38,7 +38,7 @@ if command -v sha256sum >/dev/null 2>&1; then
 elif command -v shasum >/dev/null 2>&1; then
   grep "  ${ASSET}$" checksums-sha256.txt | shasum -a 256 -c -
 else
-  echo "Install sha256sum or shasum to verify the release checksum." >&2
+  echo "Error: Neither sha256sum nor shasum found. Install coreutils on Linux or use macOS built-in shasum." >&2
   exit 1
 fi
 chmod +x "${ASSET}"
