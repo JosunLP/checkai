@@ -15,8 +15,50 @@
 
 ### Pre-built Binaries (Recommended)
 
-Run the installer directly in a single command — it automatically detects your
-operating system, architecture, and the latest release:
+Pin the release you want and verify the downloaded binary against the published
+SHA-256 checksums before installing it:
+
+::: code-group
+
+```bash [Linux / macOS]
+CHECKAI_VERSION=v0.7.0
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+[ "$OS" = "darwin" ] || OS="linux"
+ARCH="$(uname -m)"
+case "$ARCH" in x86_64|amd64) ARCH=x86_64 ;; arm64|aarch64) ARCH=aarch64 ;; esac
+ASSET="checkai-${OS}-${ARCH}"
+BASE_URL="https://github.com/JosunLP/checkai/releases/download/${CHECKAI_VERSION}"
+
+curl -fSLO "${BASE_URL}/${ASSET}"
+curl -fSLO "${BASE_URL}/checksums-sha256.txt"
+grep "  ${ASSET}$" checksums-sha256.txt | { command -v sha256sum >/dev/null && sha256sum -c - || shasum -a 256 -c -; }
+chmod +x "${ASSET}"
+sudo install -m 0755 "${ASSET}" /usr/local/bin/checkai
+```
+
+```powershell [Windows (PowerShell)]
+$Version = "v0.7.0"
+$Asset = "checkai-windows-x86_64.exe"
+$BaseUrl = "https://github.com/JosunLP/checkai/releases/download/$Version"
+Invoke-WebRequest "$BaseUrl/$Asset" -OutFile $Asset
+Invoke-WebRequest "$BaseUrl/checksums-sha256.txt" -OutFile checksums-sha256.txt
+$Expected = ((Select-String .\checksums-sha256.txt -Pattern "  $([regex]::Escape($Asset))$").Line -split "\s+")[0].ToLowerInvariant()
+$Actual = (Get-FileHash ".\$Asset" -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($Actual -ne $Expected) { throw "Checksum verification failed for $Asset" }
+New-Item -ItemType Directory "$env:LOCALAPPDATA\checkai" -Force | Out-Null
+Move-Item -Force ".\$Asset" "$env:LOCALAPPDATA\checkai\checkai.exe"
+```
+
+:::
+
+Replace `v0.7.0` with the release tag you want to install. Windows ARM64 users
+should use the `checkai-windows-x86_64.exe` asset until a native ARM64 CLI
+binary is published.
+
+#### Installer shortcut
+
+The installer can still detect your operating system, architecture, and latest
+release automatically:
 
 ::: code-group
 
@@ -30,13 +72,13 @@ irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | 
 
 :::
 
-Both commands invoke the same script. It fetches the current release and installs
-the correct binary for your platform — no manual changes required.
-If you prefer to inspect the script first, open or download the same URL before running it manually.
-
 ::: warning
-The one-line commands above execute a remote script immediately.
-Only use them if you trust the source. If you want a manual review step, open or download the same URL first, read through the script carefully, and only then run it yourself. You can also inspect the matching script in the repository's `scripts/` directory before executing it.
+The installer shortcut executes the current `main` branch script immediately and
+is less secure than verifying a pinned release asset first. Only use it if you
+trust the source and accept that trade-off. If you want a manual review step,
+open or download the same URL first, read through the script carefully, and only
+then run it yourself. You can also inspect the matching script in the
+repository's `scripts/` directory before executing it.
 :::
 
 ### Build from Source

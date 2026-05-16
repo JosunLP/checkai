@@ -48,13 +48,49 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 
 ### Install
 
+Recommended: pin the release you want and verify the downloaded binary against the
+published SHA-256 checksums before installing it.
+
 ```bash
 # Linux / macOS
-curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | sh
+CHECKAI_VERSION=v0.7.0
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+[ "$OS" = "darwin" ] || OS="linux"
+ARCH="$(uname -m)"
+case "$ARCH" in x86_64|amd64) ARCH=x86_64 ;; arm64|aarch64) ARCH=aarch64 ;; esac
+ASSET="checkai-${OS}-${ARCH}"
+BASE_URL="https://github.com/JosunLP/checkai/releases/download/${CHECKAI_VERSION}"
+
+curl -fSLO "${BASE_URL}/${ASSET}"
+curl -fSLO "${BASE_URL}/checksums-sha256.txt"
+grep "  ${ASSET}$" checksums-sha256.txt | { command -v sha256sum >/dev/null && sha256sum -c - || shasum -a 256 -c -; }
+chmod +x "${ASSET}"
+sudo install -m 0755 "${ASSET}" /usr/local/bin/checkai
 ```
 
 ```powershell
 # Windows (PowerShell)
+$Version = "v0.7.0"
+$Asset = "checkai-windows-x86_64.exe"
+$BaseUrl = "https://github.com/JosunLP/checkai/releases/download/$Version"
+Invoke-WebRequest "$BaseUrl/$Asset" -OutFile $Asset
+Invoke-WebRequest "$BaseUrl/checksums-sha256.txt" -OutFile checksums-sha256.txt
+$Expected = ((Select-String .\checksums-sha256.txt -Pattern "  $([regex]::Escape($Asset))$").Line -split "\s+")[0].ToLowerInvariant()
+$Actual = (Get-FileHash ".\$Asset" -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($Actual -ne $Expected) { throw "Checksum verification failed for $Asset" }
+New-Item -ItemType Directory "$env:LOCALAPPDATA\checkai" -Force | Out-Null
+Move-Item -Force ".\$Asset" "$env:LOCALAPPDATA\checkai\checkai.exe"
+```
+
+For the shortest install path, you can pipe the installer script directly to your
+shell. This executes the current `main` branch script immediately, so only use it
+if you accept that trade-off:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | sh
+```
+
+```powershell
 irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | iex
 ```
 
@@ -70,8 +106,8 @@ curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninst
 irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | iex
 ```
 
-> **Tip:** The installer script automatically detects the operating system, architecture, and latest release, while the uninstaller script detects the operating system — no manual changes required. The one-line commands are the quickest way to install or uninstall CheckAI, but they execute a remote script immediately.
-> Only use them if you trust the source; otherwise open or download the same URL first and review it before running it, or inspect the matching script in the `scripts/` directory of this repository.
+> **Tip:** The installer script automatically detects the operating system, architecture, and latest release, while the uninstaller script detects the operating system — no manual changes required. The direct installer shortcut is quick, but it executes a remote script before you can verify the release asset yourself.
+> Prefer the pinned release commands above when you want release integrity checks before installation.
 > See the [Getting Started guide](https://josunlp.github.io/checkai/guide/getting-started) for details.
 
 ### Build from Source
