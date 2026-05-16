@@ -644,15 +644,16 @@ export async function handleBoardSquareClick(square: string): Promise<void> {
           square,
           move.promotion
         );
-        if (!response.success) {
-          pushError(response.message);
-        } else {
+        if (response.success) {
           await openGame(game.game_id, { keepCurrentView: true });
+        } else {
+          pushError(response.message);
         }
       } catch (error) {
         pushError(error instanceof Error ? error.message : String(error));
+      } finally {
+        selectedSquare.set(null);
       }
-      selectedSquare.set(null);
       return;
     }
   }
