@@ -111,6 +111,10 @@
   });
 
   function handleWindowKeydown(event: KeyboardEvent): void {
+    if (!$paletteOpen) {
+      return;
+    }
+
     if (event.key === 'Tab') {
       trapTabKey(event, paletteElement);
       return;
