@@ -20,7 +20,7 @@ function isFocusable(element: HTMLElement): boolean {
 }
 
 export function trapTabKey(event: KeyboardEvent, container: HTMLElement | null): void {
-  if (event.key !== 'Tab' || !container) {
+  if (!container) {
     return;
   }
 

@@ -34,7 +34,10 @@
   }
 
   function replaySquareAriaLabel(square: string, piece: string | undefined): string {
-    return piece ? `square ${square}, occupied by ${PIECE_LABELS[piece]}` : `square ${square}, empty`;
+    if (!piece) {
+      return `square ${square}, empty`;
+    }
+    return `square ${square}, occupied by ${PIECE_LABELS[piece] ?? 'piece'}`;
   }
 
   $: boardFiles = $desktopState.boardFlipped ? [...FILES].reverse() : [...FILES];
