@@ -33,10 +33,14 @@ BASE_URL="https://github.com/JosunLP/checkai/releases/download/${CHECKAI_VERSION
 
 curl -fSLO "${BASE_URL}/${ASSET}"
 curl -fSLO "${BASE_URL}/checksums-sha256.txt"
+CHECKSUM_LINE="$(grep "  ${ASSET}$" checksums-sha256.txt)" || {
+  echo "Error: Asset ${ASSET} not found in checksums-sha256.txt" >&2
+  exit 1
+}
 if command -v sha256sum >/dev/null 2>&1; then
-  grep "  ${ASSET}$" checksums-sha256.txt | sha256sum -c -
+  echo "${CHECKSUM_LINE}" | sha256sum -c -
 elif command -v shasum >/dev/null 2>&1; then
-  grep "  ${ASSET}$" checksums-sha256.txt | shasum -a 256 -c -
+  echo "${CHECKSUM_LINE}" | shasum -a 256 -c -
 else
   echo "Error: Neither sha256sum nor shasum found. On Linux, install coreutils; on macOS, shasum should be pre-installed." >&2
   exit 1
