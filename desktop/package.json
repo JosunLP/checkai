@@ -13,7 +13,8 @@
     "url": "https://github.com/JosunLP/checkai.git"
   },
   "scripts": {
-    "build": "bun run build:renderer && bun run build:electron",
+    "build": "bun run build:icons && bun run build:renderer && bun run build:electron",
+    "build:icons": "bun scripts/generate-icons.mjs",
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "check": "svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit && vite build",
