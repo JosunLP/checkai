@@ -113,7 +113,7 @@ export function listArchived(): Promise<{
   return request('GET', '/archive');
 }
 
-export function getArchived(id: string): Promise<Game> {
+export function getArchived(id: string): Promise<ReplayState> {
   return request('GET', `/archive/${encodeURIComponent(id)}`);
 }
 

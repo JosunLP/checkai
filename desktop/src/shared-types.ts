@@ -253,6 +253,9 @@ export interface ReplayState {
   at_move: number;
   total_moves: number;
   state: GameState;
+  is_over: boolean;
+  result: GameResult;
+  is_check: boolean;
 }
 
 // ── Analysis types ──────────────────────────────────────────────────────────
