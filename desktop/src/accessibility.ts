@@ -8,7 +8,13 @@ const FOCUSABLE_SELECTOR = [
 ].join(', ');
 
 function isFocusable(element: HTMLElement): boolean {
-  return element.getAttribute('aria-hidden') !== 'true' && element.getClientRects().length > 0;
+  const style = window.getComputedStyle(element);
+  return (
+    element.getAttribute('aria-hidden') !== 'true' &&
+    style.visibility !== 'hidden' &&
+    style.display !== 'none' &&
+    element.getClientRects().length > 0
+  );
 }
 
 export function trapTabKey(event: KeyboardEvent, container: HTMLElement | null): void {

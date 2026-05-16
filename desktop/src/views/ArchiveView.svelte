@@ -101,10 +101,10 @@
       </div>
 
       <div class="board-container">
-        <div class="chess-board" role="img" aria-label="Replay chess board">
+        <div class="chess-board" role="grid" aria-label="Replay chess board">
           {#each boardRanks as rank}
-            <div class="board-row">
-              <span class="rank-label">{rank}</span>
+            <div class="board-row" role="row">
+              <span class="rank-label" role="presentation">{rank}</span>
               {#each boardFiles as file}
                 {@const square = `${file}${rank}`}
                 {@const piece = $replayState.state.board[square]}
@@ -112,7 +112,7 @@
                   class:sq={true}
                   class:sq-light={isLightSquare(file, rank)}
                   class:sq-dark={!isLightSquare(file, rank)}
-                  role="img"
+                  role="gridcell"
                   aria-label={replaySquareAriaLabel(square, piece)}
                 >
                   {piece ? PIECE_UNICODE[piece] : ''}
@@ -120,10 +120,10 @@
               {/each}
             </div>
           {/each}
-          <div class="file-labels">
-            <span></span>
+          <div class="file-labels" role="presentation">
+            <span role="presentation"></span>
             {#each boardFiles as file}
-              <span>{file}</span>
+              <span role="presentation">{file}</span>
             {/each}
           </div>
         </div>
