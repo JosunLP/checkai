@@ -1,5 +1,5 @@
 const BACKEND_URL_EXAMPLE = 'http://127.0.0.1:8080';
-const URL_PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
+const URL_WITH_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:\/\//i;
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
 export const DEFAULT_BACKEND_PORT = '8080';
 
@@ -9,7 +9,7 @@ export function normalizeBackendUrl(value: string): string {
     throw new Error(`Enter a backend URL such as ${BACKEND_URL_EXAMPLE}.`);
   }
 
-  const candidate = URL_PROTOCOL_PATTERN.test(trimmed) ? trimmed : `http://${trimmed}`;
+  const candidate = URL_WITH_SCHEME_PATTERN.test(trimmed) ? trimmed : `http://${trimmed}`;
 
   let url: URL;
   try {

@@ -1130,7 +1130,7 @@ mod tests {
 
     #[test]
     fn test_bishop_pair_bonus_is_applied() {
-        // Position A: White has two bishops (c1 and f1).
+        // Position A: White has the bishop pair (c1 and f1).
         let mut with_pair = Board::default();
         with_pair.set(
             Square::new(4, 0),
@@ -1149,26 +1149,63 @@ mod tests {
             Some(Piece::new(PieceKind::Bishop, Color::White)),
         );
 
-        // Position B: same as A but only one bishop.
+        // Position B: same material slot on f1, but bishop pair replaced by bishop + knight.
         let mut without_pair = with_pair.clone();
-        without_pair.set(Square::new(5, 0), None);
-
-        let score_pair = evaluate(&with_pair, Color::White);
-        let score_single = evaluate(&without_pair, Color::White);
-
-        // The pair must score strictly higher (extra bishop material + pair bonus).
-        assert!(
-            score_pair > score_single,
-            "Bishop pair must out-score single bishop (pair={}, single={})",
-            score_pair,
-            score_single,
+        without_pair.set(
+            Square::new(5, 0),
+            Some(Piece::new(PieceKind::Knight, Color::White)),
         );
-        // Difference must be at least one bishop's worth of material.
-        let diff = score_pair - score_single;
-        assert!(
-            diff >= MG_VALUE[2] / 2,
-            "Pair vs single delta should be substantial, got {}",
-            diff
+
+        let (mg_pair, eg_pair, _, _, _) = accumulate(&with_pair);
+        let (mg_mixed, eg_mixed, _, _, _) = accumulate(&without_pair);
+
+        let manual_score_without_pair_bonus = |board: &Board| {
+            let mut mg = 0;
+            let mut eg = 0;
+            for rank in 0..8u8 {
+                for file in 0..8u8 {
+                    let square = Square::new(file, rank);
+                    if let Some(piece) = board.get(square) {
+                        if piece.color != Color::White {
+                            continue;
+                        }
+                        let index = piece_index(piece.kind);
+                        let pst = pst_index(square, piece.color);
+                        mg += MG_VALUE[index] + MG_PST[index][pst];
+                        eg += EG_VALUE[index] + EG_PST[index][pst];
+                    }
+                }
+            }
+
+            let empty_pawns = [0u8; 8];
+            let (king_mg, _) = king_safety_score(board, &empty_pawns, &empty_pawns);
+            let (mob_mg, mob_eg, _, _) = mobility_score(board);
+            mg += king_mg + mob_mg;
+            eg += mob_eg;
+
+            (mg, eg)
+        };
+
+        let (manual_mg_pair, manual_eg_pair) = manual_score_without_pair_bonus(&with_pair);
+        let (manual_mg_mixed, manual_eg_mixed) = manual_score_without_pair_bonus(&without_pair);
+
+        assert_eq!(
+            mg_pair - manual_mg_pair,
+            BISHOP_PAIR_BONUS_MG,
+            "Midgame bishop-pair board should receive the exact pair bonus"
+        );
+        assert_eq!(
+            eg_pair - manual_eg_pair,
+            BISHOP_PAIR_BONUS_EG,
+            "Endgame bishop-pair board should receive the exact pair bonus"
+        );
+        assert_eq!(
+            mg_mixed, manual_mg_mixed,
+            "Mixed bishop+knight board should not receive a bishop-pair bonus"
+        );
+        assert_eq!(
+            eg_mixed, manual_eg_mixed,
+            "Mixed bishop+knight board should not receive a bishop-pair bonus"
         );
     }
 }
