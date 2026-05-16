@@ -51,7 +51,7 @@
 
   function squareAriaLabel(
     square: string,
-    piece: string | null,
+    piece: string | undefined,
     options: {
       selected: boolean;
       legalDestination: boolean;
