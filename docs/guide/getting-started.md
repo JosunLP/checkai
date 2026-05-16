@@ -15,59 +15,83 @@
 
 ### Pre-built Binaries (Recommended)
 
-Download the install script for a **pinned release**, verify its checksum, then run it:
+Pin the release you want and verify the downloaded binary against the published
+SHA-256 checksums before installing it. The examples below use `v0.7.0`; check
+the [Releases](https://github.com/JosunLP/checkai/releases) page and replace it
+with the current or desired release tag.
 
 ::: code-group
 
 ```bash [Linux / macOS]
-# 1. Set the version you want to install
-VERSION="0.5.2"
+CHECKAI_VERSION=v0.7.0
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+[ "$OS" = "darwin" ] || OS="linux"
+ARCH="$(uname -m)"
+case "$ARCH" in x86_64|amd64) ARCH=x86_64 ;; arm64|aarch64) ARCH=aarch64 ;; esac
+ASSET="checkai-${OS}-${ARCH}"
+BASE_URL="https://github.com/JosunLP/checkai/releases/download/${CHECKAI_VERSION}"
 
-# 2. Download the install script from the pinned release tag
-curl -fsSL -o install.sh \
-  "https://raw.githubusercontent.com/JosunLP/checkai/v${VERSION}/scripts/install.sh"
-
-# 3. Download the checksum file and verify
-curl -fsSL -o install.sh.sha256 \
-  "https://github.com/JosunLP/checkai/releases/download/v${VERSION}/install.sh.sha256"
-sha256sum -c install.sh.sha256
-
-# 4. Inspect the script before running it
-less install.sh
-
-# 5. Execute
-sh install.sh
+curl -fSLO "${BASE_URL}/${ASSET}"
+curl -fSLO "${BASE_URL}/checksums-sha256.txt"
+CHECKSUM_LINE="$(grep "  ${ASSET}$" checksums-sha256.txt)" || {
+  echo "Error: Asset ${ASSET} not found in checksums-sha256.txt" >&2
+  exit 1
+}
+if command -v sha256sum >/dev/null 2>&1; then
+  echo "${CHECKSUM_LINE}" | sha256sum -c -
+elif command -v shasum >/dev/null 2>&1; then
+  echo "${CHECKSUM_LINE}" | shasum -a 256 -c -
+else
+  echo "Error: Neither sha256sum nor shasum found. On Linux, install coreutils; on macOS, shasum should be pre-installed." >&2
+  exit 1
+fi
+chmod +x "${ASSET}"
+sudo install -m 0755 "${ASSET}" /usr/local/bin/checkai
 ```
 
-```powershell [Windows]
-# 1. Set the version you want to install
-$Version = "0.5.2"
-
-# 2. Download the install script from the pinned release tag
-Invoke-WebRequest `
-  -Uri "https://raw.githubusercontent.com/JosunLP/checkai/v$Version/scripts/install.ps1" `
-  -OutFile install.ps1
-
-# 3. Download the checksum file and verify
-Invoke-WebRequest `
-  -Uri "https://github.com/JosunLP/checkai/releases/download/v$Version/install.ps1.sha256" `
-  -OutFile install.ps1.sha256
-$expected = (Get-Content install.ps1.sha256).Split(' ')[0]
-$actual   = (Get-FileHash install.ps1 -Algorithm SHA256).Hash.ToLower()
-if ($actual -ne $expected) { throw "Checksum mismatch! Aborting." }
-
-# 4. Inspect the script before running it
-Get-Content install.ps1 | Out-Host -Paging
-
-# 5. Execute
-.\install.ps1
+```powershell [Windows (PowerShell)]
+$Version = "v0.7.0"
+$Asset = "checkai-windows-x86_64.exe"
+$BaseUrl = "https://github.com/JosunLP/checkai/releases/download/$Version"
+Invoke-WebRequest "$BaseUrl/$Asset" -OutFile $Asset
+Invoke-WebRequest "$BaseUrl/checksums-sha256.txt" -OutFile checksums-sha256.txt
+$Expected = ((Select-String .\checksums-sha256.txt -Pattern "  $([regex]::Escape($Asset))$").Line -split "\s+")[0].ToLowerInvariant()
+$Actual = (Get-FileHash ".\$Asset" -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($Actual -ne $Expected) { throw "Checksum verification failed for $Asset" }
+New-Item -ItemType Directory "$env:LOCALAPPDATA\checkai" -Force | Out-Null
+Move-Item -Force ".\$Asset" "$env:LOCALAPPDATA\checkai\checkai.exe"
 ```
 
 :::
 
-> [!WARNING]
-> **Never** pipe remote scripts directly into a shell (`curl | sh`, `irm | iex`).
-> Always download, verify, and inspect scripts before executing them.
+Windows ARM64 users should use the `checkai-windows-x86_64.exe` asset under
+Windows' x86-64 emulation until a native ARM64 CLI binary is published.
+
+#### Installer shortcut
+
+The installer can still detect your operating system, architecture, and latest
+release automatically:
+
+::: code-group
+
+```bash [Linux / macOS]
+curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | sh
+```
+
+```powershell [Windows (PowerShell)]
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/install.sh | iex
+```
+
+:::
+
+::: warning
+The installer shortcut executes the current `main` branch script immediately and
+is less secure than verifying a pinned release asset first. Only use it if you
+trust the source and accept that trade-off. If you want a manual review step,
+open or download the same URL first, read through the script carefully, and only
+then run it yourself. You can also inspect the matching script in the
+repository's `scripts/` directory before executing it.
+:::
 
 ### Build from Source
 
@@ -142,45 +166,18 @@ This starts an interactive two-player game with a colored board display. Type `h
 ::: code-group
 
 ```bash [Linux / macOS]
-# 1. Set the version that was installed
-VERSION="0.5.2"
-
-# 2. Download the uninstall script from the pinned release tag
-curl -fsSL -o uninstall.sh \
-  "https://raw.githubusercontent.com/JosunLP/checkai/v${VERSION}/scripts/uninstall.sh"
-
-# 3. Download the checksum file and verify
-curl -fsSL -o uninstall.sh.sha256 \
-  "https://github.com/JosunLP/checkai/releases/download/v${VERSION}/uninstall.sh.sha256"
-sha256sum -c uninstall.sh.sha256
-
-# 4. Inspect, then execute
-less uninstall.sh
-sh uninstall.sh
+curl -fsSL https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | sh
 ```
 
-```powershell [Windows]
-# 1. Set the version that was installed
-$Version = "0.5.2"
-
-# 2. Download the uninstall script from the pinned release tag
-Invoke-WebRequest `
-  -Uri "https://raw.githubusercontent.com/JosunLP/checkai/v$Version/scripts/uninstall.ps1" `
-  -OutFile uninstall.ps1
-
-# 3. Download the checksum file and verify
-Invoke-WebRequest `
-  -Uri "https://github.com/JosunLP/checkai/releases/download/v$Version/uninstall.ps1.sha256" `
-  -OutFile uninstall.ps1.sha256
-$expected = (Get-Content uninstall.ps1.sha256).Split(' ')[0]
-$actual   = (Get-FileHash uninstall.ps1 -Algorithm SHA256).Hash.ToLower()
-if ($actual -ne $expected) { throw "Checksum mismatch! Aborting." }
-
-# 4. Inspect, then execute
-Get-Content uninstall.ps1 | Out-Host -Paging
-.\uninstall.ps1
+```powershell [Windows (PowerShell)]
+irm https://raw.githubusercontent.com/JosunLP/checkai/main/scripts/uninstall.sh | iex
 ```
 
+:::
+
+::: warning
+The one-line commands in the Uninstall section execute a remote script immediately.
+Only use them if you trust the source. If you want a manual review step, open or download the same URL first, read through the script carefully, and only then run it yourself. You can also inspect the matching script in the repository's `scripts/` directory before executing it.
 :::
 
 ## Next Steps

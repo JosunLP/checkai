@@ -4,6 +4,36 @@
 
 All notable changes to CheckAI are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-05-13
+
+### Added
+
+- **Engine test coverage** — perft suites for the starting position (depths 1–3, depth-4 `#[ignore]`-gated) and the Kiwipete benchmark (depths 1–2, depth-3 `#[ignore]`-gated); mate-in-one verification through the full search; transposition-table reuse test across consecutive iterative-deepening runs
+- **Evaluation test coverage** — colour-mirror symmetry (starting position and asymmetric material imbalance), tapered-evaluation phase verification, and bishop-pair bonus delta
+- **REST archive documentation** — Documented `GET /api/archive`, `GET /api/archive/stats`, `GET /api/archive/{game_id}`, and `GET /api/archive/{game_id}/replay` in `docs/api/rest.md` with request/response shapes and error codes
+- **Desktop packaging smoke test in CI** — The desktop CI job now runs `bun run pack` on Ubuntu to validate the full electron-builder pipeline end-to-end on every push
+
+### Changed
+
+- **Version metadata** — Bumped Rust crate, WASM crate, npm package, web UI, desktop app, and VitePress version label to 0.7.0
+
+## [0.6.0] — 2026-03-09
+
+### Added
+
+- **Electron desktop app** — Added a dedicated Svelte-based Electron renderer alongside the web UI
+  - Includes persistent desktop sessions, native file/folder pickers, local backend launch controls, inline logs, and a multi-view workspace shell
+  - Packaged desktop builds can check GitHub Releases for updates, download them, and install on restart
+- **Native desktop installers** — Release automation now publishes platform-native Electron installers in addition to updater-compatible artifacts
+  - Linux releases include `.deb` alongside AppImage
+  - macOS releases include `.dmg` alongside updater-compatible `.zip`
+  - Windows releases include `.msi` alongside NSIS for in-app update compatibility
+- **Desktop CI and release automation** — GitHub Actions now validate the Electron app on Ubuntu, macOS, and Windows and publish desktop release assets with dependency review coverage
+
+### Changed
+
+- **Version metadata** — Updated project/package version references, install snippets, OpenAPI metadata, and documentation to align with the 0.6.0 desktop release
+
 ## [0.5.2] — 2026-03-07
 
 ### Fixed
