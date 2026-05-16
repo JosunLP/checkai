@@ -22,7 +22,7 @@
 
   type MovePair = {
     moveNumber: number;
-    white: string;
+    white?: string;
     black?: string;
   };
 
@@ -91,7 +91,6 @@
       if (!currentPair || currentPair.moveNumber !== entry.move_number) {
         currentPair = {
           moveNumber: entry.move_number,
-          white: '',
         };
         pairs.push(currentPair);
       }
@@ -232,7 +231,7 @@
               {#each historyPairs as pair}
                 <tr>
                   <td>{pair.moveNumber}</td>
-                  <td>{pair.white}</td>
+                  <td>{pair.white ?? '—'}</td>
                   <td>{pair.black ?? '—'}</td>
                 </tr>
               {/each}
