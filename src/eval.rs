@@ -391,6 +391,10 @@ pub fn evaluate(board: &Board, turn: Color) -> i32 {
 ///
 /// Returns `(mg_white, eg_white, mg_black, eg_black, phase)`.
 fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
+    accumulate_internal(board, true)
+}
+
+fn accumulate_internal(board: &Board, include_bishop_pair_bonus: bool) -> (i32, i32, i32, i32, i32) {
     let mut mg_white = 0i32;
     let mut eg_white = 0i32;
     let mut mg_black = 0i32;
@@ -463,11 +467,11 @@ fn accumulate(board: &Board) -> (i32, i32, i32, i32, i32) {
     }
 
     // Bishop pair bonus
-    if white_bishops >= 2 {
+    if include_bishop_pair_bonus && white_bishops >= 2 {
         mg_white += BISHOP_PAIR_BONUS_MG;
         eg_white += BISHOP_PAIR_BONUS_EG;
     }
-    if black_bishops >= 2 {
+    if include_bishop_pair_bonus && black_bishops >= 2 {
         mg_black += BISHOP_PAIR_BONUS_MG;
         eg_black += BISHOP_PAIR_BONUS_EG;
     }
@@ -1156,55 +1160,29 @@ mod tests {
             Some(Piece::new(PieceKind::Knight, Color::White)),
         );
 
-        let (mg_pair, eg_pair, _, _, _) = accumulate(&with_pair);
-        let (mg_mixed, eg_mixed, _, _, _) = accumulate(&without_pair);
-
-        let manual_score_without_pair_bonus = |board: &Board| {
-            let mut mg = 0;
-            let mut eg = 0;
-            for rank in 0..8u8 {
-                for file in 0..8u8 {
-                    let square = Square::new(file, rank);
-                    if let Some(piece) = board.get(square) {
-                        if piece.color != Color::White {
-                            continue;
-                        }
-                        let index = piece_index(piece.kind);
-                        let pst = pst_index(square, piece.color);
-                        mg += MG_VALUE[index] + MG_PST[index][pst];
-                        eg += EG_VALUE[index] + EG_PST[index][pst];
-                    }
-                }
-            }
-
-            let empty_pawns = [0u8; 8];
-            let (king_mg, _) = king_safety_score(board, &empty_pawns, &empty_pawns);
-            let (mob_mg, mob_eg, _, _) = mobility_score(board);
-            mg += king_mg + mob_mg;
-            eg += mob_eg;
-
-            (mg, eg)
-        };
-
-        let (manual_mg_pair, manual_eg_pair) = manual_score_without_pair_bonus(&with_pair);
-        let (manual_mg_mixed, manual_eg_mixed) = manual_score_without_pair_bonus(&without_pair);
+        let (mg_pair, eg_pair, _, _, _) = accumulate_internal(&with_pair, true);
+        let (mg_pair_without_bonus, eg_pair_without_bonus, _, _, _) =
+            accumulate_internal(&with_pair, false);
+        let (mg_mixed, eg_mixed, _, _, _) = accumulate_internal(&without_pair, true);
+        let (mg_mixed_without_bonus, eg_mixed_without_bonus, _, _, _) =
+            accumulate_internal(&without_pair, false);
 
         assert_eq!(
-            mg_pair - manual_mg_pair,
+            mg_pair - mg_pair_without_bonus,
             BISHOP_PAIR_BONUS_MG,
             "Midgame bishop-pair board should receive the exact pair bonus"
         );
         assert_eq!(
-            eg_pair - manual_eg_pair,
+            eg_pair - eg_pair_without_bonus,
             BISHOP_PAIR_BONUS_EG,
             "Endgame bishop-pair board should receive the exact pair bonus"
         );
         assert_eq!(
-            mg_mixed, manual_mg_mixed,
+            mg_mixed, mg_mixed_without_bonus,
             "Mixed bishop+knight board should not receive a bishop-pair bonus"
         );
         assert_eq!(
-            eg_mixed, manual_eg_mixed,
+            eg_mixed, eg_mixed_without_bonus,
             "Mixed bishop+knight board should not receive a bishop-pair bonus"
         );
     }
