@@ -49,7 +49,9 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 ### Install
 
 Recommended: pin the release you want and verify the downloaded binary against the
-published SHA-256 checksums before installing it.
+published SHA-256 checksums before installing it. The examples below use
+`v0.7.0`; check the [Releases](https://github.com/JosunLP/checkai/releases)
+page and replace it with the current or desired release tag.
 
 ```bash
 # Linux / macOS

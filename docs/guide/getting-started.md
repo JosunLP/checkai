@@ -16,7 +16,9 @@
 ### Pre-built Binaries (Recommended)
 
 Pin the release you want and verify the downloaded binary against the published
-SHA-256 checksums before installing it:
+SHA-256 checksums before installing it. The examples below use `v0.7.0`; check
+the [Releases](https://github.com/JosunLP/checkai/releases) page and replace it
+with the current or desired release tag.
 
 ::: code-group
 
@@ -51,9 +53,8 @@ Move-Item -Force ".\$Asset" "$env:LOCALAPPDATA\checkai\checkai.exe"
 
 :::
 
-Replace `v0.7.0` with the release tag you want to install. Windows ARM64 users
-should use the `checkai-windows-x86_64.exe` asset until a native ARM64 CLI
-binary is published.
+Windows ARM64 users should use the `checkai-windows-x86_64.exe` asset under
+Windows' x86-64 emulation until a native ARM64 CLI binary is published.
 
 #### Installer shortcut
 
