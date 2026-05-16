@@ -33,7 +33,14 @@ BASE_URL="https://github.com/JosunLP/checkai/releases/download/${CHECKAI_VERSION
 
 curl -fSLO "${BASE_URL}/${ASSET}"
 curl -fSLO "${BASE_URL}/checksums-sha256.txt"
-grep "  ${ASSET}$" checksums-sha256.txt | { command -v sha256sum >/dev/null && sha256sum -c - || shasum -a 256 -c -; }
+if command -v sha256sum >/dev/null 2>&1; then
+  grep "  ${ASSET}$" checksums-sha256.txt | sha256sum -c -
+elif command -v shasum >/dev/null 2>&1; then
+  grep "  ${ASSET}$" checksums-sha256.txt | shasum -a 256 -c -
+else
+  echo "Install sha256sum or shasum to verify the release checksum." >&2
+  exit 1
+fi
 chmod +x "${ASSET}"
 sudo install -m 0755 "${ASSET}" /usr/local/bin/checkai
 ```
