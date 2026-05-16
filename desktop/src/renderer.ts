@@ -305,7 +305,7 @@ function formatBytes(v: number | null): string {
 
 function formatDateTime(value: number | null | undefined): string {
   if (!value) return '—';
-  return new Date(value).toLocaleString();
+  return new Date(value * 1000).toLocaleString();
 }
 
 function basename(input: string): string {
@@ -369,6 +369,25 @@ function showError(msg: string): void {
   setTimeout(() => {
     if (errorMsg.value === msg) errorMsg.value = null;
   }, 6000);
+}
+
+async function selectPromotionMove(moves: LegalMove[]): Promise<LegalMove | null> {
+  if (moves.length === 0) return null;
+  if (moves.length === 1) return moves[0];
+
+  while (true) {
+    const choice = window.prompt(
+      'Choose promotion piece: enter Q, R, B, or N.',
+      moves[0].promotion ?? 'Q'
+    );
+    if (choice === null) return null;
+
+    const normalized = choice.trim().toUpperCase();
+    const move = moves.find((candidate) => candidate.promotion?.toUpperCase() === normalized);
+    if (move) return move;
+
+    showError('Enter Q, R, B, or N to choose a promotion piece.');
+  }
 }
 
 function qualityColor(q: string): string {
@@ -693,7 +712,8 @@ async function handleSquareClick(sq: string): Promise<void> {
 
   const sel = selectedSquare.value;
   if (sel) {
-    const move = legalMoves.value.find((m) => m.from === sel && m.to === sq);
+    const candidateMoves = legalMoves.value.filter((m) => m.from === sel && m.to === sq);
+    const move = await selectPromotionMove(candidateMoves);
     if (move) {
       try {
         const res = await apiSubmitMove(g.game_id, sel, sq, move.promotion);

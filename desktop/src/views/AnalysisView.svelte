@@ -52,6 +52,10 @@
   function annotationMove(annotation: AnalysisMoveAnnotation): string {
     return `${annotation.played_move.from}${annotation.played_move.to}${annotation.played_move.promotion ?? ''}`;
   }
+
+  function formatUnixTimestamp(seconds: number): string {
+    return new Date(seconds * 1000).toLocaleString();
+  }
 </script>
 
 <div class="view-grid">
@@ -215,7 +219,7 @@
                 <td class="mono">{job.id.slice(0, 8)}…</td>
                 <td class="mono">{job.game_id ? `${job.game_id.slice(0, 8)}…` : '—'}</td>
                 <td>{statusLabel(job)}</td>
-                <td>{new Date(job.created_at).toLocaleString()}</td>
+                <td>{formatUnixTimestamp(job.created_at)}</td>
                 <td class="btn-row">
                   <button class="btn btn-sm" on:click={() => viewAnalysisJob(job.id)}>
                     View

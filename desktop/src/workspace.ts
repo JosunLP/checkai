@@ -53,6 +53,7 @@ import type {
   BackendPreset,
   DesktopState,
   DesktopView,
+  LegalMove,
   SaveTextFileOptions,
 } from './shared-types.js';
 
@@ -152,6 +153,36 @@ async function promptForValue(options: {
       resolve,
     });
   });
+}
+
+async function selectPromotionMove(moves: LegalMove[]): Promise<LegalMove | null> {
+  if (moves.length === 0) {
+    return null;
+  }
+  if (moves.length === 1) {
+    return moves[0];
+  }
+
+  while (true) {
+    const choice = await promptForValue({
+      title: 'Choose promotion piece',
+      message: 'Enter Q, R, B, or N for the piece you want to promote to.',
+      confirmLabel: 'Promote',
+      initialValue: 'Q',
+      placeholder: 'Q',
+    });
+    if (choice === null) {
+      return null;
+    }
+
+    const normalized = choice.trim().toUpperCase();
+    const move = moves.find((candidate) => candidate.promotion?.toUpperCase() === normalized);
+    if (move) {
+      return move;
+    }
+
+    pushError('Enter Q, R, B, or N to choose a promotion piece.');
+  }
 }
 
 async function copyText(value: string, successMessage: string): Promise<void> {
@@ -600,9 +631,10 @@ export async function handleBoardSquareClick(square: string): Promise<void> {
   const currentlySelected = get(selectedSquare);
   const moves = get(legalMoves);
   if (currentlySelected) {
-    const move = moves.find(
+    const candidateMoves = moves.filter(
       (candidate) => candidate.from === currentlySelected && candidate.to === square
     );
+    const move = await selectPromotionMove(candidateMoves);
 
     if (move) {
       try {
@@ -614,14 +646,14 @@ export async function handleBoardSquareClick(square: string): Promise<void> {
         );
         if (!response.success) {
           pushError(response.message);
+          selectedSquare.set(null);
           return;
         }
         await openGame(game.game_id, { keepCurrentView: true });
       } catch (error) {
         pushError(error instanceof Error ? error.message : String(error));
-      } finally {
-        selectedSquare.set(null);
       }
+      selectedSquare.set(null);
       return;
     }
   }
