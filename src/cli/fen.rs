@@ -38,7 +38,9 @@ pub fn game_from_fen(fen: &str) -> Result<Game, String> {
         for ch in row.chars() {
             if let Some(skip) = ch.to_digit(10) {
                 if skip == 0 || skip > 8 {
-                    return Err(format!("Invalid empty-square count '{ch}' in FEN — must be 1–8"));
+                    return Err(format!(
+                        "Invalid empty-square count '{ch}' in FEN — must be 1–8"
+                    ));
                 }
                 file += skip as u8;
             } else {
