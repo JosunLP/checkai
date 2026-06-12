@@ -158,8 +158,12 @@ impl CliCommand for WatchArgs {
             println!();
 
             // End shuffled games: claim any available draw automatically.
-            if !game.is_over() && claim_available_draw(&mut game) {
-                break;
+            if !game.is_over() {
+                match claim_available_draw(&mut game) {
+                    Ok(true) => break,
+                    Ok(false) => {}
+                    Err(e) => eprintln!("error: draw claim failed: {e}"),
+                }
             }
 
             // Pacing between moves — interactive terminals only.

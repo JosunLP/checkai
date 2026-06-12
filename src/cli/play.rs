@@ -152,8 +152,9 @@ pub fn repetition_count(game: &Game) -> usize {
 }
 
 /// Claims a threefold/fifty-move draw when eligible.
-/// Returns `true` if the game ended through the claim.
-pub fn claim_available_draw(game: &mut Game) -> bool {
+/// Returns `Ok(true)` if the game ended through the claim, `Ok(false)` if no
+/// draw was available, or `Err` if the claim action failed unexpectedly.
+pub fn claim_available_draw(game: &mut Game) -> Result<bool, String> {
     let reason = if repetition_count(game) >= 3 {
         Some("threefold_repetition")
     } else if game.halfmove_clock >= 100 {
@@ -166,9 +167,9 @@ pub fn claim_available_draw(game: &mut Game) -> bool {
             action: "claim_draw".to_string(),
             reason: Some(reason.to_string()),
         };
-        let _ = game.process_action(&action);
+        game.process_action(&action).map_err(|e| e.to_string())?;
     }
-    game.is_over()
+    Ok(game.is_over())
 }
 
 /// Returns the localized display name of a color.
@@ -453,17 +454,17 @@ impl PlaySession<'_> {
 
     /// Claims a draw when eligible, otherwise explains why not.
     fn claim_draw(&mut self) {
-        if claim_available_draw(&mut self.game) {
-            self.print_result();
-        } else {
-            println!(
+        match claim_available_draw(&mut self.game) {
+            Err(e) => eprintln!("error: draw claim failed: {e}"),
+            Ok(true) => self.print_result(),
+            Ok(false) => println!(
                 "{}",
                 t!(
                     "terminal.no_draw_available",
                     clock = self.game.halfmove_clock,
                     reps = repetition_count(&self.game)
                 )
-            );
+            ),
         }
     }
 
@@ -612,7 +613,7 @@ mod tests {
     #[test]
     fn test_claim_draw_not_available_at_start() {
         let mut game = Game::new();
-        assert!(!claim_available_draw(&mut game));
+        assert!(!claim_available_draw(&mut game).expect("draw claim should not fail"));
         assert!(!game.is_over());
     }
 

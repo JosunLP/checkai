@@ -313,6 +313,7 @@ analyze.col_move: 'Zug'
 analyze.col_loss: 'Verlust'
 analyze.col_quality: 'Qualität'
 analyze.col_better: 'Alternative'
+analyze.moves_after_game_over: "Das Spiel endete vor Zug '%{mv}' — nachfolgende Züge sind nicht erlaubt."
 
 # ---------------------------------------------------------------------------
 # Bench-Befehl (zusätzliche Schlüssel)

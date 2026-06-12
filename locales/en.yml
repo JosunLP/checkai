@@ -129,6 +129,7 @@ analyze.col_move: 'move'
 analyze.col_loss: 'loss'
 analyze.col_quality: 'quality'
 analyze.col_better: 'alternative'
+analyze.moves_after_game_over: "The game ended before move '%{mv}' — trailing moves are not allowed."
 
 # ---------------------------------------------------------------------------
 # Bench command

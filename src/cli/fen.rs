@@ -37,6 +37,9 @@ pub fn game_from_fen(fen: &str) -> Result<Game, String> {
         let mut file: u8 = 0;
         for ch in row.chars() {
             if let Some(skip) = ch.to_digit(10) {
+                if skip == 0 || skip > 8 {
+                    return Err(format!("Invalid empty-square count '{ch}' in FEN — must be 1–8"));
+                }
                 file += skip as u8;
             } else {
                 if file >= 8 {
@@ -167,7 +170,13 @@ pub fn history_hashes(game: &Game) -> Vec<u64> {
     let preceding = history.len().saturating_sub(1);
     history[..preceding]
         .iter()
-        .filter_map(|fen| game_from_fen(fen).ok())
+        .filter_map(|fen| match game_from_fen(fen) {
+            Ok(g) => Some(g),
+            Err(e) => {
+                eprintln!("warning: skipping invalid history FEN ({e}): {fen}");
+                None
+            }
+        })
         .map(|g| zobrist::hash_position(&g.board, g.turn, &g.castling, g.en_passant))
         .collect()
 }

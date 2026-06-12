@@ -136,7 +136,8 @@ impl BoardRenderer {
                     symbol.blue().bold().to_string()
                 }
             }
-            None if is_dark => "·".dimmed().to_string(),
+            None if is_dark && !self.ascii => "·".dimmed().to_string(),
+            None if is_dark => ".".to_string(),
             None => " ".to_string(),
         };
 

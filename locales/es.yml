@@ -313,6 +313,8 @@ analyze.col_move: 'jugada'
 analyze.col_loss: 'pérdida'
 analyze.col_quality: 'calidad'
 analyze.col_better: 'alternativa'
+analyze.moves_after_game_over: "El juego terminó antes del movimiento '%{mv}' — los movimientos adicionales no están permitidos."
+
 
 # ---------------------------------------------------------------------------
 # Comando bench (claves adicionales)

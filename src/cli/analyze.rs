@@ -207,7 +207,7 @@ fn analyze_game(ctx: &CliContext, args: &AnalyzeArgs, moves: String) -> CliResul
     );
 
     let mut reports: Vec<MoveReport> = Vec::with_capacity(tokens.len());
-    for token in &tokens {
+    for (i, token) in tokens.iter().enumerate() {
         let move_json = parse_move_input(token)
             .ok_or_else(|| cli_error(t!("analyze.bad_move", mv = *token).to_string()))?;
 
@@ -252,6 +252,12 @@ fn analyze_game(ctx: &CliContext, args: &AnalyzeArgs, moves: String) -> CliResul
         pb.inc(1);
 
         if game.is_over() {
+            if i + 1 < tokens.len() {
+                pb.finish_and_clear();
+                return Err(cli_error(
+                    t!("analyze.moves_after_game_over", mv = tokens[i + 1]).to_string(),
+                ));
+            }
             break;
         }
     }

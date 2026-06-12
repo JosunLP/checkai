@@ -313,6 +313,8 @@ analyze.col_move: '走法'
 analyze.col_loss: '损失'
 analyze.col_quality: '质量'
 analyze.col_better: '替代'
+analyze.moves_after_game_over: "游戏在走法 '%{mv}' 之前结束了 — 不允许额外的走法。"
+
 
 # ---------------------------------------------------------------------------
 # bench 命令（额外键）

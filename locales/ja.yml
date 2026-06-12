@@ -313,6 +313,8 @@ analyze.col_move: '手'
 analyze.col_loss: '損失'
 analyze.col_quality: '品質'
 analyze.col_better: '代替手'
+analyze.moves_after_game_over: "ゲームはムーブ '%{mv}' の前に終了しました — 追加のムーブは許可されていません。"
+
 
 # ---------------------------------------------------------------------------
 # bench コマンド（追加キー）

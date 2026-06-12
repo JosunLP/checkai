@@ -313,6 +313,8 @@ analyze.col_move: 'coup'
 analyze.col_loss: 'perte'
 analyze.col_quality: 'qualité'
 analyze.col_better: 'alternative'
+analyze.moves_after_game_over: "La partie s'est terminée avant le coup '%{mv}' — les coups supplémentaires ne sont pas autorisés."
+
 
 # ---------------------------------------------------------------------------
 # Commande bench (clés supplémentaires)
