@@ -51,6 +51,107 @@ cli.quickstart_serve: 'Start server on default port'
 cli.quickstart_play: 'Play a local game'
 cli.quickstart_help: 'Full help for any command'
 cli.run_help_hint: 'Run %{cmd} for detailed usage.'
+cli.banner_tagline: 'Chess in your terminal'
+cli.version_label: 'Version:'
+cli.locale_label: 'Locale:'
+cli.docs_label: 'Documentation:'
+cli.nodes_suffix: 'nodes'
+cli.invalid_fen: 'Invalid FEN: %{error}'
+cli.cmd_watch_desc: 'Watch the engine play itself'
+cli.cmd_analyze_desc: 'Analyze a position or a game with the engine'
+cli.cmd_bench_desc: 'Run the engine benchmark suite'
+cli.cmd_perft_desc: 'Verify move generation (perft counts)'
+cli.cmd_uci_desc: 'Run as a UCI engine for chess GUIs'
+cli.quickstart_watch: 'Watch an engine showcase game'
+
+# ---------------------------------------------------------------------------
+# Play command (vs engine / vs human)
+# ---------------------------------------------------------------------------
+play.intro_engine: 'Playing against the engine at level %{level} — you are %{color}.'
+play.intro_human: 'Local two-player game — White and Black share this terminal.'
+play.intro_help_hint: 'Type %{help} for the list of in-game commands.'
+play.engine_thinking: 'Engine is thinking (level %{level}) …'
+play.engine_played: 'Engine plays %{mv} (%{piece}) — depth %{depth}, eval %{score}, %{secs}s'
+play.engine_resigns: 'The engine found no move and resigns. You win!'
+play.hint_thinking: 'Calculating a hint …'
+play.hint_result: 'Hint: %{mv} (eval %{score})'
+play.hint_none: 'No hint available in this position.'
+play.cmd_hint: 'Ask the engine to suggest a move'
+play.cmd_undo: 'Take back the last full move'
+play.cannot_undo: 'Nothing to undo yet.'
+play.undo_done: 'Took back the last move.'
+play.position_terminal: 'This position has no legal moves — nothing to play.'
+play.result_title: 'GAME OVER'
+play.result_winner_label: 'Winner:'
+play.result_reason_label: 'Reason:'
+play.result_moves_label: 'Moves:'
+play.result_duration_label: 'Duration:'
+play.winner_white: 'White'
+play.winner_black: 'Black'
+play.winner_draw: 'Draw — nobody'
+play.game_unfinished: 'Game unfinished'
+play.piece_king: 'King'
+play.piece_queen: 'Queen'
+play.piece_rook: 'Rook'
+play.piece_bishop: 'Bishop'
+play.piece_knight: 'Knight'
+play.piece_pawn: 'Pawn'
+
+# ---------------------------------------------------------------------------
+# Watch command (engine vs engine)
+# ---------------------------------------------------------------------------
+watch.intro: 'Engine showcase: White (level %{white}) vs Black (level %{black})'
+watch.thinking: '%{color} is thinking (level %{level}) …'
+watch.move_ticker: 'Move %{num} — %{color}: %{mv}  (eval %{score}, depth %{depth}, %{nodes} nodes)'
+watch.move_cap_reached: 'Move cap of %{cap} reached — game stopped without a result.'
+
+# ---------------------------------------------------------------------------
+# Analyze command
+# ---------------------------------------------------------------------------
+analyze.need_input: 'Nothing to analyze: pass --fen <FEN> and/or --moves "e2e4 e7e5 ..."'
+analyze.no_moves: 'The --moves list is empty.'
+analyze.bad_move: "Cannot parse move '%{mv}' — expected coordinate notation like e2e4 or e7e8q."
+analyze.illegal_move: "Illegal move '%{mv}': %{error}"
+analyze.position_header: 'Position analysis'
+analyze.game_header: 'Game analysis'
+analyze.progress_label: 'Analyzing moves'
+analyze.verdict: 'Verdict: best move %{mv}, eval %{score} (depth %{depth})'
+analyze.no_best_move: 'No best move found — the position may be terminal.'
+analyze.better_was: 'better: %{mv}'
+analyze.summary: '%{total} moves analyzed — %{best} strong, %{inaccuracies} inaccuracies, %{mistakes} mistakes, %{blunders} blunders'
+analyze.col_depth: 'depth'
+analyze.col_eval: 'eval'
+analyze.col_mate: 'mate'
+analyze.col_nodes: 'nodes'
+analyze.col_pv: 'principal variation'
+analyze.col_side: 'side'
+analyze.col_move: 'move'
+analyze.col_loss: 'loss'
+analyze.col_quality: 'quality'
+analyze.col_better: 'alternative'
+
+# ---------------------------------------------------------------------------
+# Bench command
+# ---------------------------------------------------------------------------
+bench.header: 'Engine benchmark'
+bench.progress_label: 'Benchmarking'
+bench.col_position: 'position'
+bench.col_time: 'time'
+bench.col_nps: 'nps'
+bench.totals: 'Total: %{nodes} nodes in %{secs}s — %{nps} nodes/second'
+
+# ---------------------------------------------------------------------------
+# Perft command
+# ---------------------------------------------------------------------------
+perft.header: 'Perft — move generation verification'
+perft.col_nodes: 'nodes'
+perft.col_reference: 'reference'
+perft.col_status: 'status'
+perft.ok: 'OK'
+perft.fail: 'FAIL'
+perft.all_ok: 'All computed node counts match the reference values.'
+perft.mismatch: 'MISMATCH — move generation differs from the reference counts!'
+perft.divide_total: 'Total: %{total} nodes across %{moves} root moves (%{ms} ms)'
 
 # ---------------------------------------------------------------------------
 # Update / version check
@@ -212,52 +313,3 @@ analysis.tablebase_failed: 'Failed to load Syzygy tablebase: %{error}'
 analysis.engine_config: 'Analysis engine: depth=%{depth}, TT=%{tt}MB'
 analysis.archive_load_failed: 'Failed to load archived game'
 analysis.archive_replay_failed: 'Failed to replay archived game'
-
-# ---------------------------------------------------------------------------
-# Engine output labels (analysis & live search progress)
-# ---------------------------------------------------------------------------
-engine.label_depth: 'depth'
-engine.label_score: 'score'
-engine.label_nodes: 'nodes'
-engine.label_nps: 'nps'
-engine.label_time: 'time'
-engine.label_pv: 'pv'
-
-# ---------------------------------------------------------------------------
-# Analyze command
-# ---------------------------------------------------------------------------
-analyze.header: 'Position Analysis'
-analyze.source: 'Position:'
-analyze.source_start: 'starting position'
-analyze.no_moves: 'No legal moves in this position — the game is over.'
-analyze.thinking: 'Analyzing…'
-analyze.best_move: 'Best move:'
-analyze.no_best_move: 'No move found.'
-analyze.evaluation: 'Evaluation:'
-analyze.to_move: 'to move'
-analyze.mate_for_side: 'Forced mate in %{n}!'
-analyze.mate_against_side: 'Mated in %{n}.'
-
-# ---------------------------------------------------------------------------
-# Bench command
-# ---------------------------------------------------------------------------
-bench.header: 'Engine Benchmark'
-bench.config: 'Configuration:'
-bench.config_value: 'depth %{depth}, transposition table %{tt} MB'
-bench.nodes: 'Nodes:'
-bench.qnodes: 'Quiescence nodes:'
-bench.time: 'Time:'
-bench.nps: 'Throughput:'
-bench.nps_unit: 'nodes/sec'
-
-# ---------------------------------------------------------------------------
-# Play vs engine
-# ---------------------------------------------------------------------------
-play.mode_engine_info: 'You play %{color} against the engine (level %{level}).'
-play.engine_thinking: 'Engine is thinking (level %{level})…'
-play.engine_plays: 'Engine plays:'
-
-# CLI command descriptions (engine commands)
-cli.cmd_analyze_desc: 'Analyze a position with the engine'
-cli.cmd_bench_desc: 'Benchmark engine speed (nodes/sec)'
-cli.quickstart_analyze: 'Analyze the starting position'

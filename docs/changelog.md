@@ -8,18 +8,24 @@ All notable changes to CheckAI are documented here. The format follows [Keep a C
 
 ### Added
 
-- **Human-vs-engine terminal play** — `checkai play` now plays against the built-in engine as well as a second human, via `--vs-engine`, `--level <1-10>`, `--color`, `--fen`, and `--tt-size-mb`, streaming a live animated search and announcing each move with its evaluation
-- **`analyze` command** — Analyze a FEN or the starting position with a live animated iterative-deepening display, then print the best move, evaluation, mate distance, depth/nodes/time, and principal variation
-- **`bench` command** — Benchmark engine nodes-per-second from the starting position at a fixed depth
-- **Terminal UI toolkit** — A shared `tui` module (spinner, progress bar, score/number formatting, live search view, animated banners) that degrades gracefully to plain text without a TTY or with `NO_COLOR`
-- **FEN position loading** — `Game::from_fen`, `Board::from_piece_placement`, and `CastlingRights::from_fen` parse and validate full FEN strings for `play` and `analyze`
-- **Localized engine output** — New locale strings for the engine labels and the `analyze`, `bench`, and play-vs-engine flows across all eight languages
+- **Animated terminal CLI** — A new terminal experience built on `crossterm` + `indicatif` (animated boards, evaluation bar, live search spinners/progress bars) that is TTY-gated and degrades to clean plain text when piped, with `--no-color`, or with `NO_COLOR`
+- **`play` vs the built-in engine** — `checkai play` now plays against the engine, streaming a live animated search and announcing each move with its evaluation, via `--vs <engine|human>`, `--color <white|black|random>`, `--level <1-10>`, `--movetime`, `--depth`, `--fen`, `--ascii`, and `--flip`; in-game commands gain `hint`, `undo`, and `fen`
+- **`watch` command** — Engine-vs-engine showcase, with `--level` / `--level-white` / `--level-black`, plus `--delay`, `--max-moves`, `--movetime`, and `--ascii`
+- **`analyze` command** — Analyze a FEN (`--fen`) or annotate a whole game (`--moves`) with a live animated iterative-deepening display, then print the best move, evaluation, mate distance, depth/nodes/time, and principal variation (`--depth`, `--movetime`)
+- **`bench` command** — Run the fixed engine benchmark suite, reporting nodes, time, and nodes-per-second (`--depth`, `--movetime`)
+- **`perft` command** — Verify move generation with perft node counts (`DEPTH`, `--fen`, `--divide`)
+- **`uci` command** — Run as a UCI engine on stdin/stdout for chess GUIs and match runners; UCI output is intentionally not internationalized
+- **Global `--no-color` flag** — Added to every command (alongside `--lang`); honors `NO_COLOR` too
+- **FEN position loading** — `Game::from_fen`, `Board::from_piece_placement`, and `CastlingRights::from_fen` parse and validate full FEN strings for `play`, `analyze`, and `perft`
+- **Completed 8-language i18n** — Localized all CLI strings, including the engine labels and the `play`, `watch`, `analyze`, `bench`, and `perft` flows, across all eight bundled languages
 - **Community health files** — `CONTRIBUTING.md`, `SECURITY.md`, a pull-request template, and structured GitHub issue forms replacing the previous Markdown templates
 
 ### Changed
 
-- **Search engine overhaul** — Full Static Exchange Evaluation, transposition-table aging with depth-preferred replacement and quiescence integration, in-tree hard time/node limits with per-iteration progress reporting, mate-distance pruning, reverse futility pruning, adaptive null-move pruning with verification, table-driven Late Move Reductions, Internal Iterative Reduction, a corrected counter-move heuristic, gravity-style history with maluses, and a stronger quiescence search (check evasions, delta and SEE pruning)
-- **Animated CLI welcome screen** — Animated welcome screen and terminal banner, now listing the `analyze` and `bench` commands
+- **`play` now defaults to playing vs the engine** — Running `checkai play` with no flags starts a game against the engine (level 5) instead of a two-player game; use `--vs human` for the previous behavior
+- **Search engine overhaul** — Full Static Exchange Evaluation, transposition-table aging with depth-preferred replacement and quiescence integration, in-tree hard time/node limits via the `SearchLimits` / `IterationInfo` / `search_limited` contract with per-iteration progress reporting (consumed by the live CLI displays and UCI `info`), mate-distance pruning, reverse futility pruning, adaptive null-move pruning with verification, table-driven Late Move Reductions, Late Move Pruning, Internal Iterative Reduction, check extensions, a corrected counter-move heuristic, gravity-style history with maluses, and a stronger quiescence search (check evasions, delta and SEE pruning)
+- **Evaluation** — Added pawn-structure terms (passed, doubled, isolated, backward, connected pawns), king-safety penalties (open files, weakened pawn shield), per-piece mobility, and a tempo bonus on top of the tapered piece-square tables and bishop-pair / rook-file bonuses
+- **Animated CLI welcome screen** — Animated welcome screen and terminal banner, now listing the new commands
 - **Version metadata** — Bumped Rust crate, WASM crate, npm package, web UI, desktop app, OpenAPI metadata, and VitePress version label to 0.8.0
 
 ## [0.7.0] — 2026-05-13

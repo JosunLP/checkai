@@ -1,568 +1,115 @@
-//! Terminal interface for the CheckAI chess engine.
+//! Terminal input toolkit for interactive CLI sessions.
 //!
-//! This module provides a command-line interface for playing chess
-//! directly in the terminal. It supports:
+//! Provides the building blocks shared by the interactive game modes
+//! (`checkai play`): line-based input with EOF handling, parsing of
+//! coordinate moves (`e2e4`, `e7e8Q`) and of the in-game REPL commands
+//! with their single-letter aliases.
 //!
-//! - Colored board display with Unicode pieces
-//! - Interactive move input (algebraic notation)
-//! - Game state display (check, castling rights, move history)
-//! - Draw claims and resignation
-//! - Two-player mode (human vs human)
+//! Rendering lives in [`crate::cli::board_renderer`]; this module is
+//! strictly about reading and interpreting user input. No raw mode is
+//! ever enabled, so Ctrl+C and terminal state need no special cleanup.
 
-use colored::Colorize;
-use std::io::{self, Write};
+use std::io::{self, BufRead, Write};
 
-use crate::cli;
-use crate::game::Game;
-use crate::movegen;
-use crate::search::SearchLimits;
-use crate::tui;
-use crate::types::*;
+use crate::types::{MoveJson, Square};
 
-/// Renders the board to the terminal with colors and piece symbols.
+/// A parsed in-game REPL command.
+#[derive(Debug, Clone)]
+pub enum GameCommand {
+    /// A coordinate move such as `e2e4` or `e7e8q`.
+    Move(MoveJson),
+    /// List all legal moves.
+    Moves,
+    /// Re-render the board.
+    Board,
+    /// Show the numbered move history.
+    History,
+    /// Print the current FEN string.
+    Fen,
+    /// Print the game state as JSON.
+    Json,
+    /// Ask the engine for a move suggestion.
+    Hint,
+    /// Take back the last full move.
+    Undo,
+    /// Resign the game.
+    Resign,
+    /// Claim a draw (if eligible).
+    Draw,
+    /// Show the in-game help table.
+    Help,
+    /// Quit the session.
+    Quit,
+}
+
+impl PartialEq for GameCommand {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            // MoveJson does not derive PartialEq, so compare fields.
+            (Self::Move(a), Self::Move(b)) => {
+                a.from == b.from && a.to == b.to && a.promotion == b.promotion
+            }
+            _ => std::mem::discriminant(self) == std::mem::discriminant(other),
+        }
+    }
+}
+
+impl Eq for GameCommand {}
+
+impl GameCommand {
+    /// Parses user input (case-insensitive) into a command.
+    ///
+    /// Keyword commands and their single-letter aliases are tried first;
+    /// anything else is interpreted as a coordinate move. Returns `None`
+    /// for unrecognized input.
+    pub fn parse(input: &str) -> Option<Self> {
+        let normalized = input.trim().to_lowercase();
+        match normalized.as_str() {
+            "moves" | "m" => Some(Self::Moves),
+            "board" | "b" => Some(Self::Board),
+            "history" | "hist" => Some(Self::History),
+            "fen" | "f" => Some(Self::Fen),
+            "json" | "j" => Some(Self::Json),
+            "hint" | "i" => Some(Self::Hint),
+            "undo" | "u" => Some(Self::Undo),
+            "resign" | "r" => Some(Self::Resign),
+            "draw" | "d" => Some(Self::Draw),
+            "help" | "h" | "?" => Some(Self::Help),
+            "quit" | "exit" | "q" => Some(Self::Quit),
+            _ => parse_move_input(&normalized).map(Self::Move),
+        }
+    }
+}
+
+/// Prints `prompt`, flushes stdout, and reads one line from stdin.
 ///
-/// The board is displayed from White's perspective (rank 8 at top).
-/// Dark squares are shown with a dark background, light squares with light.
-/// Pieces are colored based on their side (White/Black).
-pub fn print_board(game: &Game) {
-    println!();
-    println!("  +---+---+---+---+---+---+---+---+");
+/// Returns `None` on EOF or a read error so callers can terminate
+/// cleanly instead of spinning on an exhausted pipe.
+pub fn read_input_line(prompt: &str) -> Option<String> {
+    print!("{prompt}");
+    io::stdout().flush().ok();
 
-    for rank in (0..8u8).rev() {
-        print!("{} ", rank + 1);
-        for file in 0..8u8 {
-            let sq = Square::new(file, rank);
-            let is_dark_square = (file + rank) % 2 == 0;
-
-            let piece_str = match game.board.get(sq) {
-                Some(piece) => {
-                    let symbol = piece_to_unicode(piece);
-                    if piece.color == Color::White {
-                        symbol.white().bold().to_string()
-                    } else {
-                        symbol.blue().bold().to_string()
-                    }
-                }
-                None => {
-                    if is_dark_square {
-                        "·".dimmed().to_string()
-                    } else {
-                        " ".to_string()
-                    }
-                }
-            };
-
-            print!("| {} ", piece_str);
-        }
-        println!("|");
-        println!("  +---+---+---+---+---+---+---+---+");
-    }
-    println!("    a   b   c   d   e   f   g   h");
-    println!();
-}
-
-/// Converts a piece to its Unicode chess symbol.
-fn piece_to_unicode(piece: Piece) -> &'static str {
-    match (piece.color, piece.kind) {
-        (Color::White, PieceKind::King) => "K",
-        (Color::White, PieceKind::Queen) => "Q",
-        (Color::White, PieceKind::Rook) => "R",
-        (Color::White, PieceKind::Bishop) => "B",
-        (Color::White, PieceKind::Knight) => "N",
-        (Color::White, PieceKind::Pawn) => "P",
-        (Color::Black, PieceKind::King) => "k",
-        (Color::Black, PieceKind::Queen) => "q",
-        (Color::Black, PieceKind::Rook) => "r",
-        (Color::Black, PieceKind::Bishop) => "b",
-        (Color::Black, PieceKind::Knight) => "n",
-        (Color::Black, PieceKind::Pawn) => "p",
+    let mut input = String::new();
+    match io::stdin().lock().read_line(&mut input) {
+        Ok(0) => None, // EOF
+        Ok(_) => Some(input.trim().to_string()),
+        Err(_) => None,
     }
 }
 
-/// Prints the game status bar (turn, check, move number, etc.).
-pub fn print_status(game: &Game) {
-    let turn_str = match game.turn {
-        Color::White => "White".white().bold(),
-        Color::Black => "Black".blue().bold(),
-    };
-
-    let is_check = movegen::is_in_check(&game.board, game.turn);
-    let legal_moves = game.legal_moves();
-
-    print!(
-        "{}",
-        t!(
-            "terminal.move_status",
-            num = game.fullmove_number,
-            color = turn_str
-        ),
-    );
-
-    if is_check {
-        print!("  {}", t!("terminal.check").to_string().red().bold());
-    }
-
-    println!(
-        "  {}",
-        t!("terminal.legal_moves_count", count = legal_moves.len())
-    );
-
-    // Castling rights
-    let wk = if game.castling.white.kingside {
-        "K"
-    } else {
-        "-"
-    };
-    let wq = if game.castling.white.queenside {
-        "Q"
-    } else {
-        "-"
-    };
-    let bk = if game.castling.black.kingside {
-        "k"
-    } else {
-        "-"
-    };
-    let bq = if game.castling.black.queenside {
-        "q"
-    } else {
-        "-"
-    };
-    let rights = format!("{}{}{}{}", wk, wq, bk, bq);
-    println!(
-        "{}",
-        t!(
-            "terminal.castling_info",
-            rights = &rights,
-            clock = game.halfmove_clock
-        )
-    );
-
-    if let Some(ep) = game.en_passant {
-        println!(
-            "{}",
-            t!("terminal.en_passant_info", square = ep.to_algebraic())
-        );
-    }
-
-    println!();
-}
-
-/// Prints the game result when the game ends.
-pub fn print_game_result(game: &Game) {
-    if let (Some(result), Some(reason)) = (&game.result, &game.end_reason) {
-        println!();
-        println!("{}", "═══════════════════════════════════".yellow());
-        println!(
-            "  {} — {}",
-            t!("terminal.game_over_label").to_string().yellow().bold(),
-            reason
-        );
-        println!(
-            "{}",
-            t!(
-                "terminal.result_label",
-                result = result.to_string().green().bold()
-            )
-        );
-        println!("{}", "═══════════════════════════════════".yellow());
-        println!();
-    }
-}
-
-/// Prints available commands in the terminal, grouped by category.
-pub fn print_help() {
-    println!("{}", t!("terminal.cmd_header").to_string().yellow().bold());
-    println!();
-    println!(
-        "  {}",
-        t!("terminal.cmd_section_game").to_string().cyan().bold()
-    );
-    println!(
-        "    {}            {}",
-        "e2e4".green(),
-        t!("terminal.cmd_move")
-    );
-    println!(
-        "    {} {}    {}",
-        "moves".green(),
-        "[m]".dimmed(),
-        t!("terminal.cmd_moves")
-    );
-    println!(
-        "    {} {}  {}",
-        "resign".green(),
-        "[r]".dimmed(),
-        t!("terminal.cmd_resign")
-    );
-    println!(
-        "    {}   {}    {}",
-        "draw".green(),
-        "[d]".dimmed(),
-        t!("terminal.cmd_draw")
-    );
-    println!();
-    println!(
-        "  {}",
-        t!("terminal.cmd_section_display").to_string().cyan().bold()
-    );
-    println!(
-        "    {}  {}    {}",
-        "board".green(),
-        "[b]".dimmed(),
-        t!("terminal.cmd_board")
-    );
-    println!(
-        "    {}            {}",
-        "history".green(),
-        t!("terminal.cmd_history")
-    );
-    println!(
-        "    {}    {}    {}",
-        "fen".green(),
-        "[f]".dimmed(),
-        t!("terminal.cmd_fen")
-    );
-    println!(
-        "    {}   {}    {}",
-        "json".green(),
-        "[j]".dimmed(),
-        t!("terminal.cmd_json")
-    );
-    println!();
-    println!(
-        "  {}",
-        t!("terminal.cmd_section_system").to_string().cyan().bold()
-    );
-    println!(
-        "    {} {}  {}",
-        "help".green(),
-        "[h/?]".dimmed(),
-        t!("terminal.cmd_help")
-    );
-    println!(
-        "    {}   {}    {}",
-        "quit".green(),
-        "[q]".dimmed(),
-        t!("terminal.cmd_quit")
-    );
-    println!();
-}
-
-/// Prints the move history.
-pub fn print_history(game: &Game) {
-    if game.move_history.is_empty() {
-        println!("{}", t!("terminal.no_moves_yet"));
-        return;
-    }
-
-    println!(
-        "{}",
-        t!("terminal.move_history_label")
-            .to_string()
-            .yellow()
-            .bold()
-    );
-    for (i, record) in game.move_history.iter().enumerate() {
-        let side = match record.side {
-            Color::White => "White",
-            Color::Black => "Black",
-        };
-        println!("  {}. {} {}", i + 1, side, record.notation);
-    }
-    println!();
-}
-
-/// Configuration for an interactive terminal game.
-pub struct TerminalConfig {
-    /// Play against the built-in engine instead of a second human.
-    pub vs_engine: bool,
-    /// The side controlled by the human when facing the engine.
-    pub human_color: Color,
-    /// Engine skill level (`1` = weakest, [`crate::search::MAX_SKILL_LEVEL`] = strongest).
-    pub level: u8,
-    /// Transposition-table size in MB for the engine.
-    pub tt_size_mb: usize,
-    /// The position the game starts from.
-    pub start_game: Game,
-}
-
-impl Default for TerminalConfig {
-    fn default() -> Self {
-        Self {
-            vs_engine: false,
-            human_color: Color::White,
-            level: 6,
-            tt_size_mb: 64,
-            start_game: Game::new(),
-        }
-    }
-}
-
-/// Runs the default two-player terminal game from the start position.
+/// Parses a coordinate move like `e2e4` or `e7e8Q` into a [`MoveJson`].
 ///
-/// Two players alternate entering moves via the terminal. The game continues
-/// until checkmate, stalemate, draw, or resignation.
-pub fn run_terminal_game() {
-    run_game(TerminalConfig::default());
-}
-
-/// Prints the animated CheckAI terminal banner.
-fn print_banner() {
-    let version = crate::update::version();
-    let border = "═══════════════════════════════════════";
-    let inner_width = border.chars().count();
-    let title = t!("terminal.banner_title").to_string();
-    let subtitle = format!("     {}    v{}", t!("terminal.banner_subtitle"), version);
-
-    let lines = vec![
-        format!("\u{2554}{border}\u{2557}"),
-        format!("\u{2551}{title:^inner_width$}\u{2551}"),
-        format!("\u{2551}{subtitle:<inner_width$}\u{2551}"),
-        format!("\u{255A}{border}\u{255D}"),
-    ];
-
-    println!();
-    tui::animated_banner(&lines, |line| line.cyan().bold().to_string());
-    println!();
-}
-
-/// Computes and plays the engine's move, streaming a live animated search
-/// display and then announcing the chosen move and its evaluation.
-fn engine_take_turn(game: &mut Game, level: u8, tt_size_mb: usize) {
-    println!();
-    println!(
-        "  {}",
-        t!("play.engine_thinking", level = level).cyan().bold()
-    );
-
-    let limits = SearchLimits::for_level(level);
-    let result = cli::think(game, &limits, tt_size_mb);
-
-    let Some(mv) = result.best_move else {
-        // No legal move; the main loop will detect and report the result.
-        return;
-    };
-
-    let description = cli::pretty_move(game, &mv);
-    match game.make_move(&cli::move_to_json(&mv)) {
-        Ok(()) => {
-            let mate = crate::search::score_to_mate_in(result.score);
-            println!(
-                "  {} {}   {} {}",
-                t!("play.engine_plays").green().bold(),
-                description.green().bold(),
-                t!("engine.label_score"),
-                tui::colorize_score(result.score, mate),
-            );
-            print_board(game);
-            print_status(game);
-        }
-        Err(e) => {
-            println!("  {}: {}", t!("terminal.error_label").red().bold(), e);
-        }
-    }
-}
-
-/// Runs an interactive terminal game under the given [`TerminalConfig`],
-/// supporting both human-vs-human and human-vs-engine play.
-pub fn run_game(config: TerminalConfig) {
-    print_banner();
-
-    if config.vs_engine {
-        println!(
-            "  {}",
-            t!(
-                "play.mode_engine_info",
-                color = config.human_color.to_string(),
-                level = config.level
-            )
-            .yellow()
-        );
-        println!();
-    }
-
-    let mut game = config.start_game;
-
-    print_help();
-    print_board(&game);
-    print_status(&game);
-
-    loop {
-        if game.is_over() {
-            print_game_result(&game);
-            break;
-        }
-
-        // Engine's turn (human-vs-engine mode only).
-        if config.vs_engine && game.turn != config.human_color {
-            engine_take_turn(&mut game, config.level, config.tt_size_mb);
-            continue;
-        }
-
-        let turn_prompt = match game.turn {
-            Color::White => "White".white().bold(),
-            Color::Black => "Black".blue().bold(),
-        };
-
-        print!("{} > ", turn_prompt);
-        io::stdout().flush().unwrap();
-
-        let mut input = String::new();
-        if io::stdin().read_line(&mut input).is_err() {
-            println!("{}", t!("terminal.input_error"));
-            continue;
-        }
-        let input = input.trim().to_lowercase();
-
-        if input.is_empty() {
-            continue;
-        }
-
-        match input.as_str() {
-            "quit" | "exit" | "q" => {
-                println!("{}", t!("terminal.goodbye"));
-                break;
-            }
-            "help" | "h" | "?" => {
-                print_help();
-            }
-            "board" | "b" => {
-                print_board(&game);
-                print_status(&game);
-            }
-            "moves" | "m" => {
-                let moves = game.legal_moves();
-                println!(
-                    "{} {}",
-                    t!("terminal.legal_moves_header")
-                        .to_string()
-                        .yellow()
-                        .bold(),
-                    t!("terminal.moves_count", count = moves.len())
-                );
-                for (i, mv) in moves.iter().enumerate() {
-                    if i > 0 && i % 8 == 0 {
-                        println!();
-                    }
-                    print!("  {}", mv.to_string().green());
-                }
-                println!();
-                println!();
-            }
-            "resign" | "r" => {
-                let action = ActionJson {
-                    action: "resign".to_string(),
-                    reason: None,
-                };
-                match game.process_action(&action) {
-                    Ok(()) => {
-                        print_board(&game);
-                        print_game_result(&game);
-                        break;
-                    }
-                    Err(e) => println!(
-                        "{}: {}",
-                        t!("terminal.error_label").to_string().red().bold(),
-                        e
-                    ),
-                }
-            }
-            "draw" | "d" => {
-                // Claim a draw if one is currently available (threefold or 50-move).
-                match game.available_draw_claim() {
-                    Some(reason) => {
-                        let action = ActionJson {
-                            action: "claim_draw".to_string(),
-                            reason: Some(reason.to_string()),
-                        };
-                        match game.process_action(&action) {
-                            Ok(()) => {
-                                print_game_result(&game);
-                                break;
-                            }
-                            Err(e) => println!(
-                                "{}: {}",
-                                t!("terminal.error_label").to_string().red().bold(),
-                                e
-                            ),
-                        }
-                    }
-                    None => {
-                        println!(
-                            "{}",
-                            t!(
-                                "terminal.no_draw_available",
-                                clock = game.halfmove_clock,
-                                reps = game.count_position_repetitions()
-                            )
-                        );
-                    }
-                }
-            }
-            "history" => {
-                print_history(&game);
-            }
-            "json" | "j" => {
-                let state = game.to_game_state_json();
-                println!("{}", serde_json::to_string_pretty(&state).unwrap());
-                println!();
-            }
-            "fen" | "f" => {
-                let fen = game
-                    .board
-                    .to_position_fen(game.turn, &game.castling, game.en_passant);
-                let full_fen = format!("{} {} {}", fen, game.halfmove_clock, game.fullmove_number);
-                println!("  {}", full_fen.green());
-                println!();
-            }
-            _ => {
-                // Try to parse as a move (e.g. "e2e4" or "e7e8Q")
-                if let Some(move_json) = parse_move_input(&input) {
-                    match game.make_move(&move_json) {
-                        Ok(()) => {
-                            print_board(&game);
-                            print_status(&game);
-
-                            if game.is_over() {
-                                print_game_result(&game);
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            println!(
-                                "{}: {}",
-                                t!("terminal.illegal_move").to_string().red().bold(),
-                                e
-                            );
-                        }
-                    }
-                } else {
-                    println!(
-                        "{}",
-                        t!(
-                            "terminal.unknown_cmd_hint",
-                            cmd = &input,
-                            help = "help".green()
-                        )
-                    );
-                }
-            }
-        }
-    }
-}
-
-/// Parses a move input string like "e2e4" or "e7e8Q" into a MoveJson.
-///
-/// Accepts formats:
+/// Accepted formats:
 /// - `e2e4` — normal move
-/// - `e7e8Q` — promotion (Q, R, B, N)
+/// - `e7e8Q` — promotion (Q, R, B, N — case-insensitive)
 /// - `e2 e4` — with space separator
-fn parse_move_input(input: &str) -> Option<MoveJson> {
+///
+/// Non-ASCII input is rejected up front so slicing can never panic.
+pub fn parse_move_input(input: &str) -> Option<MoveJson> {
     let input = input.replace(' ', "");
     let input = input.trim();
 
-    if input.len() < 4 || input.len() > 5 {
+    if !input.is_ascii() || input.len() < 4 || input.len() > 5 {
         return None;
     }
 
@@ -623,5 +170,37 @@ mod tests {
         assert!(parse_move_input("abc").is_none());
         assert!(parse_move_input("z9z9").is_none());
         assert!(parse_move_input("e2e4x").is_none());
+    }
+
+    #[test]
+    fn test_parse_multibyte_input_does_not_panic() {
+        // 4–5 *bytes* of multi-byte UTF-8 used to panic on byte slicing.
+        assert!(parse_move_input("♔♕").is_none());
+        assert!(parse_move_input("éé").is_none());
+    }
+
+    #[test]
+    fn test_command_keywords_and_aliases() {
+        assert_eq!(GameCommand::parse("quit"), Some(GameCommand::Quit));
+        assert_eq!(GameCommand::parse("Q"), Some(GameCommand::Quit));
+        assert_eq!(GameCommand::parse("HELP"), Some(GameCommand::Help));
+        assert_eq!(GameCommand::parse("?"), Some(GameCommand::Help));
+        assert_eq!(GameCommand::parse("hint"), Some(GameCommand::Hint));
+        assert_eq!(GameCommand::parse("i"), Some(GameCommand::Hint));
+        assert_eq!(GameCommand::parse("u"), Some(GameCommand::Undo));
+        assert_eq!(GameCommand::parse("hist"), Some(GameCommand::History));
+        assert_eq!(GameCommand::parse("d"), Some(GameCommand::Draw));
+    }
+
+    #[test]
+    fn test_command_move_fallback() {
+        match GameCommand::parse("E2E4") {
+            Some(GameCommand::Move(m)) => {
+                assert_eq!(m.from, "e2");
+                assert_eq!(m.to, "e4");
+            }
+            other => panic!("expected move, got {other:?}"),
+        }
+        assert_eq!(GameCommand::parse("xyzzy"), None);
     }
 }

@@ -806,6 +806,14 @@ pub struct SearchEngine {
     node_limit: Option<u64>,
     /// Set once a hard limit is hit; makes every node bail out immediately.
     stopped: bool,
+    /// Zobrist hashes of the ancestors along the current search line, indexed
+    /// by ply (`path[k]` is the position at ply `k`). Used to detect
+    /// draw-by-repetition inside the tree.
+    path: Vec<u64>,
+    /// Zobrist hashes of the positions that preceded the search root in the
+    /// actual game (set via [`SearchEngine::set_game_history`]). Lets the
+    /// engine see repetitions that span the move already played on the board.
+    game_history: Vec<u64>,
 }
 
 impl SearchEngine {
@@ -821,12 +829,24 @@ impl SearchEngine {
             deadline: None,
             node_limit: None,
             stopped: false,
+            path: vec![0u64; MAX_DEPTH as usize],
+            game_history: Vec::new(),
         }
     }
 
     /// Creates a new search engine with default TT size.
     pub fn with_defaults() -> Self {
         Self::new(DEFAULT_TT_SIZE_MB)
+    }
+
+    /// Supplies the position hashes that precede the search root in the real
+    /// game, so the search can score a line that repeats one of them as a
+    /// draw. Pass the Zobrist hashes (see [`zobrist::hash_position`]) of every
+    /// earlier position, in game order. Replaces any previously set history;
+    /// pass an empty slice to clear it.
+    pub fn set_game_history(&mut self, history: &[u64]) {
+        self.game_history.clear();
+        self.game_history.extend_from_slice(history);
     }
 
     /// Replaces the internal abort flag with a shared external token.
@@ -867,6 +887,39 @@ impl SearchEngine {
         false
     }
 
+    /// Returns `true` if the position with the given `hash` has already
+    /// occurred — either earlier on the current search path or in the
+    /// pre-search game history. Only positions within the current
+    /// reversible-move window (`halfmove_clock` plies back) can repeat, so the
+    /// scan stops there. A single match is treated as a draw.
+    fn is_repetition(&self, hash: u64, halfmove_clock: u32, ply: i32) -> bool {
+        let window = halfmove_clock as usize;
+        let mut scanned = 0usize;
+
+        // In-tree ancestors, most recent first: path[ply-1] down to path[0].
+        let mut idx = ply as usize;
+        while idx > 0 && scanned < window {
+            idx -= 1;
+            scanned += 1;
+            if self.path[idx] == hash {
+                return true;
+            }
+        }
+
+        // Continue into the real game's history (most recent first).
+        for &h in self.game_history.iter().rev() {
+            if scanned >= window {
+                break;
+            }
+            scanned += 1;
+            if h == hash {
+                return true;
+            }
+        }
+
+        false
+    }
+
     /// Runs iterative deepening search to the specified depth.
     ///
     /// Returns the best move and evaluation at the target depth.
@@ -896,6 +949,11 @@ impl SearchEngine {
             .move_time_ms
             .map(|ms| start + Duration::from_millis(ms));
         self.node_limit = limits.max_nodes;
+
+        // Advance the TT generation so entries from previous searches become
+        // preferred replacement candidates (depth-preferred within the current
+        // generation, age-out across generations).
+        self.tt.new_generation();
 
         // Clear killer and history tables
         for k in &mut self.killers {
@@ -1075,6 +1133,16 @@ impl SearchEngine {
 
         // Draw detection: 50-move rule check.
         if pos.halfmove_clock >= 100 {
+            return DRAW_SCORE;
+        }
+
+        // Record this node on the current search line, then test for a draw by
+        // repetition against earlier nodes on the path and the pre-search game
+        // history. A single recurrence is enough — the side to move can usually
+        // force the threefold — so this lets the engine find saving perpetual
+        // checks and avoid repeating away a winning position.
+        self.path[ply as usize] = pos.hash;
+        if ply > 0 && self.is_repetition(pos.hash, pos.halfmove_clock, ply) {
             return DRAW_SCORE;
         }
 
@@ -1896,6 +1964,57 @@ mod tests {
             Some(2),
             "engine should announce a forced mate in two (score {})",
             result.score
+        );
+    }
+
+    #[test]
+    fn test_repetition_against_game_history_saves_lost_position() {
+        // White is down a whole queen (lone knight vs queen) and is losing.
+        // But the knight move Ng1-f3 returns to a position that already
+        // occurred earlier in the game — a draw by repetition. The engine must
+        // recognise that saving resource and evaluate the position as a draw
+        // rather than the lost score the raw material would suggest.
+        let game = crate::game::Game::from_fen("k7/8/8/8/1q6/8/8/6NK w - - 40 1").unwrap();
+        let pos = SearchPosition::new(
+            game.board.clone(),
+            game.turn,
+            game.castling,
+            game.en_passant,
+            game.halfmove_clock,
+        );
+
+        // Control: with no history, being down a queen is simply losing.
+        let mut control = SearchEngine::with_defaults();
+        let losing = control.search(&pos, 5);
+        assert!(
+            losing.score < -300,
+            "control: down a queen should be losing, got {}",
+            losing.score
+        );
+
+        // Tell the engine the position reached after Ng1-f3 already occurred.
+        let nf3 = pos
+            .legal_moves()
+            .into_iter()
+            .find(|m| {
+                m.from == Square::from_algebraic("g1").unwrap()
+                    && m.to == Square::from_algebraic("f3").unwrap()
+            })
+            .expect("Ng1-f3 must be legal");
+        let repeated = pos.make_move(&nf3).hash;
+
+        let mut engine = SearchEngine::with_defaults();
+        engine.set_game_history(&[repeated]);
+        let saved = engine.search(&pos, 5);
+        assert!(
+            saved.score.abs() < 50,
+            "Nf3 repeats a prior position → engine holds the draw, got {}",
+            saved.score
+        );
+        assert_eq!(
+            saved.best_move,
+            Some(nf3),
+            "engine should choose the saving repetition"
         );
     }
 

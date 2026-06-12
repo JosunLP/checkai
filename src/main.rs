@@ -23,8 +23,33 @@
 //! - **Swagger/OpenAPI Documentation**: Auto-generated API docs
 //!   available at `/swagger-ui/`.
 //!
-//! - **Terminal Interface**: Colored board display with interactive
-//!   move input for local two-player games.
+//! - **Analysis Engine**: An alpha-beta / PVS search (iterative
+//!   deepening, transposition table, null-move pruning, LMR, SEE,
+//!   futility/razoring, killer/history/counter-move ordering, and
+//!   quiescence search) paired with a PeSTO-style evaluation. Used by
+//!   the analysis API and the terminal commands below.
+//!
+//! - **Animated Terminal CLI**: Play against the built-in engine or a
+//!   second human, watch engine-vs-engine games, analyze positions and
+//!   games, benchmark the engine, run perft, or speak UCI for chess
+//!   GUIs. Animated boards and search progress (via `crossterm` and
+//!   `indicatif`) render on a TTY and degrade to plain text otherwise
+//!   (also honoring `--no-color` / `NO_COLOR`).
+//!
+//! ## Commands
+//!
+//! | Command   | Description                                            |
+//! |-----------|--------------------------------------------------------|
+//! | `serve`   | Start the REST + WebSocket API server with Swagger UI  |
+//! | `play`    | Play in the terminal (vs the engine by default)        |
+//! | `watch`   | Watch the engine play itself (engine-vs-engine)        |
+//! | `analyze` | Analyze a position (`--fen`) or a game (`--moves`)     |
+//! | `bench`   | Run the fixed engine benchmark suite (nodes, NPS)      |
+//! | `perft`   | Verify move generation with perft node counts          |
+//! | `uci`     | Run as a UCI engine on stdin/stdout (for chess GUIs)   |
+//! | `export`  | Export archived games as text, PGN, or JSON            |
+//! | `update`  | Update CheckAI to the latest version from GitHub       |
+//! | `version` | Print the current version                              |
 //!
 //! ## Usage
 //!
@@ -35,8 +60,11 @@
 //! # Start the API server on a custom port
 //! checkai serve --port 3000
 //!
-//! # Play a local terminal game
+//! # Play a terminal game against the built-in engine
 //! checkai play
+//!
+//! # Run as a UCI engine for a chess GUI / match runner
+//! checkai uci
 //! ```
 //!
 //! ## API Endpoints
@@ -69,7 +97,6 @@ pub mod search;
 pub mod storage;
 pub mod tablebase;
 pub mod terminal;
-pub mod tui;
 pub mod types;
 pub mod update;
 pub mod ws;
@@ -96,6 +123,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use crate::analysis::{AnalysisConfig, AnalysisManager};
 use crate::api::{ApiDoc, AppState};
+use crate::cli::{CliCommand, CliContext};
 use crate::game::GameManager;
 use crate::ws::GameBroadcaster;
 
@@ -172,9 +200,14 @@ Features:\n\
 Examples:\n\
   checkai serve              Start the API server on port 8080\n\
   checkai serve --port 3000  Start on a custom port\n\
-  checkai play               Play a local terminal game\n\
+  checkai play               Play vs the built-in engine (level 5)\n\
+  checkai play --vs human    Local two-player game\n\
+  checkai watch              Watch an engine-vs-engine showcase\n\
+  checkai analyze --fen ...  Deep-dive a position with the engine\n\
+  checkai bench              Run the engine benchmark suite\n\
+  checkai perft 5            Verify move generation vs references\n\
+  checkai uci                Speak UCI for chess GUIs/match runners\n\
   checkai export --list      List all archived games\n\
-  checkai export --all       Export all archived games\n\
   checkai update             Update to the latest version\n\
 \n\
 Documentation: https://github.com/JosunLP/checkai")]
@@ -182,6 +215,10 @@ struct Cli {
     /// Override the language / locale (e.g. "de", "fr", "zh-CN").
     #[arg(short, long, global = true)]
     lang: Option<String>,
+
+    /// Disable colored output (the NO_COLOR env var is honored too).
+    #[arg(long, global = true)]
+    no_color: bool,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -250,70 +287,23 @@ Examples:\n\
         analysis_completed_ttl_secs: u64,
     },
 
-    /// Play a chess game in the terminal (human vs human, or vs the engine).
-    #[command(after_help = "\
-Examples:\n\
-  checkai play                          Two-player local game\n\
-  checkai play --vs-engine              Play White against the engine\n\
-  checkai play --level 8 --color black  Play Black vs a strong engine\n\
-  checkai play --fen \"<FEN>\"             Start from a custom position")]
-    Play {
-        /// Play against the built-in engine instead of a second human.
-        #[arg(long)]
-        vs_engine: bool,
+    /// Play chess in the terminal — vs the built-in engine or a human.
+    Play(cli::play::PlayArgs),
 
-        /// Engine skill level: 1 (weakest) to 10 (strongest). Implies --vs-engine.
-        #[arg(short, long)]
-        level: Option<u8>,
+    /// Watch the engine play itself (engine-vs-engine showcase).
+    Watch(cli::watch::WatchArgs),
 
-        /// Side you control against the engine: "white" or "black".
-        #[arg(short, long, default_value = "white")]
-        color: String,
+    /// Analyze a position (--fen) or an entire game (--moves).
+    Analyze(cli::analyze::AnalyzeArgs),
 
-        /// Start from a custom FEN position.
-        #[arg(long)]
-        fen: Option<String>,
+    /// Run the fixed engine benchmark suite (nodes, time, NPS).
+    Bench(cli::bench::BenchArgs),
 
-        /// Transposition table size in MB (engine mode).
-        #[arg(long, default_value_t = 64)]
-        tt_size_mb: usize,
-    },
+    /// Verify move generation with perft node counts.
+    Perft(cli::perft::PerftArgs),
 
-    /// Analyze a position with the engine, showing a live animated search.
-    #[command(after_help = "\
-Examples:\n\
-  checkai analyze                        Analyze the start position\n\
-  checkai analyze --fen \"<FEN>\"          Analyze a custom position\n\
-  checkai analyze --depth 24             Deeper fixed-depth search\n\
-  checkai analyze --move-time 5000       Search for 5 seconds")]
-    Analyze {
-        /// FEN of the position to analyze (defaults to the start position).
-        #[arg(long)]
-        fen: Option<String>,
-
-        /// Maximum search depth in plies.
-        #[arg(short, long, default_value_t = 18)]
-        depth: u32,
-
-        /// Per-move time budget in milliseconds (stops at depth or time).
-        #[arg(short = 't', long)]
-        move_time: Option<u64>,
-
-        /// Transposition table size in MB.
-        #[arg(long, default_value_t = 64)]
-        tt_size_mb: usize,
-    },
-
-    /// Benchmark the engine's nodes-per-second from the start position.
-    Bench {
-        /// Fixed search depth in plies.
-        #[arg(short, long, default_value_t = 12)]
-        depth: u32,
-
-        /// Transposition table size in MB.
-        #[arg(long, default_value_t = 64)]
-        tt_size_mb: usize,
-    },
+    /// Run as a UCI engine on stdin/stdout (for chess GUIs).
+    Uci(cli::uci::UciArgs),
 
     /// Export archived games in various formats.
     #[command(after_help = "\
@@ -386,9 +376,17 @@ async fn main() -> std::io::Result<()> {
     // Clean up leftover .old.exe from previous updates (Windows)
     update::cleanup_old_binary();
 
+    // UCI is machine-facing: plain output, no banners, no animations.
+    let ctx = match cli.command {
+        Some(Commands::Uci(_)) => CliContext {
+            theme: cli::theme::Theme::plain(),
+        },
+        _ => CliContext::new(cli.no_color),
+    };
+
     match cli.command {
         None => {
-            print_welcome();
+            cli::welcome::print_welcome(&ctx.theme);
             Ok(())
         }
         Some(Commands::Serve {
@@ -419,49 +417,19 @@ async fn main() -> std::io::Result<()> {
             })
             .await
         }
-        Some(Commands::Play {
-            vs_engine,
-            level,
-            color,
-            fen,
-            tt_size_mb,
-        }) => {
-            update::check_for_updates().await;
-
-            let human_color = match color.to_lowercase().as_str() {
-                "black" | "b" => crate::types::Color::Black,
-                _ => crate::types::Color::White,
-            };
-
-            let start_game = match fen {
-                Some(f) => crate::game::Game::from_fen(&f)
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?,
-                None => crate::game::Game::new(),
-            };
-
-            let cfg = terminal::TerminalConfig {
-                vs_engine: vs_engine || level.is_some(),
-                human_color,
-                level: level.unwrap_or(6).clamp(1, crate::search::MAX_SKILL_LEVEL),
-                tt_size_mb,
-                start_game,
-            };
-            terminal::run_game(cfg);
-            Ok(())
+        Some(Commands::Play(args)) => {
+            // Only ping GitHub for updates in interactive sessions;
+            // piped/scripted runs stay fast and quiet.
+            if ctx.theme.interactive {
+                update::check_for_updates().await;
+            }
+            run_cli_command(args, &ctx)
         }
-        Some(Commands::Analyze {
-            fen,
-            depth,
-            move_time,
-            tt_size_mb,
-        }) => {
-            update::check_for_updates().await;
-            cli::run_analyze(fen.as_deref(), depth, move_time, tt_size_mb)
-                .map_err(std::io::Error::other)
-        }
-        Some(Commands::Bench { depth, tt_size_mb }) => {
-            cli::run_bench(depth, tt_size_mb).map_err(std::io::Error::other)
-        }
+        Some(Commands::Watch(args)) => run_cli_command(args, &ctx),
+        Some(Commands::Analyze(args)) => run_cli_command(args, &ctx),
+        Some(Commands::Bench(args)) => run_cli_command(args, &ctx),
+        Some(Commands::Perft(args)) => run_cli_command(args, &ctx),
+        Some(Commands::Uci(args)) => run_cli_command(args, &ctx),
         Some(Commands::Export {
             data_dir,
             format,
@@ -490,87 +458,26 @@ async fn main() -> std::io::Result<()> {
             Ok(())
         }
         Some(Commands::Version) => {
-            println!("checkai v{}", update::version());
+            println!(
+                "{} {}",
+                "checkai".green().bold(),
+                format!("v{}", update::version()).bold()
+            );
+            println!("  {} {}", t!("cli.locale_label"), &*rust_i18n::locale());
+            println!(
+                "  {} https://github.com/JosunLP/checkai",
+                t!("cli.docs_label")
+            );
             Ok(())
         }
     }
 }
 
-/// Prints a branded, animated welcome screen when no subcommand is given.
-fn print_welcome() {
-    let version = update::version();
-    let locale = rust_i18n::locale().to_string();
-
-    let banner = vec![
-        "╔═══════════════════════════════════════════════════╗".to_string(),
-        "║                                                   ║".to_string(),
-        format!(
-            "║   {} v{}{}║",
-            t!("cli.welcome_header"),
-            version,
-            " ".repeat(
-                46usize.saturating_sub(t!("cli.welcome_header").chars().count() + version.len()),
-            )
-        ),
-        "║                                                   ║".to_string(),
-        "╚═══════════════════════════════════════════════════╝".to_string(),
-    ];
-
-    println!();
-    tui::animated_banner(&banner, |line| line.cyan().bold().to_string());
-    println!();
-    println!(
-        "  {} {}     {} {}",
-        "Version:".bold(),
-        version,
-        "Locale:".bold(),
-        locale
-    );
-    println!();
-
-    println!("{}", t!("cli.commands_header").to_string().yellow().bold());
-    let commands = [
-        ("serve", t!("cli.cmd_serve_desc")),
-        ("play", t!("cli.cmd_play_desc")),
-        ("analyze", t!("cli.cmd_analyze_desc")),
-        ("bench", t!("cli.cmd_bench_desc")),
-        ("export", t!("cli.cmd_export_desc")),
-        ("update", t!("cli.cmd_update_desc")),
-        ("version", t!("cli.cmd_version_desc")),
-    ];
-    for (name, desc) in commands {
-        let padded = format!("{name:<9}");
-        println!("  {} {}", padded.green().bold(), desc);
-    }
-    println!();
-
-    println!(
-        "{}",
-        t!("cli.quickstart_header").to_string().yellow().bold()
-    );
-    println!(
-        "  {}  {}",
-        "$ checkai play --vs-engine".dimmed(),
-        t!("cli.quickstart_play")
-    );
-    println!(
-        "  {}  {}",
-        "$ checkai analyze".dimmed(),
-        t!("cli.quickstart_analyze")
-    );
-    println!(
-        "  {}  {}",
-        "$ checkai serve".dimmed(),
-        t!("cli.quickstart_serve")
-    );
-    println!(
-        "  {}  {}",
-        "$ checkai <cmd> --help".dimmed(),
-        t!("cli.quickstart_help")
-    );
-    println!();
-    println!("  {}", t!("cli.run_help_hint", cmd = "--help".green()));
-    println!();
+/// Dispatches a [`CliCommand`], converting CLI errors to exit-worthy
+/// I/O errors for `main`'s signature.
+fn run_cli_command(cmd: impl CliCommand, ctx: &CliContext) -> std::io::Result<()> {
+    cmd.run(ctx)
+        .map_err(|e| std::io::Error::other(e.to_string()))
 }
 
 /// Starts the HTTP + WebSocket server with all API routes and Swagger UI.

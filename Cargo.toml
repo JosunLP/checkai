@@ -50,3 +50,10 @@ semver = "1"
 # Internationalization (i18n)
 rust-i18n = "4"
 sys-locale = "0.3"
+
+# Interactive terminal UI: raw input, cursor control, terminal size
+crossterm = "0.29"
+# Animated spinners and progress bars for the CLI
+indicatif = "0.18"
+# Display width of strings (CJK-aware) for correct box-drawing alignment
+unicode-width = "0.2"

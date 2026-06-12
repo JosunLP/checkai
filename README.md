@@ -22,8 +22,9 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 ### Chess Engine
 
 - **Full FIDE 2023 Rules** — Move generation and validation with castling, en passant, promotion, check/checkmate/stalemate, and all draw conditions (50-move rule, threefold repetition, insufficient material)
-- **Deep Game Analysis** — Asynchronous engine with 30+ ply depth, PVS/Negascout, transposition table, null-move pruning, LMR, SEE, futility pruning, killer/history heuristics, and quiescence search
-- **PeSTO Evaluation** — Midgame/endgame piece-square tables with king safety, pawn shield analysis, piece mobility, and phase interpolation
+- **Search** — Iterative deepening with aspiration windows; Principal Variation Search (PVS / Negascout) with re-searches; a transposition table with generation-based aging, depth-preferred replacement, and a cached static eval (probed in both main and quiescence search); adaptive null-move pruning with a high-depth verification search; table-driven Late Move Reductions; Late Move Pruning; reverse-futility (static null move), classic futility, and razoring at frontier nodes; Internal Iterative Reduction; check extensions; mate-distance pruning; full Static Exchange Evaluation (SEE) for capture ordering and pruning; killer-move, counter-move, and gravity-style history heuristics; in-tree repetition detection and 50-move awareness; and a quiescence search with stand-pat, per-capture delta pruning, SEE pruning, and TT cutoffs. Hard time/node limits are enforced inside the tree via `SearchLimits` / `search_limited`, discarding partial iterations
+- **PeSTO Evaluation** — Tapered midgame/endgame piece-square tables interpolated by game phase, plus pawn structure (passed, doubled, isolated, backward, connected pawns), bishop-pair bonus, rook open/semi-open file bonuses, king safety (open-file and pawn-shield penalties), per-piece mobility, and a tempo bonus. The evaluation is always relative to the side to move
+- **Async Game Analysis** — A separate job-based analysis service performs deep (30+ ply) game review on top of the same engine
 - **Opening Book** — Polyglot `.bin` format with binary search lookups
 - **Endgame Tablebases** — Syzygy tablebase detection with analytical evaluation for common endgames
 
@@ -33,7 +34,7 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 - **Analysis API** — Separate `/api/analysis/*` endpoints for asynchronous game review with job progress, completed summaries, and per-move annotations
 - **WebSocket API** — Full real-time API at `/ws` mirroring REST endpoints with push notifications and game subscriptions
 - **Swagger/OpenAPI** — Auto-generated interactive API docs at `/swagger-ui/`
-- **Terminal Interface** — Colored board display with interactive move input for local two-player games
+- **Animated Terminal CLI** — A richly-featured terminal experience: play against the built-in engine (10-level ladder) or a second human, watch an engine-vs-engine showcase, analyze positions and games, benchmark the engine, run perft, and speak UCI for chess GUIs. Animated boards, eval bar, and search spinners (built on `crossterm` + `indicatif`) render only on a TTY and degrade to clean plain text when piped; honors `--no-color` / `NO_COLOR`
 
 ### Web & Deployment
 
@@ -201,6 +202,63 @@ See the [package README](npm/README.md) for the full API reference.
 checkai play
 ```
 
+## Command-Line Interface
+
+`checkai` is a single binary with the subcommands below. Two global options apply to every command: `-l, --lang <LANG>` (override the locale, e.g. `de`, `fr`, `zh-CN`) and `--no-color` (disable colored output; the `NO_COLOR` env var is honored too). Run `checkai <command> --help` for the full flag list.
+
+| Command   | Description                                                           | Example                                         |
+|-----------|-----------------------------------------------------------------------|-------------------------------------------------|
+| `serve`   | Start the REST + WebSocket API server with Swagger UI                 | `checkai serve --port 3000`                     |
+| `play`    | Play in the terminal — **defaults to playing vs the built-in engine** | `checkai play --level 9 --color black`          |
+| `watch`   | Watch the engine play itself (engine-vs-engine showcase)              | `checkai watch --level-white 9 --level-black 3` |
+| `analyze` | Analyze a position (`--fen`) or annotate a whole game (`--moves`)     | `checkai analyze --fen "<FEN>" --depth 16`      |
+| `bench`   | Run the fixed engine benchmark suite (nodes, time, NPS)               | `checkai bench --depth 12`                      |
+| `perft`   | Verify move generation with perft node counts                         | `checkai perft 5 --divide`                      |
+| `uci`     | Run as a UCI engine on stdin/stdout (for chess GUIs / match runners)  | `checkai uci`                                   |
+| `export`  | Export archived games as text, PGN, or JSON                           | `checkai export --all --format pgn`             |
+| `update`  | Update CheckAI to the latest version from GitHub                      | `checkai update`                                |
+| `version` | Print the current version                                             | `checkai version`                               |
+
+Highlights:
+
+- **`play` plays vs the engine by default** — pick a strength on the 1–10 level ladder (`--level`, default 5) and a side (`--color white|black|random`). Use `--vs human` for a local two-player game. Other flags: `--movetime`, `--depth`, `--fen`, `--ascii`, `--flip`.
+- **`watch`** runs an engine-vs-engine showcase — set both sides with `--level`, or asymmetrically with `--level-white` / `--level-black`; tune pacing with `--delay` (ms between moves) and cap length with `--max-moves`.
+- **Animated, TTY-aware UI** — animated boards, an evaluation bar, and live search spinners/progress bars (powered by `crossterm` + `indicatif`) appear only when stdout is a terminal; piped output stays plain and parseable.
+- **Color & locale** — `--no-color` / the `NO_COLOR` env var disable ANSI styling, and `--lang` selects one of 8 bundled languages (English is the source of truth and fallback).
+
+```bash
+checkai play                              # White vs the engine at level 5
+checkai play --vs human --ascii           # Local two-player game, ASCII board
+checkai watch --movetime 200 --delay 0    # Fast engine-vs-engine game
+checkai analyze --moves "e2e4 e7e5 g1f3"  # Annotate a line move by move
+checkai bench --depth 8                    # Faster, shallower benchmark
+checkai perft 6                            # Exact node counts up to depth 6
+```
+
+### UCI Mode
+
+`checkai uci` speaks the UCI protocol on stdin/stdout so you can drop CheckAI into any UCI-compatible GUI (Arena, Cute Chess, BanksiaGUI, …) or match runner. The UCI output is a machine protocol and is intentionally not localized.
+
+```text
+$ checkai uci
+uci
+position startpos moves e2e4
+go movetime 1000
+quit
+```
+
+Want to know how strong it really is? Measure it yourself. With [cutechess-cli](https://github.com/cutechess/cutechess) you can run CheckAI against any other UCI engine — for example Stockfish as a convenient, widely-available opponent — and read the result off the scoreboard:
+
+```bash
+cutechess-cli \
+  -engine name=CheckAI cmd=checkai arg=uci \
+  -engine name=Opponent cmd=stockfish \
+  -each proto=uci tc=10+0.1 -games 100 -repeat -recover \
+  -pgnout match.pgn
+```
+
+Adjust the opponent, time control, and game count to taste; the resulting score and Elo estimate are the honest measure of CheckAI's playing strength.
+
 ## API Reference
 
 ### Game Endpoints
@@ -312,16 +370,21 @@ ws.onmessage = (event) => {
 
 ## Terminal Commands
 
+These commands are available during an interactive `checkai play` game (single-letter aliases are shown by `help`):
+
 | Command   | Description                          |
 | --------- | ------------------------------------ |
 | `e2e4`    | Move piece (from-to notation)        |
 | `e7e8Q`   | Pawn promotion (append piece letter) |
 | `moves`   | List all legal moves                 |
 | `board`   | Show current board                   |
+| `history` | Show move history                    |
+| `fen`     | Show the current position as FEN     |
+| `json`    | Game state as JSON                   |
+| `hint`    | Ask the engine for a suggested move  |
+| `undo`    | Take back the last move              |
 | `resign`  | Resign the game                      |
 | `draw`    | Claim a draw (if eligible)           |
-| `history` | Show move history                    |
-| `json`    | Game state as JSON                   |
 | `help`    | Show help                            |
 | `quit`    | Quit                                 |
 
