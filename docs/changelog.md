@@ -4,6 +4,24 @@
 
 All notable changes to CheckAI are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] — 2026-06-12
+
+### Added
+
+- **Human-vs-engine terminal play** — `checkai play` now plays against the built-in engine as well as a second human, via `--vs-engine`, `--level <1-10>`, `--color`, `--fen`, and `--tt-size-mb`, streaming a live animated search and announcing each move with its evaluation
+- **`analyze` command** — Analyze a FEN or the starting position with a live animated iterative-deepening display, then print the best move, evaluation, mate distance, depth/nodes/time, and principal variation
+- **`bench` command** — Benchmark engine nodes-per-second from the starting position at a fixed depth
+- **Terminal UI toolkit** — A shared `tui` module (spinner, progress bar, score/number formatting, live search view, animated banners) that degrades gracefully to plain text without a TTY or with `NO_COLOR`
+- **FEN position loading** — `Game::from_fen`, `Board::from_piece_placement`, and `CastlingRights::from_fen` parse and validate full FEN strings for `play` and `analyze`
+- **Localized engine output** — New locale strings for the engine labels and the `analyze`, `bench`, and play-vs-engine flows across all eight languages
+- **Community health files** — `CONTRIBUTING.md`, `SECURITY.md`, a pull-request template, and structured GitHub issue forms replacing the previous Markdown templates
+
+### Changed
+
+- **Search engine overhaul** — Full Static Exchange Evaluation, transposition-table aging with depth-preferred replacement and quiescence integration, in-tree hard time/node limits with per-iteration progress reporting, mate-distance pruning, reverse futility pruning, adaptive null-move pruning with verification, table-driven Late Move Reductions, Internal Iterative Reduction, a corrected counter-move heuristic, gravity-style history with maluses, and a stronger quiescence search (check evasions, delta and SEE pruning)
+- **Animated CLI welcome screen** — Animated welcome screen and terminal banner, now listing the `analyze` and `bench` commands
+- **Version metadata** — Bumped Rust crate, WASM crate, npm package, web UI, desktop app, OpenAPI metadata, and VitePress version label to 0.8.0
+
 ## [0.7.0] — 2026-05-13
 
 ### Added

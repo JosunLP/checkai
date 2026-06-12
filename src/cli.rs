@@ -9,9 +9,7 @@
 use colored::Colorize;
 
 use crate::game::Game;
-use crate::search::{
-    SearchEngine, SearchLimits, SearchPosition, SearchResult, score_to_mate_in,
-};
+use crate::search::{SearchEngine, SearchLimits, SearchPosition, SearchResult, score_to_mate_in};
 use crate::terminal;
 use crate::tui::{self, SearchProgressView};
 use crate::types::{ChessMove, MoveJson, PieceKind};

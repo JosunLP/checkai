@@ -331,7 +331,10 @@ fn print_banner() {
 /// display and then announcing the chosen move and its evaluation.
 fn engine_take_turn(game: &mut Game, level: u8, tt_size_mb: usize) {
     println!();
-    println!("  {}", t!("play.engine_thinking", level = level).cyan().bold());
+    println!(
+        "  {}",
+        t!("play.engine_thinking", level = level).cyan().bold()
+    );
 
     let limits = SearchLimits::for_level(level);
     let result = cli::think(game, &limits, tt_size_mb);

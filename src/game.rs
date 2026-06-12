@@ -149,11 +149,10 @@ impl Game {
         let castling = CastlingRights::from_fen(parts[2]);
         let en_passant = match parts[3] {
             "-" => None,
-            sq => {
-                Some(Square::from_algebraic(sq).ok_or_else(|| {
-                    format!("Invalid en passant square '{}'", sq)
-                })?)
-            }
+            sq => Some(
+                Square::from_algebraic(sq)
+                    .ok_or_else(|| format!("Invalid en passant square '{}'", sq))?,
+            ),
         };
         let halfmove_clock = parts.get(4).and_then(|s| s.parse().ok()).unwrap_or(0);
         let fullmove_number = parts
@@ -771,10 +770,13 @@ mod tests {
         let fen = "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 2 3";
         let game = Game::from_fen(fen).unwrap();
         // The position FEN (placement + turn + castling + ep) must round-trip.
-        let position_fen =
-            game.board
-                .to_position_fen(game.turn, &game.castling, game.en_passant);
-        assert_eq!(position_fen, "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -");
+        let position_fen = game
+            .board
+            .to_position_fen(game.turn, &game.castling, game.en_passant);
+        assert_eq!(
+            position_fen,
+            "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -"
+        );
         assert_eq!(game.halfmove_clock, 2);
         assert_eq!(game.fullmove_number, 3);
     }
@@ -799,7 +801,9 @@ mod tests {
     fn test_from_fen_rejects_malformed_input() {
         assert!(Game::from_fen("not a fen").is_err());
         assert!(Game::from_fen("8/8/8/8/8/8/8/8 w - - 0 1").is_err()); // no kings
-        assert!(Game::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1").is_err());
+        assert!(
+            Game::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1").is_err()
+        );
     }
 
     #[test]

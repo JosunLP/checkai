@@ -1271,7 +1271,8 @@ impl SearchEngine {
 
             if i == 0 {
                 // First move: full-window PV search.
-                score = -self.alpha_beta(&child, new_depth, -beta, -alpha, ply + 1, is_pv, Some(mv));
+                score =
+                    -self.alpha_beta(&child, new_depth, -beta, -alpha, ply + 1, is_pv, Some(mv));
             } else {
                 // Late Move Reductions via the precomputed log-log table.
                 let mut reduction = 0;
@@ -1319,8 +1320,15 @@ impl SearchEngine {
 
                 // Genuine PV moves are re-searched with the full window.
                 if score > alpha && score < beta {
-                    score =
-                        -self.alpha_beta(&child, new_depth, -beta, -alpha, ply + 1, is_pv, Some(mv));
+                    score = -self.alpha_beta(
+                        &child,
+                        new_depth,
+                        -beta,
+                        -alpha,
+                        ply + 1,
+                        is_pv,
+                        Some(mv),
+                    );
                 }
             }
 
@@ -1444,7 +1452,11 @@ impl SearchEngine {
         let moves = pos.legal_moves();
         if moves.is_empty() {
             // No legal moves: checkmate while in check, otherwise stalemate.
-            return if in_check { -MATE_SCORE + ply } else { DRAW_SCORE };
+            return if in_check {
+                -MATE_SCORE + ply
+            } else {
+                DRAW_SCORE
+            };
         }
 
         // In check: search every evasion. Otherwise: captures & promotions only.

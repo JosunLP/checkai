@@ -7,6 +7,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-06-12
+
+### Added
+
+- **Human-vs-engine terminal play** — `checkai play` can now play against the built-in engine in addition to local two-player games, via `--vs-engine`, `--level <1-10>`, `--color <white|black>`, `--fen <FEN>`, and `--tt-size-mb`. The engine streams a live animated search and announces each move with its evaluation
+- **`analyze` command** — Analyze any position (a FEN or the starting position) with a live, animated iterative-deepening display, then print the best move, evaluation, forced-mate distance, depth/nodes/time, and principal variation (`--fen`, `--depth`, `--move-time`, `--tt-size-mb`)
+- **`bench` command** — Benchmark engine throughput (nodes per second) from the starting position at a fixed depth (`--depth`, `--tt-size-mb`)
+- **Terminal UI toolkit** — New shared `tui` module providing a braille spinner, progress bar, score/number formatting, a live search-progress view, and animated banners; every effect degrades gracefully to plain text when stdout is not a terminal or `NO_COLOR` is set
+- **FEN position loading** — `Game::from_fen`, `Board::from_piece_placement`, and `CastlingRights::from_fen` parse and validate a full FEN so `play` and `analyze` can start from arbitrary positions, with accompanying tests
+- **Localized engine output** — Added locale strings for the engine labels and the `analyze`, `bench`, and play-vs-engine flows across all eight languages
+- **Community health files** — Added `CONTRIBUTING.md`, `SECURITY.md`, a pull-request template, and structured GitHub issue forms (bug report, feature request) replacing the previous Markdown issue templates
+- **Engine test coverage** — Added tests for skill-level scaling, node-limit bounding, and a forced mate-in-two, plus opt-in nodes-per-second and node-count benchmark diagnostics
+
+### Changed
+
+- **Search engine overhaul** — Substantially strengthened the alpha-beta / PVS search:
+  - Full Static Exchange Evaluation (swap algorithm with x-ray and en-passant handling) replaces the previous optimistic capture heuristic, driving both capture ordering and pruning
+  - The transposition table gains generation-based aging, depth-preferred replacement, and a cached static evaluation, and is now probed and stored inside quiescence search
+  - Hard time and node limits are enforced inside the tree via `SearchLimits` / `search_limited`, discarding partial iterations, with per-iteration progress reported through a callback
+  - Added mate-distance pruning, reverse futility pruning, adaptive null-move pruning with a high-depth verification search, table-driven Late Move Reductions, Internal Iterative Reduction, and a corrected counter-move heuristic
+  - Quiescence search now resolves check evasions and applies per-capture delta pruning, SEE pruning, and transposition-table cutoffs
+  - History scores use a gravity-style update with maluses for quiet moves that failed before a cutoff
+- **Animated CLI welcome screen** — The welcome screen and terminal banner now reveal with a subtle animation and list the new `analyze` and `bench` commands
+- **Version metadata** — Bumped the Rust crate, WASM crate, npm package, web UI, desktop app, OpenAPI metadata, and VitePress version label to 0.8.0
+
 ## [0.7.0] - 2026-05-13
 
 ### Added
@@ -254,7 +279,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Game archiving with zstd compression
 - Web UI for browser-based game viewing
 
-[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/JosunLP/checkai/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/JosunLP/checkai/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/JosunLP/checkai/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/JosunLP/checkai/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/JosunLP/checkai/compare/v0.5.1...v0.5.2
