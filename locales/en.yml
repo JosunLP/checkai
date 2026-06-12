@@ -212,3 +212,52 @@ analysis.tablebase_failed: 'Failed to load Syzygy tablebase: %{error}'
 analysis.engine_config: 'Analysis engine: depth=%{depth}, TT=%{tt}MB'
 analysis.archive_load_failed: 'Failed to load archived game'
 analysis.archive_replay_failed: 'Failed to replay archived game'
+
+# ---------------------------------------------------------------------------
+# Engine output labels (analysis & live search progress)
+# ---------------------------------------------------------------------------
+engine.label_depth: 'depth'
+engine.label_score: 'score'
+engine.label_nodes: 'nodes'
+engine.label_nps: 'nps'
+engine.label_time: 'time'
+engine.label_pv: 'pv'
+
+# ---------------------------------------------------------------------------
+# Analyze command
+# ---------------------------------------------------------------------------
+analyze.header: 'Position Analysis'
+analyze.source: 'Position:'
+analyze.source_start: 'starting position'
+analyze.no_moves: 'No legal moves in this position — the game is over.'
+analyze.thinking: 'Analyzing…'
+analyze.best_move: 'Best move:'
+analyze.no_best_move: 'No move found.'
+analyze.evaluation: 'Evaluation:'
+analyze.to_move: 'to move'
+analyze.mate_for_side: 'Forced mate in %{n}!'
+analyze.mate_against_side: 'Mated in %{n}.'
+
+# ---------------------------------------------------------------------------
+# Bench command
+# ---------------------------------------------------------------------------
+bench.header: 'Engine Benchmark'
+bench.config: 'Configuration:'
+bench.config_value: 'depth %{depth}, transposition table %{tt} MB'
+bench.nodes: 'Nodes:'
+bench.qnodes: 'Quiescence nodes:'
+bench.time: 'Time:'
+bench.nps: 'Throughput:'
+bench.nps_unit: 'nodes/sec'
+
+# ---------------------------------------------------------------------------
+# Play vs engine
+# ---------------------------------------------------------------------------
+play.mode_engine_info: 'You play %{color} against the engine (level %{level}).'
+play.engine_thinking: 'Engine is thinking (level %{level})…'
+play.engine_plays: 'Engine plays:'
+
+# CLI command descriptions (engine commands)
+cli.cmd_analyze_desc: 'Analyze a position with the engine'
+cli.cmd_bench_desc: 'Benchmark engine speed (nodes/sec)'
+cli.quickstart_analyze: 'Analyze the starting position'

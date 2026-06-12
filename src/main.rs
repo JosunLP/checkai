@@ -57,6 +57,7 @@
 pub mod analysis;
 pub mod analysis_api;
 pub mod api;
+pub mod cli;
 pub mod eval;
 pub mod export;
 pub mod game;
@@ -68,6 +69,7 @@ pub mod search;
 pub mod storage;
 pub mod tablebase;
 pub mod terminal;
+pub mod tui;
 pub mod types;
 pub mod update;
 pub mod ws;
@@ -248,8 +250,70 @@ Examples:\n\
         analysis_completed_ttl_secs: u64,
     },
 
-    /// Play a chess game in the terminal (two-player).
-    Play,
+    /// Play a chess game in the terminal (human vs human, or vs the engine).
+    #[command(after_help = "\
+Examples:\n\
+  checkai play                          Two-player local game\n\
+  checkai play --vs-engine              Play White against the engine\n\
+  checkai play --level 8 --color black  Play Black vs a strong engine\n\
+  checkai play --fen \"<FEN>\"             Start from a custom position")]
+    Play {
+        /// Play against the built-in engine instead of a second human.
+        #[arg(long)]
+        vs_engine: bool,
+
+        /// Engine skill level: 1 (weakest) to 10 (strongest). Implies --vs-engine.
+        #[arg(short, long)]
+        level: Option<u8>,
+
+        /// Side you control against the engine: "white" or "black".
+        #[arg(short, long, default_value = "white")]
+        color: String,
+
+        /// Start from a custom FEN position.
+        #[arg(long)]
+        fen: Option<String>,
+
+        /// Transposition table size in MB (engine mode).
+        #[arg(long, default_value_t = 64)]
+        tt_size_mb: usize,
+    },
+
+    /// Analyze a position with the engine, showing a live animated search.
+    #[command(after_help = "\
+Examples:\n\
+  checkai analyze                        Analyze the start position\n\
+  checkai analyze --fen \"<FEN>\"          Analyze a custom position\n\
+  checkai analyze --depth 24             Deeper fixed-depth search\n\
+  checkai analyze --move-time 5000       Search for 5 seconds")]
+    Analyze {
+        /// FEN of the position to analyze (defaults to the start position).
+        #[arg(long)]
+        fen: Option<String>,
+
+        /// Maximum search depth in plies.
+        #[arg(short, long, default_value_t = 18)]
+        depth: u32,
+
+        /// Per-move time budget in milliseconds (stops at depth or time).
+        #[arg(short = 't', long)]
+        move_time: Option<u64>,
+
+        /// Transposition table size in MB.
+        #[arg(long, default_value_t = 64)]
+        tt_size_mb: usize,
+    },
+
+    /// Benchmark the engine's nodes-per-second from the start position.
+    Bench {
+        /// Fixed search depth in plies.
+        #[arg(short, long, default_value_t = 12)]
+        depth: u32,
+
+        /// Transposition table size in MB.
+        #[arg(long, default_value_t = 64)]
+        tt_size_mb: usize,
+    },
 
     /// Export archived games in various formats.
     #[command(after_help = "\
@@ -355,10 +419,48 @@ async fn main() -> std::io::Result<()> {
             })
             .await
         }
-        Some(Commands::Play) => {
+        Some(Commands::Play {
+            vs_engine,
+            level,
+            color,
+            fen,
+            tt_size_mb,
+        }) => {
             update::check_for_updates().await;
-            terminal::run_terminal_game();
+
+            let human_color = match color.to_lowercase().as_str() {
+                "black" | "b" => crate::types::Color::Black,
+                _ => crate::types::Color::White,
+            };
+
+            let start_game = match fen {
+                Some(f) => crate::game::Game::from_fen(&f)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, e))?,
+                None => crate::game::Game::new(),
+            };
+
+            let cfg = terminal::TerminalConfig {
+                vs_engine: vs_engine || level.is_some(),
+                human_color,
+                level: level.unwrap_or(6).clamp(1, crate::search::MAX_SKILL_LEVEL),
+                tt_size_mb,
+                start_game,
+            };
+            terminal::run_game(cfg);
             Ok(())
+        }
+        Some(Commands::Analyze {
+            fen,
+            depth,
+            move_time,
+            tt_size_mb,
+        }) => {
+            update::check_for_updates().await;
+            cli::run_analyze(fen.as_deref(), depth, move_time, tt_size_mb)
+                .map_err(std::io::Error::other)
+        }
+        Some(Commands::Bench { depth, tt_size_mb }) => {
+            cli::run_bench(depth, tt_size_mb).map_err(std::io::Error::other)
         }
         Some(Commands::Export {
             data_dir,
@@ -394,22 +496,14 @@ async fn main() -> std::io::Result<()> {
     }
 }
 
-/// Prints a branded welcome screen when no subcommand is given.
+/// Prints a branded, animated welcome screen when no subcommand is given.
 fn print_welcome() {
     let version = update::version();
     let locale = rust_i18n::locale().to_string();
 
-    println!();
-    println!(
-        "{}",
-        "╔═══════════════════════════════════════════════════╗".cyan()
-    );
-    println!(
-        "{}",
-        "║                                                   ║".cyan()
-    );
-    println!(
-        "{}",
+    let banner = vec![
+        "╔═══════════════════════════════════════════════════╗".to_string(),
+        "║                                                   ║".to_string(),
         format!(
             "║   {} v{}{}║",
             t!("cli.welcome_header"),
@@ -417,17 +511,13 @@ fn print_welcome() {
             " ".repeat(
                 46usize.saturating_sub(t!("cli.welcome_header").chars().count() + version.len()),
             )
-        )
-        .cyan()
-    );
-    println!(
-        "{}",
-        "║                                                   ║".cyan()
-    );
-    println!(
-        "{}",
-        "╚═══════════════════════════════════════════════════╝".cyan()
-    );
+        ),
+        "║                                                   ║".to_string(),
+        "╚═══════════════════════════════════════════════════╝".to_string(),
+    ];
+
+    println!();
+    tui::animated_banner(&banner, |line| line.cyan().bold().to_string());
     println!();
     println!(
         "  {} {}     {} {}",
@@ -437,46 +527,41 @@ fn print_welcome() {
         locale
     );
     println!();
+
     println!("{}", t!("cli.commands_header").to_string().yellow().bold());
-    println!(
-        "  {}     {}",
-        "serve".green().bold(),
-        t!("cli.cmd_serve_desc")
-    );
-    println!(
-        "  {}      {}",
-        "play".green().bold(),
-        t!("cli.cmd_play_desc")
-    );
-    println!(
-        "  {}    {}",
-        "export".green().bold(),
-        t!("cli.cmd_export_desc")
-    );
-    println!(
-        "  {}    {}",
-        "update".green().bold(),
-        t!("cli.cmd_update_desc")
-    );
-    println!(
-        "  {}   {}",
-        "version".green().bold(),
-        t!("cli.cmd_version_desc")
-    );
+    let commands = [
+        ("serve", t!("cli.cmd_serve_desc")),
+        ("play", t!("cli.cmd_play_desc")),
+        ("analyze", t!("cli.cmd_analyze_desc")),
+        ("bench", t!("cli.cmd_bench_desc")),
+        ("export", t!("cli.cmd_export_desc")),
+        ("update", t!("cli.cmd_update_desc")),
+        ("version", t!("cli.cmd_version_desc")),
+    ];
+    for (name, desc) in commands {
+        let padded = format!("{name:<9}");
+        println!("  {} {}", padded.green().bold(), desc);
+    }
     println!();
+
     println!(
         "{}",
         t!("cli.quickstart_header").to_string().yellow().bold()
     );
     println!(
         "  {}  {}",
-        "$ checkai serve".dimmed(),
-        t!("cli.quickstart_serve")
+        "$ checkai play --vs-engine".dimmed(),
+        t!("cli.quickstart_play")
     );
     println!(
         "  {}  {}",
-        "$ checkai play".dimmed(),
-        t!("cli.quickstart_play")
+        "$ checkai analyze".dimmed(),
+        t!("cli.quickstart_analyze")
+    );
+    println!(
+        "  {}  {}",
+        "$ checkai serve".dimmed(),
+        t!("cli.quickstart_serve")
     );
     println!(
         "  {}  {}",

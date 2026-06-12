@@ -212,3 +212,52 @@ analysis.tablebase_failed: 'Falha ao carregar tablebase Syzygy: %{error}'
 analysis.engine_config: 'Motor de análise: profundidade=%{depth}, TT=%{tt}MB'
 analysis.archive_load_failed: 'Falha ao carregar partida arquivada'
 analysis.archive_replay_failed: 'Falha ao reproduzir partida arquivada'
+
+# ---------------------------------------------------------------------------
+# Saída do motor (análise e progresso da busca)
+# ---------------------------------------------------------------------------
+engine.label_depth: 'profundidade'
+engine.label_score: 'pontuação'
+engine.label_nodes: 'nós'
+engine.label_nps: 'n/s'
+engine.label_time: 'tempo'
+engine.label_pv: 'variante'
+
+# ---------------------------------------------------------------------------
+# Comando analyze
+# ---------------------------------------------------------------------------
+analyze.header: 'Análise da posição'
+analyze.source: 'Posição:'
+analyze.source_start: 'posição inicial'
+analyze.no_moves: 'Nenhum lance legal nesta posição — a partida terminou.'
+analyze.thinking: 'Analisando…'
+analyze.best_move: 'Melhor lance:'
+analyze.no_best_move: 'Nenhum lance encontrado.'
+analyze.evaluation: 'Avaliação:'
+analyze.to_move: 'no lance'
+analyze.mate_for_side: 'Mate forçado em %{n}!'
+analyze.mate_against_side: 'Levado ao mate em %{n}.'
+
+# ---------------------------------------------------------------------------
+# Comando bench
+# ---------------------------------------------------------------------------
+bench.header: 'Benchmark do motor'
+bench.config: 'Configuração:'
+bench.config_value: 'profundidade %{depth}, tabela de transposição %{tt} MB'
+bench.nodes: 'Nós:'
+bench.qnodes: 'Nós de quiescência:'
+bench.time: 'Tempo:'
+bench.nps: 'Taxa:'
+bench.nps_unit: 'nós/s'
+
+# ---------------------------------------------------------------------------
+# Jogar contra o motor
+# ---------------------------------------------------------------------------
+play.mode_engine_info: 'Você joga de %{color} contra o motor (nível %{level}).'
+play.engine_thinking: 'O motor está pensando (nível %{level})…'
+play.engine_plays: 'O motor joga:'
+
+# Descrições dos comandos CLI (comandos do motor)
+cli.cmd_analyze_desc: 'Analisar uma posição com o motor'
+cli.cmd_bench_desc: 'Medir a velocidade do motor (nós/s)'
+cli.quickstart_analyze: 'Analisar a posição inicial'

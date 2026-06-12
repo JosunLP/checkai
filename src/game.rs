@@ -123,6 +123,69 @@ impl Game {
         game
     }
 
+    /// Builds a game from a full FEN string, used as the starting position.
+    ///
+    /// Accepts the standard six-field FEN; the halfmove clock and fullmove
+    /// number default to `0` and `1` respectively when omitted. The resulting
+    /// game has an empty move history seeded with the parsed position.
+    ///
+    /// Returns an error for malformed FEN, an invalid side-to-move or en
+    /// passant square, or a position missing either king.
+    pub fn from_fen(fen: &str) -> Result<Self, String> {
+        let parts: Vec<&str> = fen.split_whitespace().collect();
+        if parts.len() < 4 {
+            return Err(format!(
+                "FEN must have at least 4 fields, found {}",
+                parts.len()
+            ));
+        }
+
+        let board = Board::from_piece_placement(parts[0])?;
+        let turn = match parts[1] {
+            "w" | "W" => Color::White,
+            "b" | "B" => Color::Black,
+            other => return Err(format!("Invalid side-to-move '{}'", other)),
+        };
+        let castling = CastlingRights::from_fen(parts[2]);
+        let en_passant = match parts[3] {
+            "-" => None,
+            sq => {
+                Some(Square::from_algebraic(sq).ok_or_else(|| {
+                    format!("Invalid en passant square '{}'", sq)
+                })?)
+            }
+        };
+        let halfmove_clock = parts.get(4).and_then(|s| s.parse().ok()).unwrap_or(0);
+        let fullmove_number = parts
+            .get(5)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(1)
+            .max(1);
+
+        if board.find_king(Color::White).is_none() || board.find_king(Color::Black).is_none() {
+            return Err("FEN position must contain both kings".to_string());
+        }
+
+        let initial_fen = board.to_position_fen(turn, &castling, en_passant);
+
+        Ok(Self {
+            id: Uuid::new_v4(),
+            board,
+            turn,
+            castling,
+            en_passant,
+            halfmove_clock,
+            fullmove_number,
+            position_history: vec![initial_fen],
+            move_history: Vec::new(),
+            result: None,
+            end_reason: None,
+            draw_offered_by: None,
+            start_timestamp: storage::unix_timestamp(),
+            end_timestamp: 0,
+        })
+    }
+
     /// Returns `true` if the game has ended (has a result).
     pub fn is_over(&self) -> bool {
         self.result.is_some()
@@ -320,7 +383,7 @@ impl Game {
     }
 
     /// Counts how many times the current position has occurred.
-    fn count_position_repetitions(&self) -> usize {
+    pub fn count_position_repetitions(&self) -> usize {
         if let Some(current) = self.position_history.last() {
             self.position_history
                 .iter()
@@ -328,6 +391,22 @@ impl Game {
                 .count()
         } else {
             0
+        }
+    }
+
+    /// Returns the draw-claim reason currently available to the side to move,
+    /// if any: `"threefold_repetition"` (position seen three or more times) or
+    /// `"fifty_move_rule"` (halfmove clock at 100+). Threefold takes priority.
+    ///
+    /// The returned string is the reason accepted by [`Game::process_action`]
+    /// with action `"claim_draw"`.
+    pub fn available_draw_claim(&self) -> Option<&'static str> {
+        if self.count_position_repetitions() >= 3 {
+            Some("threefold_repetition")
+        } else if self.halfmove_clock >= 100 {
+            Some("fifty_move_rule")
+        } else {
+            None
         }
     }
 
@@ -669,6 +748,68 @@ mod tests {
             to: to.to_string(),
             promotion: Some(promo.to_string()),
         }
+    }
+
+    // -------------------------------------------------------------------
+    // FEN parsing tests
+    // -------------------------------------------------------------------
+
+    #[test]
+    fn test_from_fen_starting_position_matches_new() {
+        let from_fen =
+            Game::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").unwrap();
+        let fresh = Game::new();
+        assert_eq!(from_fen.board, fresh.board);
+        assert_eq!(from_fen.turn, fresh.turn);
+        assert_eq!(from_fen.castling, fresh.castling);
+        assert_eq!(from_fen.en_passant, fresh.en_passant);
+        assert_eq!(from_fen.fullmove_number, fresh.fullmove_number);
+    }
+
+    #[test]
+    fn test_from_fen_roundtrips_through_position_fen() {
+        let fen = "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 2 3";
+        let game = Game::from_fen(fen).unwrap();
+        // The position FEN (placement + turn + castling + ep) must round-trip.
+        let position_fen =
+            game.board
+                .to_position_fen(game.turn, &game.castling, game.en_passant);
+        assert_eq!(position_fen, "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -");
+        assert_eq!(game.halfmove_clock, 2);
+        assert_eq!(game.fullmove_number, 3);
+    }
+
+    #[test]
+    fn test_from_fen_parses_en_passant_and_side() {
+        let game =
+            Game::from_fen("rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3").unwrap();
+        assert_eq!(game.turn, Color::White);
+        assert_eq!(game.en_passant, Square::from_algebraic("d6"));
+    }
+
+    #[test]
+    fn test_from_fen_partial_fields_default_clocks() {
+        // Only the mandatory four fields; clocks should default.
+        let game = Game::from_fen("8/8/8/8/8/8/4k3/4K3 w - -").unwrap();
+        assert_eq!(game.halfmove_clock, 0);
+        assert_eq!(game.fullmove_number, 1);
+    }
+
+    #[test]
+    fn test_from_fen_rejects_malformed_input() {
+        assert!(Game::from_fen("not a fen").is_err());
+        assert!(Game::from_fen("8/8/8/8/8/8/8/8 w - - 0 1").is_err()); // no kings
+        assert!(Game::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1").is_err());
+    }
+
+    #[test]
+    fn test_from_fen_position_is_playable() {
+        // A parsed position must produce legal moves and accept them.
+        let mut game =
+            Game::from_fen("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 2 3")
+                .unwrap();
+        assert!(!game.legal_moves().is_empty());
+        assert!(game.make_move(&mv("g8", "f6")).is_ok());
     }
 
     // -------------------------------------------------------------------

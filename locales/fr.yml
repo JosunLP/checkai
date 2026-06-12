@@ -212,3 +212,52 @@ analysis.tablebase_failed: 'Échec du chargement de la tablebase Syzygy : %{erro
 analysis.engine_config: "Moteur d'analyse : profondeur=%{depth}, TT=%{tt}MB"
 analysis.archive_load_failed: 'Impossible de charger la partie archivée'
 analysis.archive_replay_failed: 'Impossible de rejouer la partie archivée'
+
+# ---------------------------------------------------------------------------
+# Sortie du moteur (analyse et progression de la recherche)
+# ---------------------------------------------------------------------------
+engine.label_depth: 'profondeur'
+engine.label_score: 'score'
+engine.label_nodes: 'nœuds'
+engine.label_nps: 'n/s'
+engine.label_time: 'temps'
+engine.label_pv: 'variante'
+
+# ---------------------------------------------------------------------------
+# Commande analyze
+# ---------------------------------------------------------------------------
+analyze.header: 'Analyse de la position'
+analyze.source: 'Position :'
+analyze.source_start: 'position initiale'
+analyze.no_moves: 'Aucun coup légal dans cette position — la partie est terminée.'
+analyze.thinking: 'Analyse en cours…'
+analyze.best_move: 'Meilleur coup :'
+analyze.no_best_move: 'Aucun coup trouvé.'
+analyze.evaluation: 'Évaluation :'
+analyze.to_move: 'au trait'
+analyze.mate_for_side: 'Mat forcé en %{n} !'
+analyze.mate_against_side: 'Maté en %{n}.'
+
+# ---------------------------------------------------------------------------
+# Commande bench
+# ---------------------------------------------------------------------------
+bench.header: 'Test de performance du moteur'
+bench.config: 'Configuration :'
+bench.config_value: 'profondeur %{depth}, table de transposition %{tt} Mo'
+bench.nodes: 'Nœuds :'
+bench.qnodes: 'Nœuds de quiescence :'
+bench.time: 'Temps :'
+bench.nps: 'Débit :'
+bench.nps_unit: 'nœuds/s'
+
+# ---------------------------------------------------------------------------
+# Jouer contre le moteur
+# ---------------------------------------------------------------------------
+play.mode_engine_info: 'Vous jouez les %{color} contre le moteur (niveau %{level}).'
+play.engine_thinking: 'Le moteur réfléchit (niveau %{level})…'
+play.engine_plays: 'Le moteur joue :'
+
+# Descriptions des commandes CLI (commandes du moteur)
+cli.cmd_analyze_desc: 'Analyser une position avec le moteur'
+cli.cmd_bench_desc: 'Mesurer la vitesse du moteur (nœuds/s)'
+cli.quickstart_analyze: 'Analyser la position initiale'

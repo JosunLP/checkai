@@ -12,8 +12,11 @@
 use colored::Colorize;
 use std::io::{self, Write};
 
+use crate::cli;
 use crate::game::Game;
 use crate::movegen;
+use crate::search::SearchLimits;
+use crate::tui;
 use crate::types::*;
 
 /// Renders the board to the terminal with colors and piece symbols.
@@ -270,33 +273,113 @@ pub fn print_history(game: &Game) {
     println!();
 }
 
-/// Runs the interactive terminal chess game.
-///
-/// Two players alternate entering moves via the terminal.
-/// The game continues until checkmate, stalemate, draw, or resignation.
-pub fn run_terminal_game() {
-    let version = crate::update::version();
+/// Configuration for an interactive terminal game.
+pub struct TerminalConfig {
+    /// Play against the built-in engine instead of a second human.
+    pub vs_engine: bool,
+    /// The side controlled by the human when facing the engine.
+    pub human_color: Color,
+    /// Engine skill level (`1` = weakest, [`crate::search::MAX_SKILL_LEVEL`] = strongest).
+    pub level: u8,
+    /// Transposition-table size in MB for the engine.
+    pub tt_size_mb: usize,
+    /// The position the game starts from.
+    pub start_game: Game,
+}
 
+impl Default for TerminalConfig {
+    fn default() -> Self {
+        Self {
+            vs_engine: false,
+            human_color: Color::White,
+            level: 6,
+            tt_size_mb: 64,
+            start_game: Game::new(),
+        }
+    }
+}
+
+/// Runs the default two-player terminal game from the start position.
+///
+/// Two players alternate entering moves via the terminal. The game continues
+/// until checkmate, stalemate, draw, or resignation.
+pub fn run_terminal_game() {
+    run_game(TerminalConfig::default());
+}
+
+/// Prints the animated CheckAI terminal banner.
+fn print_banner() {
+    let version = crate::update::version();
     let border = "═══════════════════════════════════════";
     let inner_width = border.chars().count();
-
     let title = t!("terminal.banner_title").to_string();
-    let subtitle_content = format!("     {}    v{}", t!("terminal.banner_subtitle"), version);
+    let subtitle = format!("     {}    v{}", t!("terminal.banner_subtitle"), version);
+
+    let lines = vec![
+        format!("\u{2554}{border}\u{2557}"),
+        format!("\u{2551}{title:^inner_width$}\u{2551}"),
+        format!("\u{2551}{subtitle:<inner_width$}\u{2551}"),
+        format!("\u{255A}{border}\u{255D}"),
+    ];
 
     println!();
-    println!("{}", format!("\u{2554}{}\u{2557}", border).cyan());
-    println!(
-        "{}",
-        format!("\u{2551}{:^inner_width$}\u{2551}", title).cyan()
-    );
-    println!(
-        "{}",
-        format!("\u{2551}{:<inner_width$}\u{2551}", subtitle_content).cyan()
-    );
-    println!("{}", format!("\u{255A}{}\u{255D}", border).cyan());
+    tui::animated_banner(&lines, |line| line.cyan().bold().to_string());
     println!();
+}
 
-    let mut game = Game::new();
+/// Computes and plays the engine's move, streaming a live animated search
+/// display and then announcing the chosen move and its evaluation.
+fn engine_take_turn(game: &mut Game, level: u8, tt_size_mb: usize) {
+    println!();
+    println!("  {}", t!("play.engine_thinking", level = level).cyan().bold());
+
+    let limits = SearchLimits::for_level(level);
+    let result = cli::think(game, &limits, tt_size_mb);
+
+    let Some(mv) = result.best_move else {
+        // No legal move; the main loop will detect and report the result.
+        return;
+    };
+
+    let description = cli::pretty_move(game, &mv);
+    match game.make_move(&cli::move_to_json(&mv)) {
+        Ok(()) => {
+            let mate = crate::search::score_to_mate_in(result.score);
+            println!(
+                "  {} {}   {} {}",
+                t!("play.engine_plays").green().bold(),
+                description.green().bold(),
+                t!("engine.label_score"),
+                tui::colorize_score(result.score, mate),
+            );
+            print_board(game);
+            print_status(game);
+        }
+        Err(e) => {
+            println!("  {}: {}", t!("terminal.error_label").red().bold(), e);
+        }
+    }
+}
+
+/// Runs an interactive terminal game under the given [`TerminalConfig`],
+/// supporting both human-vs-human and human-vs-engine play.
+pub fn run_game(config: TerminalConfig) {
+    print_banner();
+
+    if config.vs_engine {
+        println!(
+            "  {}",
+            t!(
+                "play.mode_engine_info",
+                color = config.human_color.to_string(),
+                level = config.level
+            )
+            .yellow()
+        );
+        println!();
+    }
+
+    let mut game = config.start_game;
 
     print_help();
     print_board(&game);
@@ -306,6 +389,12 @@ pub fn run_terminal_game() {
         if game.is_over() {
             print_game_result(&game);
             break;
+        }
+
+        // Engine's turn (human-vs-engine mode only).
+        if config.vs_engine && game.turn != config.human_color {
+            engine_take_turn(&mut game, config.level, config.tt_size_mb);
+            continue;
         }
 
         let turn_prompt = match game.turn {
@@ -377,61 +466,35 @@ pub fn run_terminal_game() {
                 }
             }
             "draw" | "d" => {
-                // Try to claim a draw
-                let can_claim_repetition = game
-                    .position_history
-                    .iter()
-                    .filter(|p| *p == game.position_history.last().unwrap())
-                    .count()
-                    >= 3;
-
-                let can_claim_fifty = game.halfmove_clock >= 100;
-
-                if can_claim_repetition {
-                    let action = ActionJson {
-                        action: "claim_draw".to_string(),
-                        reason: Some("threefold_repetition".to_string()),
-                    };
-                    match game.process_action(&action) {
-                        Ok(()) => {
-                            print_game_result(&game);
-                            break;
+                // Claim a draw if one is currently available (threefold or 50-move).
+                match game.available_draw_claim() {
+                    Some(reason) => {
+                        let action = ActionJson {
+                            action: "claim_draw".to_string(),
+                            reason: Some(reason.to_string()),
+                        };
+                        match game.process_action(&action) {
+                            Ok(()) => {
+                                print_game_result(&game);
+                                break;
+                            }
+                            Err(e) => println!(
+                                "{}: {}",
+                                t!("terminal.error_label").to_string().red().bold(),
+                                e
+                            ),
                         }
-                        Err(e) => println!(
-                            "{}: {}",
-                            t!("terminal.error_label").to_string().red().bold(),
-                            e
-                        ),
                     }
-                } else if can_claim_fifty {
-                    let action = ActionJson {
-                        action: "claim_draw".to_string(),
-                        reason: Some("fifty_move_rule".to_string()),
-                    };
-                    match game.process_action(&action) {
-                        Ok(()) => {
-                            print_game_result(&game);
-                            break;
-                        }
-                        Err(e) => println!(
-                            "{}: {}",
-                            t!("terminal.error_label").to_string().red().bold(),
-                            e
-                        ),
+                    None => {
+                        println!(
+                            "{}",
+                            t!(
+                                "terminal.no_draw_available",
+                                clock = game.halfmove_clock,
+                                reps = game.count_position_repetitions()
+                            )
+                        );
                     }
-                } else {
-                    println!(
-                        "{}",
-                        t!(
-                            "terminal.no_draw_available",
-                            clock = game.halfmove_clock,
-                            reps = game
-                                .position_history
-                                .iter()
-                                .filter(|p| *p == game.position_history.last().unwrap())
-                                .count()
-                        )
-                    );
                 }
             }
             "history" => {

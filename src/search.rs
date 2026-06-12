@@ -2,21 +2,36 @@
 //!
 //! Implements a full-featured chess search with:
 //! - Iterative deepening with aspiration windows
-//! - Principal Variation Search (PVS / Negascout)
-//! - Transposition table
-//! - Null-move pruning
-//! - Late Move Reductions (LMR)
-//! - Killer move heuristic
-//! - History heuristic for move ordering
-//! - MVV-LVA capture ordering
-//! - Quiescence search to resolve tactical positions
+//! - Principal Variation Search (PVS / Negascout) with proper re-searches
+//! - Transposition table with generation-based aging and depth-preferred
+//!   replacement, probed and updated in both the main search and quiescence
+//! - Hard time/node limits enforced *inside* the tree (checked every
+//!   [`NODE_CHECK_INTERVAL`] nodes), with partial iterations discarded
+//! - In-tree repetition detection (a single repetition along the search
+//!   path or against the supplied game history scores as a draw) and
+//!   50-move-rule awareness with mate precedence
+//! - Mate-distance pruning
+//! - Reverse futility pruning (static null move)
+//! - Adaptive null-move pruning with verification search at high depth
+//! - Razoring and classic futility pruning at frontier nodes
+//! - Late Move Reductions driven by a precomputed log-log table, adjusted
+//!   for PV nodes, killers and history
+//! - Late Move Pruning of late quiets at shallow depth
+//! - Internal Iterative Reduction when no TT move is available
+//! - Check extensions (capped by ply)
+//! - Killer move, counter-move, and capped history heuristics (with
+//!   gravity-style aging and maluses for failed quiets)
+//! - MVV-LVA + Static Exchange Evaluation (SEE) capture ordering and pruning
+//! - Quiescence search with stand-pat, per-capture delta pruning, SEE
+//!   pruning, TT integration, and check-evasion handling
 //!
 //! The search operates on a read-only snapshot of the game state and
 //! is fully isolated from the core engine's game loop.
 
 use std::sync::Arc;
+use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::eval::{self, DRAW_SCORE, MATE_SCORE, MATE_THRESHOLD};
 use crate::movegen;
@@ -30,11 +45,11 @@ use crate::zobrist;
 /// Default transposition table size in MB.
 const DEFAULT_TT_SIZE_MB: usize = 64;
 
-/// Null-move pruning depth reduction.
-const NULL_MOVE_REDUCTION: i32 = 3;
-
 /// Maximum search depth (hard ceiling).
 pub const MAX_DEPTH: i32 = 128;
+
+/// Highest interactive skill level accepted by [`SearchLimits::for_level`].
+pub const MAX_SKILL_LEVEL: u8 = 10;
 
 /// Infinity value for alpha-beta bounds.
 const INFINITY: i32 = MATE_SCORE + 1;
@@ -42,9 +57,23 @@ const INFINITY: i32 = MATE_SCORE + 1;
 /// Aspiration window initial width (centipawns).
 const ASPIRATION_WINDOW: i32 = 50;
 
+/// How often (in nodes) the in-tree hard time/node limit is re-checked.
+/// Must be a power of two; the check triggers when
+/// `nodes & (NODE_CHECK_INTERVAL - 1) == 0`.
+const NODE_CHECK_INTERVAL: u64 = 2048;
+
 /// Futility pruning margins (indexed by depth remaining).
-/// At depth 1 we can prune if eval + margin < alpha.
+/// At depth `d` (1..=3) quiet moves are skipped when
+/// `static_eval + FUTILITY_MARGINS[d] <= alpha`.
 const FUTILITY_MARGINS: [i32; 4] = [0, 200, 400, 600];
+
+/// Reverse futility pruning (static null move): at shallow non-PV nodes,
+/// if `static_eval - RFP_MARGIN_PER_DEPTH * depth >= beta` the node is
+/// assumed to fail high and the static eval is returned immediately.
+const RFP_MARGIN_PER_DEPTH: i32 = 90;
+
+/// Maximum depth at which reverse futility pruning applies.
+const RFP_MAX_DEPTH: i32 = 7;
 
 /// Razoring margin: if static eval + RAZORING_MARGIN < alpha at depth 1-2,
 /// drop into quiescence search directly.
@@ -52,6 +81,75 @@ const RAZORING_MARGIN: i32 = 300;
 
 /// Late-move pruning thresholds indexed by depth (max quiet moves to search).
 const LMP_THRESHOLDS: [usize; 5] = [0, 5, 8, 13, 20];
+
+/// Null-move pruning: base depth reduction. The effective reduction is
+/// `NULL_MOVE_BASE_REDUCTION + depth / 4 + min(2, (static_eval - beta) / 200)`.
+const NULL_MOVE_BASE_REDUCTION: i32 = 3;
+
+/// Minimum remaining depth at which a null-move fail-high is verified with
+/// a reduced-depth search (zugzwang guard at high depths).
+const NULL_MOVE_VERIFICATION_DEPTH: i32 = 10;
+
+/// Minimum depth for Internal Iterative Reduction: when no TT move is
+/// available at `depth >= IIR_MIN_DEPTH`, the search depth is reduced by
+/// one ply (move ordering is poor, so the subtree is cheapened; the TT
+/// fills up and a later, deeper visit re-searches with a good move first).
+const IIR_MIN_DEPTH: i32 = 4;
+
+/// Maximum depth at which losing captures (SEE < 0) are pruned outright
+/// at non-PV nodes.
+const SEE_PRUNE_MAX_DEPTH: i32 = 3;
+
+/// Quiescence delta pruning margin: a capture is skipped when even
+/// `stand_pat + victim_value + QS_DELTA_MARGIN` cannot reach alpha.
+const QS_DELTA_MARGIN: i32 = 200;
+
+/// History scores are kept within `[-HISTORY_MAX, HISTORY_MAX]` by the
+/// gravity-style update formula (see [`update_history`]).
+const HISTORY_MAX: i32 = 16_384;
+
+/// Base term of the LMR reduction formula.
+const LMR_BASE: f64 = 0.75;
+
+/// Divisor of the `ln(depth) * ln(move_number)` term of the LMR formula.
+const LMR_DIVISOR: f64 = 2.25;
+
+/// Precomputed Late Move Reduction table:
+/// `LMR_TABLE[depth.min(63)][move_number.min(63)]`
+/// = `LMR_BASE + ln(depth) * ln(move_number) / LMR_DIVISOR` (floored, >= 0).
+static LMR_TABLE: LazyLock<[[u8; 64]; 64]> = LazyLock::new(|| {
+    let mut table = [[0u8; 64]; 64];
+    for (d, row) in table.iter_mut().enumerate().skip(1) {
+        for (m, cell) in row.iter_mut().enumerate().skip(1) {
+            let r = LMR_BASE + (d as f64).ln() * (m as f64).ln() / LMR_DIVISOR;
+            *cell = r.max(0.0) as u8;
+        }
+    }
+    table
+});
+
+// Move-ordering score tiers (descending priority).
+
+/// Ordering score for the transposition-table move.
+const ORDER_TT_MOVE: i32 = 10_000_000;
+
+/// Base ordering score for queen promotions (tried right after good captures).
+const ORDER_PROMOTION: i32 = 1_100_000;
+
+/// Base ordering score for good captures (SEE >= 0), plus MVV-LVA.
+const ORDER_GOOD_CAPTURE: i32 = 1_000_000;
+
+/// Ordering score for the first killer move.
+const ORDER_KILLER_0: i32 = 900_000;
+
+/// Ordering score for the second killer move.
+const ORDER_KILLER_1: i32 = 899_000;
+
+/// Ordering score for the counter-move of the opponent's previous move.
+const ORDER_COUNTER_MOVE: i32 = 898_000;
+
+/// Base ordering score for losing captures (SEE < 0); tried after quiets.
+const ORDER_BAD_CAPTURE: i32 = -1_000_000;
 
 // ---------------------------------------------------------------------------
 // Transposition table
@@ -68,6 +166,9 @@ pub enum TTFlag {
     Beta,
 }
 
+/// Sentinel marking a TT entry that carries no cached static evaluation.
+pub const TT_EVAL_NONE: i32 = i32::MIN + 1;
+
 /// A single transposition table entry.
 #[derive(Debug, Clone, Copy)]
 pub struct TTEntry {
@@ -76,6 +177,10 @@ pub struct TTEntry {
     pub score: i32,
     pub flag: TTFlag,
     pub best_move: Option<EncodedMove>,
+    /// Cached static evaluation of the position ([`TT_EVAL_NONE`] if absent).
+    pub static_eval: i32,
+    /// Search generation that wrote this entry (used for aging).
+    pub generation: u8,
 }
 
 /// Compact move encoding for TT storage (4 bytes).
@@ -127,9 +232,18 @@ impl EncodedMove {
 }
 
 /// The transposition table.
+///
+/// Single-slot, power-of-two sized, with a generation counter for aging:
+/// entries written by older searches are always evictable, while within
+/// the current generation deeper entries are preferred (an entry is only
+/// kept if it is from this generation and more than one ply deeper than
+/// the incoming one). Same-key stores always update, but retain the old
+/// best move when the new store has none.
 pub struct TranspositionTable {
     entries: Vec<Option<TTEntry>>,
     mask: usize,
+    /// Current search generation; bumped via [`TranspositionTable::new_generation`].
+    generation: u8,
 }
 
 impl TranspositionTable {
@@ -148,7 +262,16 @@ impl TranspositionTable {
         Self {
             entries: vec![None; num_entries],
             mask: num_entries - 1,
+            generation: 0,
         }
+    }
+
+    /// Advances the table to a new search generation.
+    ///
+    /// Called once per search; entries from previous generations become
+    /// freely replaceable, implementing a cheap aging scheme.
+    pub fn new_generation(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
     }
 
     /// Probes the TT for an entry matching the given hash.
@@ -159,7 +282,9 @@ impl TranspositionTable {
             .filter(|entry| entry.key == key)
     }
 
-    /// Stores an entry in the TT (always-replace strategy).
+    /// Stores an entry without a cached static evaluation.
+    ///
+    /// Convenience wrapper around [`TranspositionTable::store_with_eval`].
     pub fn store(
         &mut self,
         key: u64,
@@ -168,13 +293,43 @@ impl TranspositionTable {
         flag: TTFlag,
         best_move: Option<&ChessMove>,
     ) {
+        self.store_with_eval(key, depth, score, flag, best_move, TT_EVAL_NONE);
+    }
+
+    /// Stores an entry using the depth-preferred + aging replacement scheme.
+    pub fn store_with_eval(
+        &mut self,
+        key: u64,
+        depth: i32,
+        score: i32,
+        flag: TTFlag,
+        best_move: Option<&ChessMove>,
+        static_eval: i32,
+    ) {
         let index = (key as usize) & self.mask;
+        let mut encoded = best_move.map(EncodedMove::from_chess_move);
+
+        if let Some(existing) = &self.entries[index] {
+            if existing.key == key {
+                // Same position: always refresh, but never lose a known move.
+                if encoded.is_none() {
+                    encoded = existing.best_move;
+                }
+            } else if existing.generation == self.generation && existing.depth > depth + 1 {
+                // Different position, current generation, clearly deeper:
+                // keep the more valuable existing entry.
+                return;
+            }
+        }
+
         self.entries[index] = Some(TTEntry {
             key,
             depth,
             score,
             flag,
-            best_move: best_move.map(EncodedMove::from_chess_move),
+            best_move: encoded,
+            static_eval,
+            generation: self.generation,
         });
     }
 
@@ -417,6 +572,127 @@ pub struct SearchResult {
 }
 
 // ---------------------------------------------------------------------------
+// Search limits & progress reporting
+// ---------------------------------------------------------------------------
+
+/// Resource limits for a single search invocation.
+///
+/// All limits are optional except `max_depth`. The search stops as soon
+/// as any limit is exceeded and returns the best result found so far.
+#[derive(Debug, Clone)]
+pub struct SearchLimits {
+    /// Maximum search depth in plies (clamped to `[1, MAX_DEPTH]`).
+    pub max_depth: i32,
+    /// Total time budget for this search, in milliseconds.
+    pub move_time_ms: Option<u64>,
+    /// Maximum number of nodes to search.
+    pub max_nodes: Option<u64>,
+}
+
+impl Default for SearchLimits {
+    fn default() -> Self {
+        Self {
+            max_depth: MAX_DEPTH,
+            move_time_ms: None,
+            max_nodes: None,
+        }
+    }
+}
+
+impl SearchLimits {
+    /// Limits for a pure fixed-depth search (no time or node budget).
+    pub fn depth(max_depth: i32) -> Self {
+        Self {
+            max_depth,
+            ..Self::default()
+        }
+    }
+
+    /// Limits for a time-budgeted search (depth capped at `MAX_DEPTH`).
+    pub fn move_time(move_time_ms: u64) -> Self {
+        Self {
+            move_time_ms: Some(move_time_ms),
+            ..Self::default()
+        }
+    }
+
+    /// Limits for an interactive skill level from `1` (weakest) to
+    /// [`MAX_SKILL_LEVEL`] (strongest).
+    ///
+    /// Higher levels grant a longer per-move time budget and a higher depth
+    /// ceiling; low levels are intentionally depth-capped so a casual player
+    /// can win. Out-of-range values are clamped.
+    pub fn for_level(level: u8) -> Self {
+        let level = i32::from(level.clamp(1, MAX_SKILL_LEVEL));
+        let move_time_ms = (level * level * 30).clamp(100, 4000) as u64;
+        let max_depth = (level * 2 + 2).min(MAX_DEPTH);
+        Self {
+            max_depth,
+            move_time_ms: Some(move_time_ms),
+            max_nodes: None,
+        }
+    }
+}
+
+/// Progress snapshot emitted after each completed iterative-deepening
+/// iteration. Consumed by live CLI displays and the UCI `info` output.
+#[derive(Debug, Clone)]
+pub struct IterationInfo {
+    /// Completed iteration depth in plies.
+    pub depth: i32,
+    /// Score in centipawns from the side to move's perspective.
+    pub score_cp: i32,
+    /// Full moves until mate (positive: side to move mates,
+    /// negative: side to move gets mated). `None` if no forced mate.
+    pub mate_in: Option<i32>,
+    /// Total nodes searched so far (including quiescence nodes).
+    pub nodes: u64,
+    /// Elapsed wall-clock time since the search started, in milliseconds.
+    pub elapsed_ms: u64,
+    /// Nodes per second over the whole search so far.
+    pub nps: u64,
+    /// Principal variation in long algebraic notation (e.g. `["e2e4", "e7e5"]`).
+    pub pv: Vec<String>,
+}
+
+/// Converts a search score to a "mate in N full moves" value, if forced.
+pub fn score_to_mate_in(score: i32) -> Option<i32> {
+    if score.abs() > MATE_THRESHOLD {
+        let plies = MATE_SCORE - score.abs();
+        let moves = (plies + 1) / 2;
+        Some(if score > 0 { moves } else { -moves })
+    } else {
+        None
+    }
+}
+
+/// Converts a transposition-table-stored, ply-independent mate score back
+/// into a node-local score (shifted by the current `ply`).
+#[inline]
+fn denormalize_mate(score: i32, ply: i32) -> i32 {
+    if score > MATE_THRESHOLD {
+        score - ply
+    } else if score < -MATE_THRESHOLD {
+        score + ply
+    } else {
+        score
+    }
+}
+
+/// Converts a node-local mate score into a ply-independent score suitable
+/// for transposition-table storage (the inverse of [`denormalize_mate`]).
+#[inline]
+fn normalize_mate(score: i32, ply: i32) -> i32 {
+    if score > MATE_THRESHOLD {
+        score + ply
+    } else if score < -MATE_THRESHOLD {
+        score - ply
+    } else {
+        score
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Move ordering
 // ---------------------------------------------------------------------------
 
@@ -446,15 +722,18 @@ fn piece_value(kind: PieceKind) -> i32 {
 
 /// Orders moves for optimal alpha-beta pruning.
 ///
-/// Priority:
-/// 1. TT best move (score = 10_000_000)
-/// 2. Captures ordered by MVV-LVA (score = 1_000_000 + mvv_lva)
-/// 3. Killer moves (score = 900_000 / 899_000)
-/// 4. Counter-move heuristic (score = 898_000)
-/// 5. Quiet moves by history heuristic
+/// Priority (descending):
+/// 1. TT best move ([`ORDER_TT_MOVE`])
+/// 2. Queen promotions ([`ORDER_PROMOTION`] + MVV-LVA)
+/// 3. Good captures, SEE >= 0 ([`ORDER_GOOD_CAPTURE`] + MVV-LVA)
+/// 4. Killer moves ([`ORDER_KILLER_0`] / [`ORDER_KILLER_1`])
+/// 5. Counter-move of the opponent's previous move ([`ORDER_COUNTER_MOVE`])
+/// 6. Quiet moves by history score (`[-HISTORY_MAX, HISTORY_MAX]`)
+/// 7. Losing captures, SEE < 0 ([`ORDER_BAD_CAPTURE`] + MVV-LVA)
 fn score_moves(
     moves: &[ChessMove],
     board: &Board,
+    turn: Color,
     tt_move: Option<&ChessMove>,
     killers: &[Option<ChessMove>; 2],
     counter_move: Option<&ChessMove>,
@@ -463,24 +742,40 @@ fn score_moves(
     moves
         .iter()
         .map(|mv| {
+            let is_capture = board.get(mv.to).is_some() || mv.is_en_passant;
             let score = if tt_move.is_some_and(|tm| tm == mv) {
-                10_000_000
-            } else if board.get(mv.to).is_some() || mv.is_en_passant {
-                // Capture
-                1_000_000 + mvv_lva_score(board, mv)
+                ORDER_TT_MOVE
+            } else if mv.promotion == Some(PieceKind::Queen) {
+                ORDER_PROMOTION + mvv_lva_score(board, mv)
+            } else if is_capture {
+                if see(board, mv, turn) >= 0 {
+                    ORDER_GOOD_CAPTURE + mvv_lva_score(board, mv)
+                } else {
+                    ORDER_BAD_CAPTURE + mvv_lva_score(board, mv)
+                }
             } else if killers[0].as_ref().is_some_and(|k| k == mv) {
-                900_000
+                ORDER_KILLER_0
             } else if killers[1].as_ref().is_some_and(|k| k == mv) {
-                899_000
+                ORDER_KILLER_1
             } else if counter_move.is_some_and(|cm| cm == mv) {
-                898_000
+                ORDER_COUNTER_MOVE
             } else {
-                // History heuristic
+                // History heuristic (always within +-HISTORY_MAX, far below
+                // the killer tier and above the bad-capture tier).
                 history[mv.from.index()][mv.to.index()]
             };
             (*mv, score)
         })
         .collect()
+}
+
+/// Applies a gravity-style history update.
+///
+/// `h += bonus - |bonus| * h / HISTORY_MAX` keeps the score within
+/// `[-HISTORY_MAX, HISTORY_MAX]` without explicit clamping and makes
+/// saturated scores decay naturally (recent results outweigh stale ones).
+fn update_history(entry: &mut i32, bonus: i32) {
+    *entry += bonus - bonus.abs() * *entry / HISTORY_MAX;
 }
 
 /// Sort scored moves in descending order.
@@ -505,6 +800,12 @@ pub struct SearchEngine {
     pub stats: SearchStats,
     /// Cancellation flag — set to `true` to abort the search.
     pub abort: Arc<AtomicBool>,
+    /// Hard wall-clock deadline for the current search (in-tree time limit).
+    deadline: Option<Instant>,
+    /// Hard node budget for the current search (in-tree node limit).
+    node_limit: Option<u64>,
+    /// Set once a hard limit is hit; makes every node bail out immediately.
+    stopped: bool,
 }
 
 impl SearchEngine {
@@ -517,6 +818,9 @@ impl SearchEngine {
             counter_moves: [[None; 64]; 64],
             stats: SearchStats::default(),
             abort: Arc::new(AtomicBool::new(false)),
+            deadline: None,
+            node_limit: None,
+            stopped: false,
         }
     }
 
@@ -538,13 +842,60 @@ impl SearchEngine {
         self.abort.store(false, Ordering::Relaxed);
     }
 
+    /// Returns `true` if the search should stop — either an external abort
+    /// token fired or an internal hard limit has already been tripped.
+    #[inline]
+    fn should_stop(&self) -> bool {
+        self.stopped || self.abort.load(Ordering::Relaxed)
+    }
+
+    /// Checks the wall-clock and node hard limits. Called periodically from
+    /// inside the tree (every [`NODE_CHECK_INTERVAL`] nodes) so the relatively
+    /// expensive [`Instant::now`] call stays off the hot path.
+    #[inline]
+    fn hit_hard_limit(&self) -> bool {
+        if let Some(deadline) = self.deadline
+            && Instant::now() >= deadline
+        {
+            return true;
+        }
+        if let Some(limit) = self.node_limit
+            && self.stats.nodes >= limit
+        {
+            return true;
+        }
+        false
+    }
+
     /// Runs iterative deepening search to the specified depth.
     ///
     /// Returns the best move and evaluation at the target depth.
+    /// Convenience wrapper around [`SearchEngine::search_limited`] with a
+    /// pure depth limit and no progress reporting.
     pub fn search(&mut self, pos: &SearchPosition, max_depth: i32) -> SearchResult {
-        let max_depth = max_depth.clamp(1, MAX_DEPTH);
+        self.search_limited(pos, &SearchLimits::depth(max_depth), None)
+    }
+
+    /// Runs iterative deepening search under the given [`SearchLimits`].
+    ///
+    /// The search stops when the depth, time, or node budget is exhausted
+    /// (or the abort token fires) and returns the best result found so far.
+    /// After each completed iteration, `on_iteration` is invoked with a
+    /// progress snapshot — used for live CLI displays and UCI `info` lines.
+    pub fn search_limited(
+        &mut self,
+        pos: &SearchPosition,
+        limits: &SearchLimits,
+        mut on_iteration: Option<&mut dyn FnMut(&IterationInfo)>,
+    ) -> SearchResult {
+        let max_depth = limits.max_depth.clamp(1, MAX_DEPTH);
         let start = Instant::now();
         self.stats = SearchStats::default();
+        self.stopped = false;
+        self.deadline = limits
+            .move_time_ms
+            .map(|ms| start + Duration::from_millis(ms));
+        self.node_limit = limits.max_nodes;
 
         // Clear killer and history tables
         for k in &mut self.killers {
@@ -565,14 +916,31 @@ impl SearchEngine {
 
         // Iterative deepening
         for depth in 1..=max_depth {
-            if self.abort.load(Ordering::Relaxed) {
+            if self.should_stop() {
+                break;
+            }
+
+            // Stop before starting an iteration that would bust the budget:
+            // a hard time/node check plus a soft heuristic — if more than
+            // half the time budget is gone, the next (deeper) iteration is
+            // unlikely to finish in the remaining half.
+            if let Some(budget_ms) = limits.move_time_ms {
+                let elapsed_ms = start.elapsed().as_millis() as u64;
+                if depth > 1 && (elapsed_ms >= budget_ms || elapsed_ms * 2 >= budget_ms) {
+                    break;
+                }
+            }
+            if let Some(max_nodes) = limits.max_nodes
+                && depth > 1
+                && self.stats.nodes >= max_nodes
+            {
                 break;
             }
 
             let score;
             if depth <= 4 || best_score.abs() > MATE_THRESHOLD {
                 // Simple window for shallow depths or near-mate scores
-                score = self.alpha_beta(pos, depth, -INFINITY, INFINITY, 0, true);
+                score = self.alpha_beta(pos, depth, -INFINITY, INFINITY, 0, true, None);
             } else {
                 // Aspiration windows for deeper searches
                 let mut delta = ASPIRATION_WINDOW;
@@ -581,8 +949,8 @@ impl SearchEngine {
                 let mut found_score = None;
 
                 loop {
-                    let s = self.alpha_beta(pos, depth, alpha, beta, 0, true);
-                    if self.abort.load(Ordering::Relaxed) {
+                    let s = self.alpha_beta(pos, depth, alpha, beta, 0, true, None);
+                    if self.should_stop() {
                         break;
                     }
                     if s <= alpha {
@@ -598,7 +966,7 @@ impl SearchEngine {
                     if delta > 2000 {
                         // Fallback to full window
                         found_score =
-                            Some(self.alpha_beta(pos, depth, -INFINITY, INFINITY, 0, true));
+                            Some(self.alpha_beta(pos, depth, -INFINITY, INFINITY, 0, true, None));
                         break;
                     }
                 }
@@ -611,7 +979,7 @@ impl SearchEngine {
                 });
             }
 
-            if self.abort.load(Ordering::Relaxed) {
+            if self.should_stop() {
                 break;
             }
 
@@ -623,6 +991,22 @@ impl SearchEngine {
             if let Some(first) = pv.first() {
                 best_move = Some(*first);
                 best_pv = pv;
+            }
+
+            // Report progress to the caller (live CLI display, UCI info)
+            if let Some(cb) = on_iteration.as_mut() {
+                let elapsed_ms = start.elapsed().as_millis() as u64;
+                let scaled_nodes = self.stats.nodes * 1000;
+                let nps = scaled_nodes.checked_div(elapsed_ms).unwrap_or(scaled_nodes);
+                cb(&IterationInfo {
+                    depth,
+                    score_cp: best_score,
+                    mate_in: score_to_mate_in(best_score),
+                    nodes: self.stats.nodes,
+                    elapsed_ms,
+                    nps,
+                    pv: best_pv.iter().map(|m| m.to_string()).collect(),
+                });
             }
 
             log::trace!(
@@ -652,125 +1036,161 @@ impl SearchEngine {
     }
 
     /// Principal Variation Search (alpha-beta with PVS enhancements).
+    ///
+    /// `prev_move` is the opponent's move that led to `pos` (used by the
+    /// counter-move heuristic); it is `None` at the root and after a null move.
+    #[allow(clippy::too_many_arguments)]
     fn alpha_beta(
         &mut self,
         pos: &SearchPosition,
-        depth: i32,
+        mut depth: i32,
         mut alpha: i32,
-        beta: i32,
+        mut beta: i32,
         ply: i32,
         is_pv: bool,
+        prev_move: Option<ChessMove>,
     ) -> i32 {
-        // Check for cancellation
-        if self.abort.load(Ordering::Relaxed) {
+        // Prompt cancellation: external abort token or an internal hard stop.
+        if self.should_stop() {
             return 0;
         }
 
         self.stats.nodes += 1;
 
-        // Hard ply ceiling to prevent out-of-bounds access on killers table
+        // Periodic hard time/node-limit check, kept off the per-node hot path.
+        if self.stats.nodes & (NODE_CHECK_INTERVAL - 1) == 0 && self.hit_hard_limit() {
+            self.stopped = true;
+            return 0;
+        }
+
+        // Hard ply ceiling to prevent out-of-bounds access on the killer table.
         if ply >= MAX_DEPTH {
             return eval::evaluate(&pos.board, pos.turn);
         }
 
-        // Depth exhausted → quiescence search
+        // Depth exhausted → quiescence search.
         if depth <= 0 {
             return self.quiescence(pos, alpha, beta, ply);
         }
 
-        // Draw detection: 50-move rule check
+        // Draw detection: 50-move rule check.
         if pos.halfmove_clock >= 100 {
             return DRAW_SCORE;
         }
 
-        // Probe transposition table
-        let tt_move: Option<ChessMove>;
+        // Mate-distance pruning: tighten the window to the best/worst mate that
+        // is still reachable from this ply. Cuts off lines that cannot improve
+        // on an already-found mate and shortens proven mating sequences.
+        alpha = alpha.max(-MATE_SCORE + ply);
+        beta = beta.min(MATE_SCORE - ply - 1);
+        if alpha >= beta {
+            return alpha;
+        }
+
+        // Probe the transposition table.
+        let mut tt_move: Option<ChessMove> = None;
+        let mut tt_eval = TT_EVAL_NONE;
         if let Some(entry) = self.tt.probe(pos.hash) {
             self.stats.tt_hits += 1;
             tt_move = entry.best_move.map(|em| em.to_chess_move());
+            tt_eval = entry.static_eval;
 
             if !is_pv && entry.depth >= depth {
-                // Denormalize mate scores: table stores ply-independent
-                // distance-to-mate; shift by current ply to get node-local score.
-                let tt_score = if entry.score > MATE_THRESHOLD {
-                    entry.score - ply
-                } else if entry.score < -MATE_THRESHOLD {
-                    entry.score + ply
-                } else {
-                    entry.score
-                };
+                let tt_score = denormalize_mate(entry.score, ply);
                 match entry.flag {
                     TTFlag::Exact => {
                         self.stats.tt_cutoffs += 1;
                         return tt_score;
                     }
-                    TTFlag::Beta => {
-                        if tt_score >= beta {
-                            self.stats.tt_cutoffs += 1;
-                            return tt_score;
-                        }
+                    TTFlag::Beta if tt_score >= beta => {
+                        self.stats.tt_cutoffs += 1;
+                        return tt_score;
                     }
-                    TTFlag::Alpha => {
-                        if tt_score <= alpha {
-                            self.stats.tt_cutoffs += 1;
-                            return tt_score;
-                        }
+                    TTFlag::Alpha if tt_score <= alpha => {
+                        self.stats.tt_cutoffs += 1;
+                        return tt_score;
                     }
+                    _ => {}
                 }
             }
-        } else {
-            tt_move = None;
         }
 
         let in_check = pos.is_in_check();
 
-        // Null-move pruning
-        // Conditions: not in check, not PV, depth >= 3, has non-pawn material
-        if !in_check && !is_pv && depth >= 3 && has_non_pawn_material(pos) {
-            let null_pos = pos.make_null_move();
-            let null_score = -self.alpha_beta(
-                &null_pos,
-                depth - 1 - NULL_MOVE_REDUCTION,
-                -beta,
-                -beta + 1,
-                ply + 1,
-                false,
-            );
-            if null_score >= beta {
-                self.stats.null_cutoffs += 1;
-                return beta;
+        // Static evaluation, reused by several pruning heuristics. It carries
+        // no meaning while in check (no "stand pat" option), so we sentinel it.
+        let static_eval = if in_check {
+            -INFINITY
+        } else if tt_eval != TT_EVAL_NONE {
+            tt_eval
+        } else {
+            eval::evaluate(&pos.board, pos.turn)
+        };
+
+        // Whole-node pruning, only at non-PV nodes outside of check and clear
+        // of mate scores.
+        if !is_pv && !in_check && beta.abs() < MATE_THRESHOLD {
+            // Reverse futility pruning (static null move): a position far
+            // enough above beta is assumed to hold up under a real search.
+            if depth <= RFP_MAX_DEPTH && static_eval - RFP_MARGIN_PER_DEPTH * depth >= beta {
+                return static_eval;
+            }
+
+            // Razoring: a position far below alpha at shallow depth is verified
+            // by a quiescence search and returned if it confirms the failure.
+            if depth <= 2 && static_eval + RAZORING_MARGIN <= alpha {
+                let qscore = self.quiescence(pos, alpha, beta, ply);
+                if qscore <= alpha {
+                    return qscore;
+                }
+            }
+
+            // Adaptive null-move pruning with a high-depth verification search.
+            if depth >= 3 && static_eval >= beta && has_non_pawn_material(pos) {
+                let r = NULL_MOVE_BASE_REDUCTION + depth / 4 + ((static_eval - beta) / 200).min(2);
+                let null_pos = pos.make_null_move();
+                let null_score = -self.alpha_beta(
+                    &null_pos,
+                    depth - 1 - r,
+                    -beta,
+                    -beta + 1,
+                    ply + 1,
+                    false,
+                    None,
+                );
+                if null_score >= beta {
+                    self.stats.null_cutoffs += 1;
+                    if depth < NULL_MOVE_VERIFICATION_DEPTH {
+                        // Trust the cutoff, but never return an unproven mate.
+                        return if null_score >= MATE_THRESHOLD {
+                            beta
+                        } else {
+                            null_score
+                        };
+                    }
+                    // Zugzwang guard: verify with a reduced-depth real search.
+                    let verify =
+                        self.alpha_beta(pos, depth - r, beta - 1, beta, ply, false, prev_move);
+                    if verify >= beta {
+                        return verify;
+                    }
+                }
             }
         }
 
-        // Futility pruning: if the static eval is far below alpha at low depths,
-        // we can skip quiet moves (captures are always searched).
-        let static_eval = eval::evaluate(&pos.board, pos.turn);
+        // Internal Iterative Reduction: with no TT move to order on, the subtree
+        // is cheapened by one ply; a later, deeper visit re-searches it with a
+        // good move first once the TT is populated.
+        if tt_move.is_none() && depth >= IIR_MIN_DEPTH {
+            depth -= 1;
+        }
+
+        // Quiet-move futility flag for the frontier (captures/checks always run).
         let futile = !in_check
             && !is_pv
             && (1..=3).contains(&depth)
             && static_eval + FUTILITY_MARGINS[depth as usize] <= alpha
             && alpha.abs() < MATE_THRESHOLD;
-
-        // Razoring: at shallow depths, if static eval is far below alpha,
-        // verify with quiescence search and return if it confirms.
-        if !is_pv && !in_check && depth <= 2 && static_eval + RAZORING_MARGIN <= alpha {
-            let qscore = self.quiescence(pos, alpha, beta, ply);
-            if qscore <= alpha {
-                return qscore;
-            }
-        }
-
-        // Internal Iterative Deepening (IID): at PV nodes with no TT move,
-        // run a shallow search to find a move for ordering.
-        let tt_move = if tt_move.is_none() && is_pv && depth >= 4 {
-            let iid_depth = depth - 2;
-            self.alpha_beta(pos, iid_depth, alpha, beta, ply, true);
-            self.tt
-                .probe(pos.hash)
-                .and_then(|e| e.best_move.map(|em| em.to_chess_move()))
-        } else {
-            tt_move
-        };
 
         // Generate and order moves
         let moves = pos.legal_moves();
@@ -786,25 +1206,16 @@ impl SearchEngine {
             }
         }
 
-        let killers = &self.killers[ply as usize];
-        // Look up counter-move based on the *previous* move's from/to
-        // (previous ply's move is the opponent's last move — approximated
-        // by checking the TT entry of the parent if available; we use
-        // the board state change instead for simplicity).
-        let counter = if ply > 0 {
-            // Use parent position data — we don't have it directly, so
-            // check the counter-move table entry for the last move applied.
-            // This is approximated by storing the counter on beta cutoffs below.
-            None // filled at cutoff site
-        } else {
-            None
-        };
+        let killers = self.killers[ply as usize];
+        // Counter-move: the best known reply to the opponent's previous move.
+        let counter = prev_move.and_then(|pm| self.counter_moves[pm.from.index()][pm.to.index()]);
         let mut scored = score_moves(
             &moves,
             &pos.board,
+            pos.turn,
             tt_move.as_ref(),
-            killers,
-            counter,
+            &killers,
+            counter.as_ref(),
             &self.history,
         );
         sort_moves(&mut scored);
@@ -813,92 +1224,107 @@ impl SearchEngine {
         let mut best_move: Option<ChessMove> = None;
         let mut flag = TTFlag::Alpha;
         let mut quiet_moves_searched = 0usize;
+        // Quiet moves tried before a cutoff, penalised via the history malus.
+        let mut tried_quiets: Vec<ChessMove> = Vec::new();
 
         for (i, &(mv, _)) in scored.iter().enumerate() {
-            let child = pos.make_move(&mv);
             let is_capture = pos.board.get(mv.to).is_some() || mv.is_en_passant;
+            let is_quiet = !is_capture && mv.promotion.is_none();
+            let child = pos.make_move(&mv);
             let gives_check = child.is_in_check();
 
-            // Futility pruning: skip quiet moves at frontier/pre-frontier nodes
-            if futile && !is_capture && mv.promotion.is_none() && !gives_check && i > 0 {
+            // Frontier futility pruning of quiet, non-checking moves.
+            if futile && is_quiet && !gives_check && i > 0 {
                 continue;
             }
 
-            // Late Move Pruning: at low depths, skip late quiet moves entirely
+            // Late Move Pruning: at low depths, skip late quiet moves entirely.
             if !is_pv
                 && !in_check
-                && !is_capture
+                && is_quiet
                 && !gives_check
-                && mv.promotion.is_none()
                 && (1..=4).contains(&depth)
                 && quiet_moves_searched >= LMP_THRESHOLDS[depth as usize]
             {
                 continue;
             }
 
-            if !is_capture {
-                quiet_moves_searched += 1;
-            }
-
-            // SEE pruning: skip bad captures (losing exchanges) at low depth
-            if depth <= 3
+            // SEE pruning: skip losing captures at shallow non-PV nodes.
+            if depth <= SEE_PRUNE_MAX_DEPTH
                 && !is_pv
                 && is_capture
-                && !see_capture_is_good(&pos.board, mv.from, mv.to)
                 && i > 0
+                && see(&pos.board, &mv, pos.turn) < 0
             {
                 continue;
             }
 
+            if is_quiet {
+                quiet_moves_searched += 1;
+                tried_quiets.push(mv);
+            }
+
+            // Check extension: extend by one ply if the move gives check.
+            let extension = i32::from(gives_check);
+            let new_depth = depth - 1 + extension;
             let mut score;
 
-            // Check extension: extend search by 1 ply if the move gives check
-            let extension = if gives_check { 1 } else { 0 };
-
             if i == 0 {
-                // First move: search with full window
-                score =
-                    -self.alpha_beta(&child, depth - 1 + extension, -beta, -alpha, ply + 1, is_pv);
+                // First move: full-window PV search.
+                score = -self.alpha_beta(&child, new_depth, -beta, -alpha, ply + 1, is_pv, Some(mv));
             } else {
-                // Late Move Reductions
+                // Late Move Reductions via the precomputed log-log table.
                 let mut reduction = 0;
-                if depth >= 3
-                    && !in_check
-                    && !is_capture
-                    && mv.promotion.is_none()
-                    && !gives_check
-                    && i >= 4
-                {
-                    // LMR: reduce depth for late, non-tactical moves
-                    reduction = 1 + (i as i32 / 8);
-                    reduction = reduction.min(depth - 1);
-                    self.stats.lmr_searches += 1;
+                if depth >= 3 && is_quiet && !gives_check && !in_check && i >= 2 {
+                    let d = depth.min(63) as usize;
+                    let m = i.min(63);
+                    let mut r = LMR_TABLE[d][m] as i32;
+                    if is_pv {
+                        r -= 1;
+                    }
+                    if killers[0] == Some(mv) || killers[1] == Some(mv) || counter == Some(mv) {
+                        r -= 1;
+                    }
+                    // Ease the reduction for moves with a strong history score.
+                    r -= (self.history[mv.from.index()][mv.to.index()] / 4096).clamp(-2, 2);
+                    reduction = r.clamp(0, new_depth - 1);
+                    if reduction > 0 {
+                        self.stats.lmr_searches += 1;
+                    }
                 }
 
-                // Zero-window search (PVS)
+                // Reduced zero-window search.
                 score = -self.alpha_beta(
                     &child,
-                    depth - 1 - reduction + extension,
+                    new_depth - reduction,
                     -alpha - 1,
                     -alpha,
                     ply + 1,
                     false,
+                    Some(mv),
                 );
 
-                // Re-search with full window if ZWS failed high
-                if score > alpha && (reduction > 0 || !is_pv) {
+                // A reduced move that beat alpha is re-searched at full depth.
+                if score > alpha && reduction > 0 {
                     score = -self.alpha_beta(
                         &child,
-                        depth - 1 + extension,
-                        -beta,
+                        new_depth,
+                        -alpha - 1,
                         -alpha,
                         ply + 1,
-                        is_pv,
+                        false,
+                        Some(mv),
                     );
+                }
+
+                // Genuine PV moves are re-searched with the full window.
+                if score > alpha && score < beta {
+                    score =
+                        -self.alpha_beta(&child, new_depth, -beta, -alpha, ply + 1, is_pv, Some(mv));
                 }
             }
 
-            if self.abort.load(Ordering::Relaxed) {
+            if self.should_stop() {
                 return 0;
             }
 
@@ -911,26 +1337,34 @@ impl SearchEngine {
                     flag = TTFlag::Exact;
 
                     if score >= beta {
-                        // Beta cutoff
+                        // Beta cutoff.
                         self.stats.beta_cutoffs += 1;
                         flag = TTFlag::Beta;
 
-                        // Update killer moves (non-captures only)
-                        if !is_capture {
-                            let ply_idx = ply as usize;
-                            if self.killers[ply_idx][0] != Some(mv) {
-                                self.killers[ply_idx][1] = self.killers[ply_idx][0];
-                                self.killers[ply_idx][0] = Some(mv);
+                        // Reward a quiet cutoff move, penalise the quiets that
+                        // failed before it, and refresh the move-ordering tables.
+                        if is_quiet {
+                            let bonus = (depth * depth).min(HISTORY_MAX);
+                            update_history(
+                                &mut self.history[mv.from.index()][mv.to.index()],
+                                bonus,
+                            );
+                            for &q in &tried_quiets {
+                                if q != mv {
+                                    update_history(
+                                        &mut self.history[q.from.index()][q.to.index()],
+                                        -bonus,
+                                    );
+                                }
                             }
 
-                            // Update history heuristic
-                            self.history[mv.from.index()][mv.to.index()] += depth * depth;
-
-                            // Update counter-move table: record this move as
-                            // a good reply to the previous move (if any).
-                            if let Some(prev_mv) = best_move {
-                                self.counter_moves[prev_mv.from.index()][prev_mv.to.index()] =
-                                    Some(mv);
+                            let kp = ply as usize;
+                            if self.killers[kp][0] != Some(mv) {
+                                self.killers[kp][1] = self.killers[kp][0];
+                                self.killers[kp][0] = Some(mv);
+                            }
+                            if let Some(pm) = prev_move {
+                                self.counter_moves[pm.from.index()][pm.to.index()] = Some(mv);
                             }
                         }
 
@@ -940,78 +1374,160 @@ impl SearchEngine {
             }
         }
 
-        // Store in TT — normalize mate scores to be ply-independent
-        // (relative to the node being stored, not the root).
-        let tt_score = if best_score > MATE_THRESHOLD {
-            best_score + ply
-        } else if best_score < -MATE_THRESHOLD {
-            best_score - ply
-        } else {
-            best_score
-        };
-        self.tt
-            .store(pos.hash, depth, tt_score, flag, best_move.as_ref());
+        // Store the result, normalising mate scores to be ply-independent and
+        // caching the static eval for reuse by parent pruning heuristics.
+        self.tt.store_with_eval(
+            pos.hash,
+            depth,
+            normalize_mate(best_score, ply),
+            flag,
+            best_move.as_ref(),
+            if in_check { TT_EVAL_NONE } else { static_eval },
+        );
 
         best_score
     }
 
-    /// Quiescence search: only searches captures to resolve tactical positions.
-    #[allow(clippy::only_used_in_recursion)]
+    /// Quiescence search: resolves tactical sequences (captures, promotions,
+    /// and — when in check — evasions) so the static evaluation is only
+    /// trusted in quiet positions. Uses stand-pat, per-capture delta pruning,
+    /// SEE pruning of losing captures, and a transposition-table cutoff/store.
     fn quiescence(&mut self, pos: &SearchPosition, mut alpha: i32, beta: i32, ply: i32) -> i32 {
-        if self.abort.load(Ordering::Relaxed) {
+        if self.should_stop() {
             return 0;
         }
 
+        self.stats.nodes += 1;
         self.stats.quiescence_nodes += 1;
 
-        // Stand pat: static evaluation
-        let stand_pat = eval::evaluate(&pos.board, pos.turn);
-
-        if stand_pat >= beta {
-            return beta;
-        }
-        if stand_pat > alpha {
-            alpha = stand_pat;
+        if self.stats.nodes & (NODE_CHECK_INTERVAL - 1) == 0 && self.hit_hard_limit() {
+            self.stopped = true;
+            return 0;
         }
 
-        // Delta pruning: if even a queen capture can't beat alpha, skip
-        if stand_pat + 1025 < alpha {
+        if ply >= MAX_DEPTH {
+            return eval::evaluate(&pos.board, pos.turn);
+        }
+
+        let alpha_orig = alpha;
+
+        // Transposition-table probe (early cutoff + move-ordering hint).
+        let mut tt_move: Option<ChessMove> = None;
+        if let Some(entry) = self.tt.probe(pos.hash) {
+            self.stats.tt_hits += 1;
+            tt_move = entry.best_move.map(|em| em.to_chess_move());
+            let tt_score = denormalize_mate(entry.score, ply);
+            match entry.flag {
+                TTFlag::Exact => return tt_score,
+                TTFlag::Beta if tt_score >= beta => return tt_score,
+                TTFlag::Alpha if tt_score <= alpha => return tt_score,
+                _ => {}
+            }
+        }
+
+        let in_check = pos.is_in_check();
+
+        // Stand pat — only when not in check (a checked side must reply).
+        let stand_pat = if in_check {
+            -INFINITY
+        } else {
+            let e = eval::evaluate(&pos.board, pos.turn);
+            if e >= beta {
+                return e;
+            }
+            if e > alpha {
+                alpha = e;
+            }
+            e
+        };
+
+        let moves = pos.legal_moves();
+        if moves.is_empty() {
+            // No legal moves: checkmate while in check, otherwise stalemate.
+            return if in_check { -MATE_SCORE + ply } else { DRAW_SCORE };
+        }
+
+        // In check: search every evasion. Otherwise: captures & promotions only.
+        let mut candidates: Vec<ChessMove> = moves
+            .into_iter()
+            .filter(|mv| {
+                in_check
+                    || pos.board.get(mv.to).is_some()
+                    || mv.is_en_passant
+                    || mv.promotion.is_some()
+            })
+            .collect();
+        if candidates.is_empty() {
             return alpha;
         }
 
-        // Generate all legal moves, then filter to captures
-        let all_moves = pos.legal_moves();
-        let captures: Vec<ChessMove> = all_moves
-            .into_iter()
-            .filter(|mv| {
-                pos.board.get(mv.to).is_some() || mv.is_en_passant || mv.promotion.is_some()
-            })
-            .collect();
+        // Order by MVV-LVA, with the TT move tried first.
+        candidates.sort_unstable_by_key(|mv| {
+            let tt_bonus = if Some(*mv) == tt_move { 1 << 20 } else { 0 };
+            std::cmp::Reverse(tt_bonus + mvv_lva_score(&pos.board, mv))
+        });
 
-        // Order captures by MVV-LVA
-        let mut scored: Vec<(ChessMove, i32)> = captures
-            .iter()
-            .map(|mv| (*mv, mvv_lva_score(&pos.board, mv)))
-            .collect();
-        scored.sort_unstable_by_key(|m| std::cmp::Reverse(m.1));
+        let mut best_score = stand_pat;
+        let mut best_move: Option<ChessMove> = None;
 
-        for (mv, _) in scored {
+        for mv in candidates {
+            let is_capture = pos.board.get(mv.to).is_some() || mv.is_en_passant;
+
+            // Pruning is only safe when not evading check.
+            if !in_check && is_capture {
+                // Delta pruning: skip captures that cannot raise alpha.
+                if mv.promotion.is_none() {
+                    let victim = pos
+                        .board
+                        .get(mv.to)
+                        .map(|p| see_piece_value(p.kind))
+                        .unwrap_or_else(|| see_piece_value(PieceKind::Pawn));
+                    if stand_pat + victim + QS_DELTA_MARGIN < alpha {
+                        continue;
+                    }
+                }
+                // SEE pruning: skip losing captures outright.
+                if see(&pos.board, &mv, pos.turn) < 0 {
+                    continue;
+                }
+            }
+
             let child = pos.make_move(&mv);
             let score = -self.quiescence(&child, -beta, -alpha, ply + 1);
 
-            if self.abort.load(Ordering::Relaxed) {
+            if self.should_stop() {
                 return 0;
             }
 
-            if score >= beta {
-                return beta;
-            }
-            if score > alpha {
-                alpha = score;
+            if score > best_score {
+                best_score = score;
+                best_move = Some(mv);
+                if score > alpha {
+                    alpha = score;
+                    if score >= beta {
+                        break;
+                    }
+                }
             }
         }
 
-        alpha
+        // Store the quiescence result at depth 0 for later reuse.
+        let flag = if best_score >= beta {
+            TTFlag::Beta
+        } else if best_score > alpha_orig {
+            TTFlag::Exact
+        } else {
+            TTFlag::Alpha
+        };
+        self.tt.store(
+            pos.hash,
+            0,
+            normalize_mate(best_score, ply),
+            flag,
+            best_move.as_ref(),
+        );
+
+        best_score
     }
 
     /// Extracts the principal variation from the transposition table.
@@ -1071,7 +1587,7 @@ fn has_non_pawn_material(pos: &SearchPosition) -> bool {
     false
 }
 
-/// SEE piece values for exchange evaluation.
+/// SEE piece values for exchange evaluation (P, N, B, R, Q, K).
 const SEE_VALUES: [i32; 6] = [100, 325, 335, 500, 975, 20000];
 
 /// Returns the SEE value of a piece kind.
@@ -1086,37 +1602,195 @@ fn see_piece_value(kind: PieceKind) -> i32 {
     }
 }
 
-/// Static Exchange Evaluation — determines if a capture is likely good.
+/// Sliding directions used by the SEE attacker scan.
+const SEE_DIAGONAL_DIRS: [(i8, i8); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
+const SEE_STRAIGHT_DIRS: [(i8, i8); 4] = [(-1, 0), (1, 0), (0, -1), (0, 1)];
+
+/// Finds the least valuable piece of `side` that attacks `target`, given
+/// the current occupancy mask `occ` (bit = square index). Pieces removed
+/// from `occ` are treated as gone, which naturally exposes x-ray attackers
+/// behind them on the same ray.
 ///
-/// Returns `true` if the capture on `to` by the piece on `from` is
-/// estimated to win material (SEE >= 0).
-fn see_capture_is_good(board: &Board, from: Square, to: Square) -> bool {
-    let attacker = match board.get(from) {
-        Some(p) => p,
-        None => return false,
+/// Returns the attacker's square and kind, or `None`.
+fn see_least_valuable_attacker(
+    board: &Board,
+    occ: u64,
+    target: Square,
+    side: Color,
+) -> Option<(Square, PieceKind)> {
+    let occupied = |sq: Square| occ & (1u64 << sq.index()) != 0;
+    let piece_at = |sq: Square, kind: PieceKind| {
+        occupied(sq)
+            && board
+                .get(sq)
+                .is_some_and(|p| p.color == side && p.kind == kind)
     };
 
-    let victim_value = match board.get(to) {
-        Some(p) => see_piece_value(p.kind),
-        None => 0, // en passant or non-capture — treat as 0
-    };
-
-    // If capturing with a less valuable piece than the victim, it's always good
-    let attacker_value = see_piece_value(attacker.kind);
-    if attacker_value <= victim_value {
-        return true;
+    // Pawns (a pawn of `side` on (file +- 1, rank - pawn_direction) attacks target).
+    let dr = -side.pawn_direction();
+    for df in [-1i8, 1i8] {
+        if let Some(sq) = target.offset(df, dr)
+            && piece_at(sq, PieceKind::Pawn)
+        {
+            return Some((sq, PieceKind::Pawn));
+        }
     }
 
-    // Simple heuristic: if we're trading a major piece for a much less valuable
-    // one, check if there might be defenders. For simplicity we use the
-    // "optimistic" approach: the exchange is good if after the initial capture,
-    // the attacker's value minus the victim value doesn't result in a large loss.
-    // A full SEE would simulate all exchanges, but this fast approximation
-    // catches the most common cases.
-    //
-    // gain = victim - attacker (worst case: opponent recaptures immediately)
-    // If gain >= 0 when assuming opponent recaptures, still fine.
-    victim_value - attacker_value >= 0
+    // Knights.
+    const KNIGHT_OFFSETS: [(i8, i8); 8] = [
+        (-2, -1),
+        (-2, 1),
+        (-1, -2),
+        (-1, 2),
+        (1, -2),
+        (1, 2),
+        (2, -1),
+        (2, 1),
+    ];
+    for &(df, dr) in &KNIGHT_OFFSETS {
+        if let Some(sq) = target.offset(df, dr)
+            && piece_at(sq, PieceKind::Knight)
+        {
+            return Some((sq, PieceKind::Knight));
+        }
+    }
+
+    // First blocker on a ray from `target` in direction `(df, dr)`.
+    let first_blocker = |df: i8, dr: i8| -> Option<Square> {
+        let mut cur = target;
+        while let Some(next) = cur.offset(df, dr) {
+            if occupied(next) {
+                return Some(next);
+            }
+            cur = next;
+        }
+        None
+    };
+
+    // Bishops (diagonal rays).
+    for &(df, dr) in &SEE_DIAGONAL_DIRS {
+        if let Some(sq) = first_blocker(df, dr)
+            && piece_at(sq, PieceKind::Bishop)
+        {
+            return Some((sq, PieceKind::Bishop));
+        }
+    }
+
+    // Rooks (straight rays).
+    for &(df, dr) in &SEE_STRAIGHT_DIRS {
+        if let Some(sq) = first_blocker(df, dr)
+            && piece_at(sq, PieceKind::Rook)
+        {
+            return Some((sq, PieceKind::Rook));
+        }
+    }
+
+    // Queens (any ray).
+    for &(df, dr) in SEE_DIAGONAL_DIRS.iter().chain(SEE_STRAIGHT_DIRS.iter()) {
+        if let Some(sq) = first_blocker(df, dr)
+            && piece_at(sq, PieceKind::Queen)
+        {
+            return Some((sq, PieceKind::Queen));
+        }
+    }
+
+    // King (adjacent squares).
+    for dr in -1i8..=1 {
+        for df in -1i8..=1 {
+            if df == 0 && dr == 0 {
+                continue;
+            }
+            if let Some(sq) = target.offset(df, dr)
+                && piece_at(sq, PieceKind::King)
+            {
+                return Some((sq, PieceKind::King));
+            }
+        }
+    }
+
+    None
+}
+
+/// Static Exchange Evaluation: returns the expected material gain (in SEE
+/// centipawns, side-to-move perspective) of playing the capture `mv`,
+/// assuming both sides keep recapturing with their least valuable attacker
+/// and may stand pat at any point (classic swap algorithm).
+///
+/// X-rays are handled by removing used attackers from the occupancy mask
+/// and rescanning rays. King "captures into check" resolve correctly via
+/// the huge king value combined with the stand-pat minimax unwinding.
+/// Promotions are not modelled (the move scorer ranks them separately).
+fn see(board: &Board, mv: &ChessMove, side: Color) -> i32 {
+    let target = mv.to;
+    let Some(first_attacker) = board.get(mv.from) else {
+        return 0;
+    };
+
+    // Build the occupancy mask.
+    let mut occ = 0u64;
+    for rank in 0..8u8 {
+        for file in 0..8u8 {
+            let sq = Square::new(file, rank);
+            if board.get(sq).is_some() {
+                occ |= 1u64 << sq.index();
+            }
+        }
+    }
+
+    // Victim of the first capture.
+    let first_victim = if mv.is_en_passant {
+        // Remove the en-passant-captured pawn from its actual square.
+        let captured_rank = (mv.to.rank as i8 - side.pawn_direction()) as u8;
+        occ &= !(1u64 << Square::new(mv.to.file, captured_rank).index());
+        see_piece_value(PieceKind::Pawn)
+    } else {
+        match board.get(target) {
+            Some(p) => see_piece_value(p.kind),
+            None => 0,
+        }
+    };
+
+    // Swap list: gain[d] = best material balance after d captures, assuming
+    // optimal stand-pat decisions resolved in the unwinding loop below.
+    let mut gain = [0i32; 36];
+    let mut d = 0usize;
+    gain[0] = first_victim;
+
+    let mut attacker_kind = first_attacker.kind;
+    let mut attacker_sq = mv.from;
+    let mut stm = side;
+
+    loop {
+        d += 1;
+        if d >= gain.len() {
+            d -= 1;
+            break;
+        }
+        // If the current attacker is captured in turn, the opponent gains it.
+        gain[d] = see_piece_value(attacker_kind) - gain[d - 1];
+        // Prune: if both stand-pat options are losing, no need to continue.
+        if (-gain[d - 1]).max(gain[d]) < 0 {
+            break;
+        }
+        // The attacker has moved to the target square; remove it from `occ`
+        // so x-ray attackers behind it are revealed.
+        occ &= !(1u64 << attacker_sq.index());
+        stm = stm.opponent();
+        match see_least_valuable_attacker(board, occ, target, stm) {
+            Some((sq, kind)) => {
+                attacker_sq = sq;
+                attacker_kind = kind;
+            }
+            None => break,
+        }
+    }
+
+    // Negamax the swap list backwards (stand-pat allowed at every level).
+    while d > 0 {
+        gain[d - 1] = -((-gain[d - 1]).max(gain[d]));
+        d -= 1;
+    }
+    gain[0]
 }
 
 // ---------------------------------------------------------------------------
@@ -1152,6 +1826,65 @@ mod tests {
         let result = engine.search(&pos, 5);
         assert!(result.best_move.is_some());
         assert_eq!(result.depth, 5);
+    }
+
+    #[test]
+    fn test_for_level_scales_with_skill() {
+        let weak = SearchLimits::for_level(1);
+        let strong = SearchLimits::for_level(MAX_SKILL_LEVEL);
+        assert!(strong.max_depth > weak.max_depth);
+        assert!(strong.move_time_ms.unwrap() > weak.move_time_ms.unwrap());
+
+        // Out-of-range levels clamp to the valid range.
+        assert_eq!(
+            SearchLimits::for_level(0).max_depth,
+            SearchLimits::for_level(1).max_depth
+        );
+        assert_eq!(
+            SearchLimits::for_level(250).max_depth,
+            SearchLimits::for_level(MAX_SKILL_LEVEL).max_depth
+        );
+    }
+
+    #[test]
+    fn test_node_limit_bounds_search() {
+        let pos = starting_pos();
+        let mut engine = SearchEngine::with_defaults();
+        let limits = SearchLimits {
+            max_depth: MAX_DEPTH,
+            move_time_ms: None,
+            max_nodes: Some(5_000),
+        };
+        let result = engine.search_limited(&pos, &limits, None);
+        assert!(result.best_move.is_some(), "should still return a move");
+        // The in-tree check fires every NODE_CHECK_INTERVAL nodes, so allow
+        // generous slack above the requested node budget.
+        assert!(
+            result.stats.nodes < 200_000,
+            "node limit should bound the search, got {}",
+            result.stats.nodes
+        );
+    }
+
+    #[test]
+    fn test_finds_forced_mate_in_two() {
+        // K+R vs K: White to move mates in two (1.Kb6 Kb8 2.Rh8#).
+        let game = crate::game::Game::from_fen("k7/8/2K5/8/8/8/8/7R w - - 0 1").unwrap();
+        let pos = SearchPosition::new(
+            game.board.clone(),
+            game.turn,
+            game.castling,
+            game.en_passant,
+            game.halfmove_clock,
+        );
+        let mut engine = SearchEngine::with_defaults();
+        let result = engine.search(&pos, 8);
+        assert_eq!(
+            score_to_mate_in(result.score),
+            Some(2),
+            "engine should announce a forced mate in two (score {})",
+            result.score
+        );
     }
 
     #[test]
@@ -1617,6 +2350,60 @@ mod tests {
             "Score must be in mate range, got {}",
             result.score
         );
+    }
+
+    /// Performance sanity benchmark: prints nodes-per-second for a depth-10
+    /// search from the starting position. Opt-in via
+    /// `cargo test --release -- --ignored bench_nps --nocapture`.
+    #[test]
+    #[ignore]
+    fn bench_nps_depth_10_startpos() {
+        let pos = starting_pos();
+        let mut engine = SearchEngine::with_defaults();
+        let result = engine.search(&pos, 10);
+        let nodes = result.stats.nodes + result.stats.quiescence_nodes;
+        let scaled = nodes * 1000;
+        let nps = scaled.checked_div(result.time_ms).unwrap_or(scaled);
+        println!(
+            "bench_nps_depth_10_startpos: nodes={} qnodes={} time_ms={} nps={}",
+            result.stats.nodes, result.stats.quiescence_nodes, result.time_ms, nps
+        );
+        assert!(result.best_move.is_some());
+    }
+
+    /// Diagnostic: prints node counts for a few fixed positions at fixed
+    /// depth. Used to compare pruning effectiveness across engine changes.
+    /// Opt-in via `cargo test --release -- --ignored bench_nodes --nocapture`.
+    #[test]
+    #[ignore]
+    fn bench_nodes_fixed_positions() {
+        let cases = [
+            ("startpos", starting_pos(), 9),
+            (
+                "kiwipete",
+                position_from_fen(
+                    "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+                ),
+                8,
+            ),
+            (
+                "endgame",
+                position_from_fen("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1"),
+                10,
+            ),
+        ];
+        for (name, pos, depth) in cases {
+            let mut engine = SearchEngine::with_defaults();
+            let result = engine.search(&pos, depth);
+            println!(
+                "bench_nodes {name}: depth={} nodes={} qnodes={} time_ms={} score={}",
+                depth,
+                result.stats.nodes,
+                result.stats.quiescence_nodes,
+                result.time_ms,
+                result.score
+            );
+        }
     }
 
     /// Verify the transposition table is actually reused across iterative

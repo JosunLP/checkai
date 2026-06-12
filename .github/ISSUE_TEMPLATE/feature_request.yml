@@ -1,0 +1,51 @@
+name: 💡 Feature request
+description: Suggest an idea or improvement for CheckAI.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing your idea! Please check existing issues and
+        discussions first to avoid duplicates.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What problem does this solve, or what are you trying to achieve?
+      placeholder: "I'm always frustrated when ..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: A clear and concise description of what you would like to happen.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected area
+      options:
+        - CLI
+        - Server / REST API
+        - WebSocket API
+        - Chess engine / analysis
+        - Web UI
+        - Desktop app
+        - WASM / npm package
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions or features you have considered.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Mockups, references to other engines/tools, or related issues.

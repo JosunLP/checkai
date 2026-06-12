@@ -260,6 +260,34 @@ impl CastlingRights {
         }
         if s.is_empty() { "-".to_string() } else { s }
     }
+
+    /// Parses a FEN castling-availability field (e.g. `"KQkq"` or `"-"`).
+    ///
+    /// Recognised characters set the matching right; any others (including
+    /// `'-'`) are ignored, so an empty or `"-"` field clears all rights.
+    /// Inverse of [`CastlingRights::to_fen`].
+    pub fn from_fen(s: &str) -> CastlingRights {
+        let mut rights = CastlingRights {
+            white: SideCastlingRights {
+                kingside: false,
+                queenside: false,
+            },
+            black: SideCastlingRights {
+                kingside: false,
+                queenside: false,
+            },
+        };
+        for c in s.chars() {
+            match c {
+                'K' => rights.white.kingside = true,
+                'Q' => rights.white.queenside = true,
+                'k' => rights.black.kingside = true,
+                'q' => rights.black.queenside = true,
+                _ => {}
+            }
+        }
+        rights
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -435,6 +463,49 @@ impl Board {
         }
 
         fen
+    }
+
+    /// Parses the piece-placement field of a FEN string (the part before the
+    /// first space, e.g. `"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"`).
+    ///
+    /// Ranks are listed from 8 down to 1; within a rank, files run a→h and
+    /// digits denote runs of empty squares. Returns an error describing the
+    /// first malformed rank. Inverse of the placement part of
+    /// [`Board::to_position_fen`].
+    pub fn from_piece_placement(placement: &str) -> Result<Board, String> {
+        let mut board = Board::default();
+        let ranks: Vec<&str> = placement.split('/').collect();
+        if ranks.len() != 8 {
+            return Err(format!(
+                "FEN placement must have 8 ranks, found {}",
+                ranks.len()
+            ));
+        }
+        for (i, rank_str) in ranks.iter().enumerate() {
+            // The first substring is rank 8 (index 7); the last is rank 1.
+            let rank = 7 - i as u8;
+            let mut file = 0u8;
+            for c in rank_str.chars() {
+                if let Some(skip) = c.to_digit(10) {
+                    file += skip as u8;
+                    if file > 8 {
+                        return Err(format!("FEN rank '{}' overflows 8 files", rank_str));
+                    }
+                } else {
+                    if file >= 8 {
+                        return Err(format!("FEN rank '{}' has too many files", rank_str));
+                    }
+                    let piece = Piece::from_fen_char(c)
+                        .ok_or_else(|| format!("Invalid piece symbol '{}' in FEN", c))?;
+                    board.set(Square::new(file, rank), Some(piece));
+                    file += 1;
+                }
+            }
+            if file != 8 {
+                return Err(format!("FEN rank '{}' does not fill 8 files", rank_str));
+            }
+        }
+        Ok(board)
     }
 }
 

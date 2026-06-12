@@ -212,3 +212,52 @@ analysis.tablebase_failed: 'Syzygy テーブルベースの読み込みに失敗
 analysis.engine_config: '分析エンジン：深さ=%{depth}、TT=%{tt}MB'
 analysis.archive_load_failed: 'アーカイブ済みゲームの読み込みに失敗'
 analysis.archive_replay_failed: 'アーカイブ済みゲームのリプレイに失敗'
+
+# ---------------------------------------------------------------------------
+# エンジン出力（分析・ライブ探索の進捗）
+# ---------------------------------------------------------------------------
+engine.label_depth: '深さ'
+engine.label_score: '評価'
+engine.label_nodes: 'ノード'
+engine.label_nps: 'NPS'
+engine.label_time: '時間'
+engine.label_pv: '読み筋'
+
+# ---------------------------------------------------------------------------
+# analyze コマンド
+# ---------------------------------------------------------------------------
+analyze.header: '局面分析'
+analyze.source: '局面:'
+analyze.source_start: '初期局面'
+analyze.no_moves: 'この局面に合法手がありません — ゲームは終了しています。'
+analyze.thinking: '分析中…'
+analyze.best_move: '最善手:'
+analyze.no_best_move: '手が見つかりません。'
+analyze.evaluation: '評価:'
+analyze.to_move: '手番'
+analyze.mate_for_side: '%{n} 手で詰み！'
+analyze.mate_against_side: '%{n} 手で詰まされます。'
+
+# ---------------------------------------------------------------------------
+# bench コマンド
+# ---------------------------------------------------------------------------
+bench.header: 'エンジンベンチマーク'
+bench.config: '設定:'
+bench.config_value: '深さ %{depth}、置換表 %{tt} MB'
+bench.nodes: 'ノード:'
+bench.qnodes: '静止探索ノード:'
+bench.time: '時間:'
+bench.nps: 'スループット:'
+bench.nps_unit: 'ノード/秒'
+
+# ---------------------------------------------------------------------------
+# エンジンとの対局
+# ---------------------------------------------------------------------------
+play.mode_engine_info: 'あなたは %{color} でエンジン（レベル %{level}）と対戦します。'
+play.engine_thinking: 'エンジンが考えています（レベル %{level}）…'
+play.engine_plays: 'エンジンの手:'
+
+# CLI コマンドの説明（エンジンコマンド）
+cli.cmd_analyze_desc: 'エンジンで局面を分析'
+cli.cmd_bench_desc: 'エンジン速度を測定（ノード/秒）'
+cli.quickstart_analyze: '初期局面を分析'

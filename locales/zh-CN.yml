@@ -212,3 +212,52 @@ analysis.tablebase_failed: '加载 Syzygy 残局库失败：%{error}'
 analysis.engine_config: '分析引擎：深度=%{depth}，TT=%{tt}MB'
 analysis.archive_load_failed: '加载已归档对局失败'
 analysis.archive_replay_failed: '重放已归档对局失败'
+
+# ---------------------------------------------------------------------------
+# 引擎输出（分析与实时搜索进度）
+# ---------------------------------------------------------------------------
+engine.label_depth: '深度'
+engine.label_score: '评分'
+engine.label_nodes: '节点'
+engine.label_nps: '节点/秒'
+engine.label_time: '用时'
+engine.label_pv: '主变'
+
+# ---------------------------------------------------------------------------
+# analyze 命令
+# ---------------------------------------------------------------------------
+analyze.header: '局面分析'
+analyze.source: '局面：'
+analyze.source_start: '初始局面'
+analyze.no_moves: '此局面没有合法着法 —— 对局已结束。'
+analyze.thinking: '正在分析…'
+analyze.best_move: '最佳着法：'
+analyze.no_best_move: '未找到着法。'
+analyze.evaluation: '评估：'
+analyze.to_move: '走子'
+analyze.mate_for_side: '%{n} 步内强制将杀！'
+analyze.mate_against_side: '%{n} 步内被将杀。'
+
+# ---------------------------------------------------------------------------
+# bench 命令
+# ---------------------------------------------------------------------------
+bench.header: '引擎基准测试'
+bench.config: '配置：'
+bench.config_value: '深度 %{depth}，置换表 %{tt} MB'
+bench.nodes: '节点：'
+bench.qnodes: '静止搜索节点：'
+bench.time: '用时：'
+bench.nps: '吞吐量：'
+bench.nps_unit: '节点/秒'
+
+# ---------------------------------------------------------------------------
+# 对战引擎
+# ---------------------------------------------------------------------------
+play.mode_engine_info: '你执 %{color} 对战引擎（等级 %{level}）。'
+play.engine_thinking: '引擎思考中（等级 %{level}）…'
+play.engine_plays: '引擎走子：'
+
+# CLI 命令说明（引擎命令）
+cli.cmd_analyze_desc: '用引擎分析局面'
+cli.cmd_bench_desc: '测试引擎速度（节点/秒）'
+cli.quickstart_analyze: '分析初始局面'
