@@ -212,3 +212,128 @@ analysis.tablebase_failed: 'No se pudo cargar la tablebase Syzygy: %{error}'
 analysis.engine_config: 'Motor de análisis: profundidad=%{depth}, TT=%{tt}MB'
 analysis.archive_load_failed: 'No se pudo cargar la partida archivada'
 analysis.archive_replay_failed: 'No se pudo reproducir la partida archivada'
+
+# ---------------------------------------------------------------------------
+# Salida del motor (análisis y progreso de la búsqueda)
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Comando analyze
+# ---------------------------------------------------------------------------
+analyze.no_moves: 'La lista --moves está vacía.'
+analyze.no_best_move: 'No se encontró la mejor jugada — la posición puede ser terminal.'
+
+# ---------------------------------------------------------------------------
+# Comando bench
+# ---------------------------------------------------------------------------
+bench.header: 'Prueba de rendimiento del motor'
+
+# ---------------------------------------------------------------------------
+# Jugar contra el motor
+# ---------------------------------------------------------------------------
+play.engine_thinking: 'El motor está pensando (nivel %{level})…'
+
+# Descripciones de comandos CLI (comandos del motor)
+cli.cmd_analyze_desc: 'Analizar una posición o una partida con el motor'
+cli.cmd_bench_desc: 'Ejecutar la suite de pruebas de rendimiento del motor'
+
+# ---------------------------------------------------------------------------
+# Pantalla de bienvenida CLI (comandos del motor y etiquetas adicionales)
+# ---------------------------------------------------------------------------
+cli.cmd_watch_desc: 'Ver al motor jugar contra sí mismo'
+cli.cmd_perft_desc: 'Verificar la generación de jugadas (recuentos perft)'
+cli.cmd_uci_desc: 'Ejecutar como motor UCI para interfaces de ajedrez'
+cli.quickstart_watch: 'Ver una partida de demostración del motor'
+cli.banner_tagline: 'Ajedrez en tu terminal'
+cli.version_label: 'Versión:'
+cli.locale_label: 'Idioma:'
+cli.docs_label: 'Documentación:'
+cli.nodes_suffix: 'nodos'
+cli.invalid_fen: 'FEN inválido: %{error}'
+
+# ---------------------------------------------------------------------------
+# Comando play (contra el motor / contra humano)
+# ---------------------------------------------------------------------------
+play.intro_engine: 'Juegas contra el motor en el nivel %{level} — eres las %{color}.'
+play.intro_human: 'Partida local para dos — las blancas y las negras comparten esta terminal.'
+play.intro_help_hint: 'Escribe %{help} para ver la lista de comandos del juego.'
+play.engine_played: 'El motor juega %{mv} (%{piece}) — profundidad %{depth}, eval %{score}, %{secs}s'
+play.engine_resigns: 'El motor no encontró ninguna jugada y se rinde. ¡Ganas tú!'
+play.hint_thinking: 'Calculando una pista …'
+play.hint_result: 'Pista: %{mv} (eval %{score})'
+play.hint_none: 'No hay ninguna pista disponible en esta posición.'
+play.cmd_hint: 'Pedir al motor que sugiera una jugada'
+play.cmd_undo: 'Deshacer la última jugada completa'
+play.cannot_undo: 'Nada que deshacer todavía.'
+play.undo_done: 'Última jugada deshecha.'
+play.position_terminal: 'Esta posición no tiene jugadas legales — nada que jugar.'
+play.result_title: 'PARTIDA TERMINADA'
+play.result_winner_label: 'Ganador:'
+play.result_reason_label: 'Razón:'
+play.result_moves_label: 'Jugadas:'
+play.result_duration_label: 'Duración:'
+play.winner_white: 'Blancas'
+play.winner_black: 'Negras'
+play.winner_draw: 'Tablas — nadie'
+play.game_unfinished: 'Partida sin terminar'
+play.piece_king: 'Rey'
+play.piece_queen: 'Dama'
+play.piece_rook: 'Torre'
+play.piece_bishop: 'Alfil'
+play.piece_knight: 'Caballo'
+play.piece_pawn: 'Peón'
+
+# ---------------------------------------------------------------------------
+# Comando watch (motor contra motor)
+# ---------------------------------------------------------------------------
+watch.intro: 'Demostración del motor: Blancas (nivel %{white}) vs Negras (nivel %{black})'
+watch.thinking: '%{color} está pensando (nivel %{level}) …'
+watch.move_ticker: 'Jugada %{num} — %{color}: %{mv}  (eval %{score}, profundidad %{depth}, %{nodes} nodos)'
+watch.move_cap_reached: 'Límite de %{cap} jugadas alcanzado — partida detenida sin resultado.'
+
+# ---------------------------------------------------------------------------
+# Comando analyze (claves adicionales)
+# ---------------------------------------------------------------------------
+analyze.need_input: 'Nada que analizar: pasa --fen <FEN> y/o --moves "e2e4 e7e5 ..."'
+analyze.bad_move: "No se puede interpretar la jugada '%{mv}' — se esperaba notación de coordenadas como e2e4 o e7e8q."
+analyze.illegal_move: "Jugada ilegal '%{mv}': %{error}"
+analyze.position_header: 'Análisis de la posición'
+analyze.game_header: 'Análisis de la partida'
+analyze.progress_label: 'Analizando jugadas'
+analyze.verdict: 'Veredicto: mejor jugada %{mv}, eval %{score} (profundidad %{depth})'
+analyze.better_was: 'mejor: %{mv}'
+analyze.summary: '%{total} jugadas analizadas — %{best} fuertes, %{inaccuracies} imprecisiones, %{mistakes} errores, %{blunders} errores graves'
+analyze.col_depth: 'profundidad'
+analyze.col_eval: 'eval'
+analyze.col_mate: 'mate'
+analyze.col_nodes: 'nodos'
+analyze.col_pv: 'variante principal'
+analyze.col_side: 'bando'
+analyze.col_move: 'jugada'
+analyze.col_loss: 'pérdida'
+analyze.col_quality: 'calidad'
+analyze.col_better: 'alternativa'
+analyze.moves_after_game_over: "El juego terminó antes del movimiento '%{mv}' — los movimientos adicionales no están permitidos."
+
+
+# ---------------------------------------------------------------------------
+# Comando bench (claves adicionales)
+# ---------------------------------------------------------------------------
+bench.progress_label: 'Ejecutando benchmark'
+bench.col_position: 'posición'
+bench.col_time: 'tiempo'
+bench.col_nps: 'n/s'
+bench.totals: 'Total: %{nodes} nodos en %{secs}s — %{nps} nodos/segundo'
+
+# ---------------------------------------------------------------------------
+# Comando perft
+# ---------------------------------------------------------------------------
+perft.header: 'Perft — verificación de la generación de jugadas'
+perft.col_nodes: 'nodos'
+perft.col_reference: 'referencia'
+perft.col_status: 'estado'
+perft.ok: 'OK'
+perft.fail: 'FALLO'
+perft.all_ok: 'Todos los recuentos de nodos calculados coinciden con los valores de referencia.'
+perft.mismatch: 'DISCREPANCIA — ¡la generación de jugadas difiere de los recuentos de referencia!'
+perft.divide_total: 'Total: %{total} nodos en %{moves} jugadas raíz (%{ms} ms)'

@@ -212,3 +212,128 @@ analysis.tablebase_failed: 'Falha ao carregar tablebase Syzygy: %{error}'
 analysis.engine_config: 'Motor de análise: profundidade=%{depth}, TT=%{tt}MB'
 analysis.archive_load_failed: 'Falha ao carregar partida arquivada'
 analysis.archive_replay_failed: 'Falha ao reproduzir partida arquivada'
+
+# ---------------------------------------------------------------------------
+# Saída do motor (análise e progresso da busca)
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Comando analyze
+# ---------------------------------------------------------------------------
+analyze.no_moves: 'A lista --moves está vazia.'
+analyze.no_best_move: 'Nenhum melhor lance encontrado — a posição pode ser terminal.'
+
+# ---------------------------------------------------------------------------
+# Comando bench
+# ---------------------------------------------------------------------------
+bench.header: 'Benchmark do motor'
+
+# ---------------------------------------------------------------------------
+# Jogar contra o motor
+# ---------------------------------------------------------------------------
+play.engine_thinking: 'O motor está pensando (nível %{level})…'
+
+# Descrições dos comandos CLI (comandos do motor)
+cli.cmd_analyze_desc: 'Analisar uma posição ou uma partida com o motor'
+cli.cmd_bench_desc: 'Executar a suíte de benchmark do motor'
+
+# ---------------------------------------------------------------------------
+# Tela de boas-vindas CLI (comandos do motor e rótulos adicionais)
+# ---------------------------------------------------------------------------
+cli.cmd_watch_desc: 'Assistir o motor jogar contra si mesmo'
+cli.cmd_perft_desc: 'Verificar a geração de lances (contagens perft)'
+cli.cmd_uci_desc: 'Executar como motor UCI para interfaces de xadrez'
+cli.quickstart_watch: 'Assistir a uma partida de demonstração do motor'
+cli.banner_tagline: 'Xadrez no seu terminal'
+cli.version_label: 'Versão:'
+cli.locale_label: 'Idioma:'
+cli.docs_label: 'Documentação:'
+cli.nodes_suffix: 'nós'
+cli.invalid_fen: 'FEN inválida: %{error}'
+
+# ---------------------------------------------------------------------------
+# Comando play (contra o motor / contra humano)
+# ---------------------------------------------------------------------------
+play.intro_engine: 'Você joga contra o motor no nível %{level} — você é %{color}.'
+play.intro_human: 'Partida local para dois — brancas e pretas compartilham este terminal.'
+play.intro_help_hint: 'Digite %{help} para a lista de comandos do jogo.'
+play.engine_played: 'O motor joga %{mv} (%{piece}) — profundidade %{depth}, aval %{score}, %{secs}s'
+play.engine_resigns: 'O motor não encontrou nenhum lance e desiste. Você venceu!'
+play.hint_thinking: 'Calculando uma dica …'
+play.hint_result: 'Dica: %{mv} (aval %{score})'
+play.hint_none: 'Nenhuma dica disponível nesta posição.'
+play.cmd_hint: 'Pedir ao motor para sugerir um lance'
+play.cmd_undo: 'Desfazer o último lance completo'
+play.cannot_undo: 'Nada para desfazer ainda.'
+play.undo_done: 'Último lance desfeito.'
+play.position_terminal: 'Esta posição não tem lances legais — nada para jogar.'
+play.result_title: 'FIM DE JOGO'
+play.result_winner_label: 'Vencedor:'
+play.result_reason_label: 'Razão:'
+play.result_moves_label: 'Lances:'
+play.result_duration_label: 'Duração:'
+play.winner_white: 'Brancas'
+play.winner_black: 'Pretas'
+play.winner_draw: 'Empate — ninguém'
+play.game_unfinished: 'Partida inacabada'
+play.piece_king: 'Rei'
+play.piece_queen: 'Dama'
+play.piece_rook: 'Torre'
+play.piece_bishop: 'Bispo'
+play.piece_knight: 'Cavalo'
+play.piece_pawn: 'Peão'
+
+# ---------------------------------------------------------------------------
+# Comando watch (motor contra motor)
+# ---------------------------------------------------------------------------
+watch.intro: 'Demonstração do motor: Brancas (nível %{white}) vs Pretas (nível %{black})'
+watch.thinking: '%{color} está pensando (nível %{level}) …'
+watch.move_ticker: 'Lance %{num} — %{color}: %{mv}  (aval %{score}, profundidade %{depth}, %{nodes} nós)'
+watch.move_cap_reached: 'Limite de %{cap} lances atingido — partida interrompida sem resultado.'
+
+# ---------------------------------------------------------------------------
+# Comando analyze (chaves adicionais)
+# ---------------------------------------------------------------------------
+analyze.need_input: 'Nada para analisar: passe --fen <FEN> e/ou --moves "e2e4 e7e5 ..."'
+analyze.bad_move: "Não foi possível interpretar o lance '%{mv}' — esperada notação de coordenadas como e2e4 ou e7e8q."
+analyze.illegal_move: "Lance ilegal '%{mv}': %{error}"
+analyze.position_header: 'Análise da posição'
+analyze.game_header: 'Análise da partida'
+analyze.progress_label: 'Analisando lances'
+analyze.verdict: 'Veredicto: melhor lance %{mv}, aval %{score} (profundidade %{depth})'
+analyze.better_was: 'melhor: %{mv}'
+analyze.summary: '%{total} lances analisados — %{best} fortes, %{inaccuracies} imprecisões, %{mistakes} erros, %{blunders} erros graves'
+analyze.col_depth: 'profundidade'
+analyze.col_eval: 'aval'
+analyze.col_mate: 'mate'
+analyze.col_nodes: 'nós'
+analyze.col_pv: 'variante principal'
+analyze.col_side: 'lado'
+analyze.col_move: 'lance'
+analyze.col_loss: 'perda'
+analyze.col_quality: 'qualidade'
+analyze.col_better: 'alternativa'
+analyze.moves_after_game_over: "O jogo terminou antes do movimento '%{mv}' — movimentos adicionais não são permitidos."
+
+
+# ---------------------------------------------------------------------------
+# Comando bench (chaves adicionais)
+# ---------------------------------------------------------------------------
+bench.progress_label: 'Executando benchmark'
+bench.col_position: 'posição'
+bench.col_time: 'tempo'
+bench.col_nps: 'n/s'
+bench.totals: 'Total: %{nodes} nós em %{secs}s — %{nps} nós/segundo'
+
+# ---------------------------------------------------------------------------
+# Comando perft
+# ---------------------------------------------------------------------------
+perft.header: 'Perft — verificação da geração de lances'
+perft.col_nodes: 'nós'
+perft.col_reference: 'referência'
+perft.col_status: 'estado'
+perft.ok: 'OK'
+perft.fail: 'FALHA'
+perft.all_ok: 'Todas as contagens de nós calculadas correspondem aos valores de referência.'
+perft.mismatch: 'DIVERGÊNCIA — a geração de lances difere das contagens de referência!'
+perft.divide_total: 'Total: %{total} nós em %{moves} lances raiz (%{ms} ms)'

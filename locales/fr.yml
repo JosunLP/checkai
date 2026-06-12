@@ -212,3 +212,128 @@ analysis.tablebase_failed: 'Échec du chargement de la tablebase Syzygy : %{erro
 analysis.engine_config: "Moteur d'analyse : profondeur=%{depth}, TT=%{tt}MB"
 analysis.archive_load_failed: 'Impossible de charger la partie archivée'
 analysis.archive_replay_failed: 'Impossible de rejouer la partie archivée'
+
+# ---------------------------------------------------------------------------
+# Sortie du moteur (analyse et progression de la recherche)
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Commande analyze
+# ---------------------------------------------------------------------------
+analyze.no_moves: 'La liste --moves est vide.'
+analyze.no_best_move: 'Aucun meilleur coup trouvé — la position est peut-être terminale.'
+
+# ---------------------------------------------------------------------------
+# Commande bench
+# ---------------------------------------------------------------------------
+bench.header: 'Test de performance du moteur'
+
+# ---------------------------------------------------------------------------
+# Jouer contre le moteur
+# ---------------------------------------------------------------------------
+play.engine_thinking: 'Le moteur réfléchit (niveau %{level})…'
+
+# Descriptions des commandes CLI (commandes du moteur)
+cli.cmd_analyze_desc: 'Analyser une position ou une partie avec le moteur'
+cli.cmd_bench_desc: 'Exécuter la suite de tests de performance du moteur'
+
+# ---------------------------------------------------------------------------
+# Écran d'accueil CLI (commandes moteur et étiquettes supplémentaires)
+# ---------------------------------------------------------------------------
+cli.cmd_watch_desc: 'Regarder le moteur jouer contre lui-même'
+cli.cmd_perft_desc: 'Vérifier la génération des coups (comptes perft)'
+cli.cmd_uci_desc: 'Fonctionner comme moteur UCI pour les interfaces graphiques'
+cli.quickstart_watch: "Regarder une partie de démonstration du moteur"
+cli.banner_tagline: 'Les échecs dans votre terminal'
+cli.version_label: 'Version :'
+cli.locale_label: 'Langue :'
+cli.docs_label: 'Documentation :'
+cli.nodes_suffix: 'nœuds'
+cli.invalid_fen: 'FEN invalide : %{error}'
+
+# ---------------------------------------------------------------------------
+# Commande play (contre le moteur / contre un humain)
+# ---------------------------------------------------------------------------
+play.intro_engine: 'Vous jouez contre le moteur au niveau %{level} — vous avez les %{color}.'
+play.intro_human: 'Partie locale à deux joueurs — les blancs et les noirs partagent ce terminal.'
+play.intro_help_hint: 'Tapez %{help} pour la liste des commandes en jeu.'
+play.engine_played: 'Le moteur joue %{mv} (%{piece}) — profondeur %{depth}, éval %{score}, %{secs}s'
+play.engine_resigns: "Le moteur n'a trouvé aucun coup et abandonne. Vous gagnez !"
+play.hint_thinking: "Calcul d'un indice …"
+play.hint_result: 'Indice : %{mv} (éval %{score})'
+play.hint_none: 'Aucun indice disponible dans cette position.'
+play.cmd_hint: 'Demander un coup au moteur'
+play.cmd_undo: 'Annuler le dernier coup complet'
+play.cannot_undo: 'Rien à annuler pour le moment.'
+play.undo_done: 'Dernier coup annulé.'
+play.position_terminal: "Cette position n'a aucun coup légal — rien à jouer."
+play.result_title: 'PARTIE TERMINÉE'
+play.result_winner_label: 'Vainqueur :'
+play.result_reason_label: 'Raison :'
+play.result_moves_label: 'Coups :'
+play.result_duration_label: 'Durée :'
+play.winner_white: 'Blancs'
+play.winner_black: 'Noirs'
+play.winner_draw: 'Nulle — personne'
+play.game_unfinished: 'Partie inachevée'
+play.piece_king: 'Roi'
+play.piece_queen: 'Dame'
+play.piece_rook: 'Tour'
+play.piece_bishop: 'Fou'
+play.piece_knight: 'Cavalier'
+play.piece_pawn: 'Pion'
+
+# ---------------------------------------------------------------------------
+# Commande watch (moteur contre moteur)
+# ---------------------------------------------------------------------------
+watch.intro: 'Démonstration du moteur : Blancs (niveau %{white}) vs Noirs (niveau %{black})'
+watch.thinking: '%{color} réfléchit (niveau %{level}) …'
+watch.move_ticker: 'Coup %{num} — %{color} : %{mv}  (éval %{score}, profondeur %{depth}, %{nodes} nœuds)'
+watch.move_cap_reached: 'Limite de %{cap} coups atteinte — partie arrêtée sans résultat.'
+
+# ---------------------------------------------------------------------------
+# Commande analyze (clés supplémentaires)
+# ---------------------------------------------------------------------------
+analyze.need_input: 'Rien à analyser : fournissez --fen <FEN> et/ou --moves "e2e4 e7e5 ..."'
+analyze.bad_move: "Impossible de lire le coup '%{mv}' — notation de coordonnées attendue comme e2e4 ou e7e8q."
+analyze.illegal_move: "Coup illégal '%{mv}' : %{error}"
+analyze.position_header: 'Analyse de la position'
+analyze.game_header: 'Analyse de la partie'
+analyze.progress_label: 'Analyse des coups'
+analyze.verdict: 'Verdict : meilleur coup %{mv}, éval %{score} (profondeur %{depth})'
+analyze.better_was: 'meilleur : %{mv}'
+analyze.summary: '%{total} coups analysés — %{best} forts, %{inaccuracies} imprécisions, %{mistakes} erreurs, %{blunders} gaffes'
+analyze.col_depth: 'profondeur'
+analyze.col_eval: 'éval'
+analyze.col_mate: 'mat'
+analyze.col_nodes: 'nœuds'
+analyze.col_pv: 'variante principale'
+analyze.col_side: 'camp'
+analyze.col_move: 'coup'
+analyze.col_loss: 'perte'
+analyze.col_quality: 'qualité'
+analyze.col_better: 'alternative'
+analyze.moves_after_game_over: "La partie s'est terminée avant le coup '%{mv}' — les coups supplémentaires ne sont pas autorisés."
+
+
+# ---------------------------------------------------------------------------
+# Commande bench (clés supplémentaires)
+# ---------------------------------------------------------------------------
+bench.progress_label: 'Test de performance en cours'
+bench.col_position: 'position'
+bench.col_time: 'temps'
+bench.col_nps: 'n/s'
+bench.totals: 'Total : %{nodes} nœuds en %{secs}s — %{nps} nœuds/seconde'
+
+# ---------------------------------------------------------------------------
+# Commande perft
+# ---------------------------------------------------------------------------
+perft.header: 'Perft — vérification de la génération des coups'
+perft.col_nodes: 'nœuds'
+perft.col_reference: 'référence'
+perft.col_status: 'état'
+perft.ok: 'OK'
+perft.fail: 'ÉCHEC'
+perft.all_ok: 'Tous les nombres de nœuds calculés correspondent aux valeurs de référence.'
+perft.mismatch: 'DIVERGENCE — la génération des coups diffère des nombres de référence !'
+perft.divide_total: 'Total : %{total} nœuds sur %{moves} coups racine (%{ms} ms)'

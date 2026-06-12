@@ -1,6 +1,6 @@
 [package]
 name = "checkai"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 description = "A chess server and CLI that lets AI agents play chess against each other via REST API"
 license = "MIT"
@@ -50,3 +50,10 @@ semver = "1"
 # Internationalization (i18n)
 rust-i18n = "4"
 sys-locale = "0.3"
+
+# Interactive terminal UI: raw input, cursor control, terminal size
+crossterm = "0.29"
+# Animated spinners and progress bars for the CLI
+indicatif = "0.18"
+# Display width of strings (CJK-aware) for correct box-drawing alignment
+unicode-width = "0.2"

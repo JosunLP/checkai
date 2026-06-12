@@ -212,3 +212,128 @@ analysis.tablebase_failed: '加载 Syzygy 残局库失败：%{error}'
 analysis.engine_config: '分析引擎：深度=%{depth}，TT=%{tt}MB'
 analysis.archive_load_failed: '加载已归档对局失败'
 analysis.archive_replay_failed: '重放已归档对局失败'
+
+# ---------------------------------------------------------------------------
+# 引擎输出（分析与实时搜索进度）
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# analyze 命令
+# ---------------------------------------------------------------------------
+analyze.no_moves: '--moves 列表为空。'
+analyze.no_best_move: '未找到最佳着法 —— 局面可能已是终局。'
+
+# ---------------------------------------------------------------------------
+# bench 命令
+# ---------------------------------------------------------------------------
+bench.header: '引擎基准测试'
+
+# ---------------------------------------------------------------------------
+# 对战引擎
+# ---------------------------------------------------------------------------
+play.engine_thinking: '引擎思考中（等级 %{level}）…'
+
+# CLI 命令说明（引擎命令）
+cli.cmd_analyze_desc: '用引擎分析局面或对局'
+cli.cmd_bench_desc: '运行引擎基准测试套件'
+
+# ---------------------------------------------------------------------------
+# CLI 欢迎界面（额外的引擎命令与标签）
+# ---------------------------------------------------------------------------
+cli.cmd_watch_desc: '观看引擎自我对弈'
+cli.cmd_perft_desc: '验证走法生成（perft 计数）'
+cli.cmd_uci_desc: '作为 UCI 引擎运行，供国际象棋 GUI 使用'
+cli.quickstart_watch: '观看一局引擎演示对局'
+cli.banner_tagline: '在终端里下国际象棋'
+cli.version_label: '版本：'
+cli.locale_label: '语言：'
+cli.docs_label: '文档：'
+cli.nodes_suffix: '节点'
+cli.invalid_fen: '无效的 FEN：%{error}'
+
+# ---------------------------------------------------------------------------
+# play 命令（对战引擎 / 对战真人）
+# ---------------------------------------------------------------------------
+play.intro_engine: '你正在与等级 %{level} 的引擎对战 —— 你执%{color}。'
+play.intro_human: '本地双人对局 —— 白方和黑方共用此终端。'
+play.intro_help_hint: '输入 %{help} 查看对局内命令列表。'
+play.engine_played: '引擎走 %{mv}（%{piece}）—— 深度 %{depth}，评分 %{score}，%{secs} 秒'
+play.engine_resigns: '引擎未找到走法并认输。你赢了！'
+play.hint_thinking: '正在计算提示 …'
+play.hint_result: '提示：%{mv}（评分 %{score}）'
+play.hint_none: '此局面没有可用提示。'
+play.cmd_hint: '请引擎推荐一步走法'
+play.cmd_undo: '悔回上一个完整回合'
+play.cannot_undo: '暂时没有可悔的棋。'
+play.undo_done: '已悔上一步。'
+play.position_terminal: '此局面没有合法走法 —— 无棋可下。'
+play.result_title: '对局结束'
+play.result_winner_label: '胜者：'
+play.result_reason_label: '原因：'
+play.result_moves_label: '回合数：'
+play.result_duration_label: '用时：'
+play.winner_white: '白方'
+play.winner_black: '黑方'
+play.winner_draw: '和棋 —— 无人胜'
+play.game_unfinished: '对局未结束'
+play.piece_king: '王'
+play.piece_queen: '后'
+play.piece_rook: '车'
+play.piece_bishop: '象'
+play.piece_knight: '马'
+play.piece_pawn: '兵'
+
+# ---------------------------------------------------------------------------
+# watch 命令（引擎对战引擎）
+# ---------------------------------------------------------------------------
+watch.intro: '引擎演示：白方（等级 %{white}）对 黑方（等级 %{black}）'
+watch.thinking: '%{color}思考中（等级 %{level}）…'
+watch.move_ticker: '第 %{num} 回合 —— %{color}：%{mv}（评分 %{score}，深度 %{depth}，%{nodes} 节点）'
+watch.move_cap_reached: '已达到 %{cap} 回合上限 —— 对局无结果而终止。'
+
+# ---------------------------------------------------------------------------
+# analyze 命令（额外键）
+# ---------------------------------------------------------------------------
+analyze.need_input: '没有可分析的内容：请传入 --fen <FEN> 和/或 --moves "e2e4 e7e5 ..."'
+analyze.bad_move: "无法解析走法 '%{mv}' —— 期望坐标记法，如 e2e4 或 e7e8q。"
+analyze.illegal_move: "非法走法 '%{mv}'：%{error}"
+analyze.position_header: '局面分析'
+analyze.game_header: '对局分析'
+analyze.progress_label: '正在分析走法'
+analyze.verdict: '结论：最佳走法 %{mv}，评分 %{score}（深度 %{depth}）'
+analyze.better_was: '更优：%{mv}'
+analyze.summary: '已分析 %{total} 步 —— %{best} 步出色，%{inaccuracies} 步不精确，%{mistakes} 步失误，%{blunders} 步严重失误'
+analyze.col_depth: '深度'
+analyze.col_eval: '评分'
+analyze.col_mate: '将杀'
+analyze.col_nodes: '节点'
+analyze.col_pv: '主变'
+analyze.col_side: '执方'
+analyze.col_move: '走法'
+analyze.col_loss: '损失'
+analyze.col_quality: '质量'
+analyze.col_better: '替代'
+analyze.moves_after_game_over: "游戏在走法 '%{mv}' 之前结束了 — 不允许额外的走法。"
+
+
+# ---------------------------------------------------------------------------
+# bench 命令（额外键）
+# ---------------------------------------------------------------------------
+bench.progress_label: '正在进行基准测试'
+bench.col_position: '局面'
+bench.col_time: '用时'
+bench.col_nps: '节点/秒'
+bench.totals: '总计：%{nodes} 个节点，用时 %{secs} 秒 —— 每秒 %{nps} 个节点'
+
+# ---------------------------------------------------------------------------
+# perft 命令
+# ---------------------------------------------------------------------------
+perft.header: 'Perft —— 走法生成验证'
+perft.col_nodes: '节点'
+perft.col_reference: '参考值'
+perft.col_status: '状态'
+perft.ok: '通过'
+perft.fail: '失败'
+perft.all_ok: '所有计算得出的节点数均与参考值一致。'
+perft.mismatch: '不一致 —— 走法生成与参考节点数不符！'
+perft.divide_total: '总计：%{moves} 个根走法共 %{total} 个节点（%{ms} 毫秒）'

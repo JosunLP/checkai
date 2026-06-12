@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/JosunLP/checkai#readme
+    about: Read the README and the docs before opening an issue.
+  - name: 💬 Questions & discussions
+    url: https://github.com/JosunLP/checkai/discussions
+    about: Ask questions, share ideas, and get help from the community.
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/JosunLP/checkai/security/advisories/new
+    about: Please report security issues privately, not as public issues.

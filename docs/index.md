@@ -27,8 +27,11 @@ features:
     title: REST & WebSocket API
     details: JSON-based API for AI agents and the web UI. FEN/PGN import/export, real-time WebSocket events, and interactive Swagger docs.
   - icon: 🔬
-    title: Deep Analysis Engine
-    details: Async analysis with 30+ ply depth, PVS, SEE, futility pruning, king safety, mobility scoring, and PeSTO evaluation.
+    title: Analysis Engine
+    details: Iterative-deepening PVS with a transposition table, null-move pruning, LMR, SEE, futility/razoring, and quiescence search, plus a PeSTO evaluation with pawn structure, king safety, and mobility.
+  - icon: ⌨️
+    title: Animated Terminal CLI
+    details: Play vs the engine (10-level ladder) or a human, watch engine-vs-engine games, analyze, bench, perft, and speak UCI for chess GUIs — with TTY-aware animations that fall back to plain text.
   - icon: 🖥️
     title: Modern Web UI
     details: TypeScript web app with bQuery signals, Tailwind CSS v4, analysis panel, FEN/PGN tools, board flip, and promotion dialog.

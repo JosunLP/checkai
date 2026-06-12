@@ -212,3 +212,127 @@ analysis.tablebase_failed: 'Syzygy-Endspieldatenbank konnte nicht geladen werden
 analysis.engine_config: 'Analyse-Engine: Tiefe=%{depth}, TT=%{tt}MB'
 analysis.archive_load_failed: 'Archiviertes Spiel konnte nicht geladen werden'
 analysis.archive_replay_failed: 'Archiviertes Spiel konnte nicht wiedergegeben werden'
+
+# ---------------------------------------------------------------------------
+# Engine-Ausgabe (Analyse & Live-Suchfortschritt)
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Analyze-Befehl
+# ---------------------------------------------------------------------------
+analyze.no_moves: 'Die --moves-Liste ist leer.'
+analyze.no_best_move: 'Kein bester Zug gefunden — die Stellung könnte beendet sein.'
+
+# ---------------------------------------------------------------------------
+# Bench-Befehl
+# ---------------------------------------------------------------------------
+bench.header: 'Engine-Benchmark'
+
+# ---------------------------------------------------------------------------
+# Spiel gegen die Engine
+# ---------------------------------------------------------------------------
+play.engine_thinking: 'Engine denkt nach (Stufe %{level})…'
+
+# CLI-Befehlsbeschreibungen (Engine-Befehle)
+cli.cmd_analyze_desc: 'Eine Stellung oder Partie mit der Engine analysieren'
+cli.cmd_bench_desc: 'Die Engine-Benchmark-Suite ausführen'
+
+# ---------------------------------------------------------------------------
+# CLI-Willkommensbildschirm (zusätzliche Engine-Befehle & Etiketten)
+# ---------------------------------------------------------------------------
+cli.cmd_watch_desc: 'Der Engine beim Spiel gegen sich selbst zusehen'
+cli.cmd_perft_desc: 'Zuggenerierung überprüfen (Perft-Zählungen)'
+cli.cmd_uci_desc: 'Als UCI-Engine für Schach-GUIs ausführen'
+cli.quickstart_watch: 'Eine Engine-Showcase-Partie ansehen'
+cli.banner_tagline: 'Schach in deinem Terminal'
+cli.version_label: 'Version:'
+cli.locale_label: 'Sprache:'
+cli.docs_label: 'Dokumentation:'
+cli.nodes_suffix: 'Knoten'
+cli.invalid_fen: 'Ungültige FEN: %{error}'
+
+# ---------------------------------------------------------------------------
+# Play-Befehl (gegen Engine / gegen Mensch)
+# ---------------------------------------------------------------------------
+play.intro_engine: 'Du spielst gegen die Engine auf Stufe %{level} — du bist %{color}.'
+play.intro_human: 'Lokales Spiel zu zweit — Weiß und Schwarz teilen sich dieses Terminal.'
+play.intro_help_hint: 'Tippe %{help} für die Liste der Spielbefehle.'
+play.engine_played: 'Engine zieht %{mv} (%{piece}) — Tiefe %{depth}, Bewertung %{score}, %{secs}s'
+play.engine_resigns: 'Die Engine fand keinen Zug und gibt auf. Du gewinnst!'
+play.hint_thinking: 'Tipp wird berechnet …'
+play.hint_result: 'Tipp: %{mv} (Bewertung %{score})'
+play.hint_none: 'In dieser Stellung ist kein Tipp verfügbar.'
+play.cmd_hint: 'Die Engine um einen Zugvorschlag bitten'
+play.cmd_undo: 'Den letzten vollen Zug zurücknehmen'
+play.cannot_undo: 'Noch nichts zum Zurücknehmen.'
+play.undo_done: 'Letzten Zug zurückgenommen.'
+play.position_terminal: 'Diese Stellung hat keine erlaubten Züge — nichts zu spielen.'
+play.result_title: 'SPIEL BEENDET'
+play.result_winner_label: 'Sieger:'
+play.result_reason_label: 'Grund:'
+play.result_moves_label: 'Züge:'
+play.result_duration_label: 'Dauer:'
+play.winner_white: 'Weiß'
+play.winner_black: 'Schwarz'
+play.winner_draw: 'Remis — niemand'
+play.game_unfinished: 'Spiel unvollendet'
+play.piece_king: 'König'
+play.piece_queen: 'Dame'
+play.piece_rook: 'Turm'
+play.piece_bishop: 'Läufer'
+play.piece_knight: 'Springer'
+play.piece_pawn: 'Bauer'
+
+# ---------------------------------------------------------------------------
+# Watch-Befehl (Engine gegen Engine)
+# ---------------------------------------------------------------------------
+watch.intro: 'Engine-Showcase: Weiß (Stufe %{white}) vs. Schwarz (Stufe %{black})'
+watch.thinking: '%{color} denkt nach (Stufe %{level}) …'
+watch.move_ticker: 'Zug %{num} — %{color}: %{mv}  (Bewertung %{score}, Tiefe %{depth}, %{nodes} Knoten)'
+watch.move_cap_reached: 'Zuglimit von %{cap} erreicht — Spiel ohne Ergebnis beendet.'
+
+# ---------------------------------------------------------------------------
+# Analyze-Befehl (zusätzliche Schlüssel)
+# ---------------------------------------------------------------------------
+analyze.need_input: 'Nichts zu analysieren: Übergib --fen <FEN> und/oder --moves "e2e4 e7e5 ..."'
+analyze.bad_move: "Zug '%{mv}' kann nicht gelesen werden — erwartet wird Koordinatennotation wie e2e4 oder e7e8q."
+analyze.illegal_move: "Ungültiger Zug '%{mv}': %{error}"
+analyze.position_header: 'Stellungsanalyse'
+analyze.game_header: 'Partieanalyse'
+analyze.progress_label: 'Züge werden analysiert'
+analyze.verdict: 'Urteil: bester Zug %{mv}, Bewertung %{score} (Tiefe %{depth})'
+analyze.better_was: 'besser: %{mv}'
+analyze.summary: '%{total} Züge analysiert — %{best} stark, %{inaccuracies} Ungenauigkeiten, %{mistakes} Fehler, %{blunders} Patzer'
+analyze.col_depth: 'Tiefe'
+analyze.col_eval: 'Bewertung'
+analyze.col_mate: 'Matt'
+analyze.col_nodes: 'Knoten'
+analyze.col_pv: 'Hauptvariante'
+analyze.col_side: 'Seite'
+analyze.col_move: 'Zug'
+analyze.col_loss: 'Verlust'
+analyze.col_quality: 'Qualität'
+analyze.col_better: 'Alternative'
+analyze.moves_after_game_over: "Das Spiel endete vor Zug '%{mv}' — nachfolgende Züge sind nicht erlaubt."
+
+# ---------------------------------------------------------------------------
+# Bench-Befehl (zusätzliche Schlüssel)
+# ---------------------------------------------------------------------------
+bench.progress_label: 'Benchmark läuft'
+bench.col_position: 'Stellung'
+bench.col_time: 'Zeit'
+bench.col_nps: 'K/s'
+bench.totals: 'Gesamt: %{nodes} Knoten in %{secs}s — %{nps} Knoten/Sekunde'
+
+# ---------------------------------------------------------------------------
+# Perft-Befehl
+# ---------------------------------------------------------------------------
+perft.header: 'Perft — Überprüfung der Zuggenerierung'
+perft.col_nodes: 'Knoten'
+perft.col_reference: 'Referenz'
+perft.col_status: 'Status'
+perft.ok: 'OK'
+perft.fail: 'FEHLER'
+perft.all_ok: 'Alle berechneten Knotenzahlen stimmen mit den Referenzwerten überein.'
+perft.mismatch: 'ABWEICHUNG — die Zuggenerierung weicht von den Referenzzahlen ab!'
+perft.divide_total: 'Gesamt: %{total} Knoten über %{moves} Wurzelzüge (%{ms} ms)'
