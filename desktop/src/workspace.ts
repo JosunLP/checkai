@@ -1,5 +1,6 @@
 import { get } from 'svelte/store';
 import {
+  analyzePosition,
   cancelAnalysisJob,
   createGame,
   deleteGame,
@@ -36,6 +37,12 @@ import {
   boardAscii,
   currentView,
   desktopState,
+  engineAuto,
+  engineMovetimeMs,
+  engineMultiPv,
+  enginePosition,
+  engineRunning,
+  engineThreads,
   fenInput,
   gamesList,
   legalMoves,
@@ -364,6 +371,8 @@ async function refreshActiveGame(silent = false): Promise<boolean> {
 
   return attemptRefresh(silent, async () => {
     const nextGame = await getGame(game.game_id);
+    const advanced =
+      (nextGame.move_history?.length ?? 0) !== (game.move_history?.length ?? 0);
     activeGame.set(nextGame);
 
     if (!nextGame.is_over) {
@@ -374,6 +383,12 @@ async function refreshActiveGame(silent = false): Promise<boolean> {
     }
 
     await refreshBoardAscii(nextGame.game_id);
+
+    // Only disturb the engine panel when the position actually changed;
+    // polling refreshes must not restart a search on every tick.
+    if (advanced) {
+      onActivePositionChanged();
+    }
   });
 }
 
@@ -574,6 +589,7 @@ export async function openGame(
     selectedSquare.set(null);
     replayState.set(null);
     replayGameId.set(null);
+    resetEnginePanel();
     updateDesktopState((state) => ({ ...state, lastGameId: gameId }));
 
     if (!game.is_over) {
@@ -819,6 +835,52 @@ export async function viewAnalysisJob(jobId: string): Promise<void> {
     }
   } catch (error) {
     pushError(error instanceof Error ? error.message : String(error));
+  }
+}
+
+/**
+ * Runs one live evaluation of the position currently on the board.
+ *
+ * Unlike {@link submitAnalysisForGame}, which queues a full-game job, this
+ * answers in a single request and feeds the board view's engine panel.
+ */
+export async function evaluateActivePosition(): Promise<void> {
+  const gameId = get(activeGame)?.game_id ?? null;
+  if (!gameId || get(engineRunning)) return;
+
+  engineRunning.set(true);
+  try {
+    const analysis = await analyzePosition({
+      game_id: gameId,
+      movetime_ms: get(engineMovetimeMs),
+      multi_pv: get(engineMultiPv),
+      threads: get(engineThreads),
+    });
+    enginePosition.set(analysis);
+  } catch (error) {
+    enginePosition.set(null);
+    pushError(error instanceof Error ? error.message : String(error));
+  } finally {
+    engineRunning.set(false);
+  }
+}
+
+/** Clears the live engine panel (called when the active game changes). */
+export function resetEnginePanel(): void {
+  enginePosition.set(null);
+}
+
+/**
+ * Refreshes the live engine after the position changed.
+ *
+ * With auto-analysis off the previous verdict is dropped instead of being
+ * left on screen next to a position it no longer describes.
+ */
+export function onActivePositionChanged(): void {
+  if (get(engineAuto)) {
+    void evaluateActivePosition();
+  } else {
+    resetEnginePanel();
   }
 }
 

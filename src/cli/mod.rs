@@ -6,22 +6,31 @@
 //! - [`theme`] — color/TTY detection (`--no-color`, `NO_COLOR`) and styling.
 //! - [`panel`] — data-driven box-drawing helpers (banners, result panels).
 //! - [`board_renderer`] — the single board renderer used everywhere
-//!   (Unicode/ASCII, highlights, flipped view, coordinates).
-//! - [`score`] — score formatting (`+1.23`, `#3`) and the eval bar.
+//!   (coloured squares or ASCII frame, highlights, flipped view, coordinates).
+//! - [`animate`] — in-place redrawing, move animation and reveal effects.
+//! - [`score`] — score formatting (`+1.23`, `#3`), eval bars and sparklines.
 //! - [`level`] — the difficulty ladder mapping levels to search limits.
-//! - [`progress`] — TTY-gated spinners and progress bars (indicatif).
+//! - [`engine`] — the shared `--threads/--hash/--book/…` argument group.
+//! - [`clock`] — time controls and the two-sided game clock.
+//! - [`progress`] — TTY-gated spinners, bars and the live thinking panel.
 //! - [`fen`] — FEN import/export for [`crate::game::Game`].
+//! - [`pgn`] — SAN rendering/parsing and PGN reading/writing.
 //!
 //! Commands implement the [`CliCommand`] trait and are dispatched from
 //! `main.rs`, which stays a thin parser + locale setup layer.
 
 pub mod analyze;
+pub mod animate;
 pub mod bench;
 pub mod board_renderer;
+pub mod clock;
+pub mod engine;
+pub mod eval;
 pub mod fen;
 pub mod level;
 pub mod panel;
 pub mod perft;
+pub mod pgn;
 pub mod play;
 pub mod progress;
 pub mod score;

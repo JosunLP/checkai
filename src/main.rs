@@ -86,6 +86,7 @@ pub mod analysis;
 pub mod analysis_api;
 pub mod api;
 pub mod cli;
+pub mod engine_time;
 pub mod eval;
 pub mod export;
 pub mod game;
@@ -190,9 +191,11 @@ All chess rules follow the FIDE 2023 Laws of Chess.\n\
 Features:\n\
   \u{2022} REST + WebSocket API for AI agent integration\n\
   \u{2022} Swagger UI for interactive API exploration\n\
-  \u{2022} Terminal interface for local two-player games\n\
+  \u{2022} Animated terminal play with chess clocks and board themes\n\
+  \u{2022} Multi-threaded search (Lazy SMP) with MultiPV analysis\n\
+  \u{2022} Opening book, endgame tablebases and full UCI support\n\
+  \u{2022} PGN import/export with standard algebraic notation\n\
   \u{2022} Game archival and export (text, PGN, JSON)\n\
-  \u{2022} Built-in engine analysis with opening book & tablebase support\n\
   \u{2022} Internationalization (8 languages)")]
 #[command(version)]
 #[command(styles = CLI_STYLES)]
@@ -201,14 +204,18 @@ Examples:\n\
   checkai serve              Start the API server on port 8080\n\
   checkai serve --port 3000  Start on a custom port\n\
   checkai play               Play vs the built-in engine (level 5)\n\
+  checkai play --time 5+3    Play a five-minute game with increment\n\
   checkai play --vs human    Local two-player game\n\
   checkai watch              Watch an engine-vs-engine showcase\n\
-  checkai analyze --fen ...  Deep-dive a position with the engine\n\
+  checkai analyze --pgn g.pgn  Annotate a game from a PGN file\n\
+  checkai eval --fen ...     Inspect the evaluation of a position\n\
   checkai bench              Run the engine benchmark suite\n\
   checkai perft 5            Verify move generation vs references\n\
   checkai uci                Speak UCI for chess GUIs/match runners\n\
   checkai export --list      List all archived games\n\
   checkai update             Update to the latest version\n\
+\n\
+Every engine command accepts --threads, --hash, --book and --tablebase.\n\
 \n\
 Documentation: https://github.com/JosunLP/checkai")]
 struct Cli {
@@ -293,8 +300,11 @@ Examples:\n\
     /// Watch the engine play itself (engine-vs-engine showcase).
     Watch(cli::watch::WatchArgs),
 
-    /// Analyze a position (--fen) or an entire game (--moves).
+    /// Analyze a position (--fen), a move list (--moves) or a PGN file.
     Analyze(cli::analyze::AnalyzeArgs),
+
+    /// Inspect the static evaluation, ranked moves, book and tablebase.
+    Eval(cli::eval::EvalArgs),
 
     /// Run the fixed engine benchmark suite (nodes, time, NPS).
     Bench(cli::bench::BenchArgs),
@@ -427,6 +437,7 @@ async fn main() -> std::io::Result<()> {
         }
         Some(Commands::Watch(args)) => run_cli_command(args, &ctx),
         Some(Commands::Analyze(args)) => run_cli_command(args, &ctx),
+        Some(Commands::Eval(args)) => run_cli_command(args, &ctx),
         Some(Commands::Bench(args)) => run_cli_command(args, &ctx),
         Some(Commands::Perft(args)) => run_cli_command(args, &ctx),
         Some(Commands::Uci(args)) => run_cli_command(args, &ctx),
@@ -563,8 +574,12 @@ async fn run_server(cfg: ServeConfig) -> std::io::Result<()> {
             .app_data(game_manager.clone())
             .app_data(broadcaster_data.clone())
             .app_data(analysis_manager.clone())
-            .configure(api::configure_routes)
+            // Order matters: actix matches services in registration order and
+            // `/api` is a prefix of `/api/analysis`, so the narrower analysis
+            // scope has to be registered first or every analysis request is
+            // swallowed by the games scope and answered with a 404.
             .configure(analysis_api::configure_analysis_routes)
+            .configure(api::configure_routes)
             .route("/ws", web::get().to(ws::ws_connect))
             .service(
                 SwaggerUi::new("/swagger-ui/{_:.*}").url("/api-docs/openapi.json", openapi.clone()),

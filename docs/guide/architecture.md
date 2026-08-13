@@ -18,15 +18,31 @@ src/
 ├── storage.rs       # Persistent binary storage with zstd compression
 ├── export.rs        # Game export (text, PGN, JSON)
 ├── update.rs        # Self-update and version check
-├── terminal.rs      # Terminal interface with colored output
+├── terminal.rs      # Terminal input parsing (moves, SAN, REPL commands)
 ├── i18n.rs          # Internationalization helpers
 ├── zobrist.rs       # Zobrist hashing (compile-time key generation)
+├── engine_time.rs   # Clock shim so the search compiles for native and WASM
 ├── eval.rs          # PeSTO evaluation + king safety + mobility
-├── search.rs        # Alpha-beta PVS + TT + LMR + NMP + SEE + futility
+├── search.rs        # PVS + lock-free TT + Lazy SMP + MultiPV + book/tablebase
 ├── opening_book.rs  # Polyglot opening book reader
 ├── tablebase.rs     # Syzygy endgame tablebase interface
-├── analysis.rs      # Analysis orchestrator (async job queue)
-└── analysis_api.rs  # Analysis REST API endpoints
+├── analysis.rs      # Analysis orchestrator (async jobs + sync position search)
+├── analysis_api.rs  # Analysis REST API endpoints
+└── cli/             # One module per command plus shared CLI infrastructure
+    ├── mod.rs           # CliCommand trait, CliContext, shared error type
+    ├── engine.rs        # The shared --threads/--hash/--book argument group
+    ├── theme.rs         # Colour/TTY detection and width helpers
+    ├── board_renderer.rs# Coloured-square and ASCII board rendering
+    ├── animate.rs       # In-place redraw, move animation, reveal effects
+    ├── progress.rs      # Spinners, progress bars, live thinking panel
+    ├── panel.rs         # Box-drawing panels and tables
+    ├── score.rs         # Score formatting, eval bars, sparklines, accuracy
+    ├── clock.rs         # Time controls and the two-sided game clock
+    ├── fen.rs           # FEN import/export for Game
+    ├── pgn.rs           # SAN rendering/parsing and PGN read/write
+    ├── level.rs         # The 1-10 difficulty ladder
+    └── play.rs · watch.rs · analyze.rs · eval.rs · bench.rs · perft.rs
+        · uci.rs · welcome.rs        # the commands themselves
 ```
 
 ### WebAssembly Crate
@@ -35,11 +51,18 @@ src/
 wasm/
 ├── Cargo.toml       # WASM crate manifest (cdylib + rlib)
 └── src/
-    ├── lib.rs       # WASM bindings: position analysis, game mgmt, export, board
-    └── search.rs    # Search with web-time::Instant (WASM-compatible)
+    ├── lib.rs         # WASM bindings: analysis, game mgmt, export, board
+    └── engine_time.rs # web-time clock shim for the shared search engine
 ```
 
-The WASM crate re-uses core source files from the parent crate via `#[path = "../../src/..."]` directives, ensuring zero code duplication for `types`, `movegen`, `eval`, `zobrist`, and `polyglot_keys`.
+The WASM crate re-uses core source files from the parent crate via
+`#[path = "../../src/..."]` directives — `types`, `movegen`, `eval`, `zobrist`,
+`polyglot_keys`, `opening_book`, `tablebase` **and `search`**. Until 1.0.0 the
+search was a local copy that had drifted far behind the native engine; routing
+the two clock types through `engine_time` removed the last platform difference,
+so the WebAssembly build now runs exactly the same search and cannot fall
+behind again. It stays single-threaded, because WebAssembly has no worker
+threads.
 
 ### JavaScript Package
 
@@ -65,7 +88,8 @@ web/src/
 ├── board.ts      # SVG chess board renderer
 ├── game.ts       # Game CRUD, move execution, FEN/PGN
 ├── archive.ts    # Archive browsing and replay controls
-├── analysis.ts   # Analysis panel with polling
+├── analysis.ts   # Game-review panel with job polling
+├── engine.ts     # Live engine panel (eval bar, MultiPV, book, tablebase)
 └── styles.css    # Tailwind CSS v4 with custom @theme tokens
 ```
 
@@ -149,16 +173,21 @@ The evaluation function combines multiple scoring components:
 
 The alpha-beta search employs numerous pruning and ordering optimizations:
 
-- **Iterative deepening** with aspiration windows (initial delta ±25 cp)
+- **Iterative deepening** with per-MultiPV-line aspiration windows
 - **Principal Variation Search** (PVS) — narrowed alpha-beta windows
-- **Transposition table** — configurable hash table (64 MB default) with Zobrist keys
-- **Null-move pruning** (R = 3) — skip a move to prove a position is strong
-- **Late Move Reductions** (LMR) — reduce search depth for unlikely moves beyond the first 4
-- **Internal Iterative Deepening** (IID) — shallow search at PV nodes without a TT move (depth ≥ 4)
-- **Late Move Pruning** (LMP) — skip late quiet moves at depths 1–4 when threshold is exceeded
-- **Razoring** — drop into quiescence search when eval + 300 cp ≤ alpha at depth ≤ 2
-- **Killer moves** (2 slots per ply) and **history heuristic** (with aging between iterations) for move ordering
-- **Counter-move heuristic** — prioritize the move that refuted the opponent's last move
-- **Static Exchange Evaluation** (SEE) — filters bad captures at low depth
-- **Futility pruning** — skips quiet moves when the static evaluation is far below alpha (depth ≤ 3)
-- **Quiescence search** — resolves captures and checks to avoid horizon effects
+- **Lock-free transposition table** — two atomic words per slot guarded by an XOR checksum, shared by every Lazy SMP thread
+- **Lazy SMP** — up to 64 threads searching the same position through one shared table
+- **Singular extensions** — an extra ply when the TT move beats every alternative
+- **Null-move pruning** — adaptive reduction with a verification search at high depth
+- **Late Move Reductions** (LMR) — log-log table adjusted for PV nodes, killers, history and the improving flag
+- **Internal Iterative Reduction** (IIR) — cheapen subtrees with no TT move (depth ≥ 4)
+- **Late Move Pruning** (LMP) — skip late quiets at shallow depth, tightened on non-improving nodes
+- **History pruning** — drop quiets that have repeatedly failed
+- **Razoring** — drop into quiescence when the eval is far below alpha at depth ≤ 2
+- **Killer moves**, **counter-moves**, **butterfly history** and **one-ply continuation history** for move ordering
+- **Static Exchange Evaluation** (SEE) — capture ordering and pruning of losing captures
+- **Futility pruning** — skips quiet moves far below alpha (depth ≤ 3)
+- **Quiescence search** — resolves captures, promotions and check evasions to avoid horizon effects
+
+See [The Search Engine](/guide/engine) for the full picture, including time
+management and strength limiting.

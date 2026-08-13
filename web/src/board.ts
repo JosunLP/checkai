@@ -13,6 +13,8 @@ export interface BoardRenderOptions {
   lastMoveSqs?: SquareName[];
   checkSquare?: SquareName | null;
   flipped?: boolean;
+  /** From/to squares of the engine's suggested move, drawn as a hint. */
+  engineHint?: { from: SquareName; to: SquareName } | null;
   onClick?: (sq: SquareName, piece: FenChar | null) => void;
 }
 
@@ -36,6 +38,7 @@ export function renderBoard(
     lastMoveSqs = [],
     checkSquare = null,
     flipped = false,
+    engineHint = null,
     onClick,
   } = options;
 
@@ -61,6 +64,8 @@ export function renderBoard(
       }
       if (lastMoveSqs.includes(sq)) div.classList.add('last-move');
       if (checkSquare === sq) div.classList.add('in-check');
+      if (engineHint?.from === sq) div.classList.add('engine-hint-from');
+      if (engineHint?.to === sq) div.classList.add('engine-hint-to');
 
       // Rank & file labels
       const isBottomRank = rank === (flipped ? 7 : 0);
@@ -143,6 +148,11 @@ export function renderCurrentBoard(): void {
     }
   }
 
+  // The engine's suggestion, when the live panel has one and it is enabled.
+  const suggestion = store.engine.value.analysis?.best_move;
+  const engineHint =
+    store.engineShowArrow.value && suggestion ? { from: suggestion.from, to: suggestion.to } : null;
+
   renderBoard('chess-board', game.state.board, {
     interactive: true,
     selectedSq: store.selectedSquare.value,
@@ -150,6 +160,7 @@ export function renderCurrentBoard(): void {
     lastMoveSqs,
     checkSquare,
     flipped: store.boardFlipped.value,
+    engineHint,
     onClick: handleSquareClick,
   });
 }

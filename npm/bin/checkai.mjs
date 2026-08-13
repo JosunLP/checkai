@@ -31,7 +31,7 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 function usage() {
-  console.log(`CheckAI v0.5.0 — Chess engine (WebAssembly)
+  console.log(`CheckAI — Chess engine (WebAssembly)
 
 Usage:
   checkai <command> [options]
@@ -40,7 +40,9 @@ Commands:
   fen                            Print the starting position FEN
   moves <FEN>                    List all legal moves for a position
   eval <FEN>                     Static evaluation (centipawns)
-  search <FEN> [--depth N]       Find the best move (default depth: 10)
+  search <FEN> [options]         Find the best move
+  analyze <FEN> [options]        Multi-line analysis (see --multipv)
+  info                           Print engine version, limits and features
   move <FEN> <MOVE>              Apply a move (e.g. e2e4) and print result
   board <FEN>                    Print an ASCII board diagram
   play                           Interactive game in the terminal
@@ -55,13 +57,19 @@ Commands:
   help                           Show this help message
 
 Options:
-  --depth N                      Search depth (1-30, default: 10)
+  --depth N                      Search depth (1-128, default: 10)
+  --movetime MS                  Time budget per search, in milliseconds
+  --nodes N                      Node budget per search
+  --multipv N                    Report the best N lines (1-16, default: 1)
+  --hash MB                      Transposition table size (default: 16)
+  --skill N                      Limit strength, 0 (weakest) to 20 (full)
   --json                         Output results as JSON
 
 Examples:
   checkai fen
   checkai moves "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
   checkai search "..." --depth 15
+  checkai analyze "..." --movetime 2000 --multipv 3
   checkai board "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
   checkai game new
   checkai game move <ID> e2 e4
@@ -70,8 +78,39 @@ Examples:
 }
 
 const jsonOutput = args.includes('--json');
-const depthIdx = args.indexOf('--depth');
-const depth = depthIdx !== -1 ? parseInt(args[depthIdx + 1], 10) || 10 : 10;
+
+/** Reads a numeric option like `--depth 12`, falling back to `fallback`. */
+function numberOption(name, fallback) {
+  const index = args.indexOf(`--${name}`);
+  if (index === -1) return fallback;
+  const value = Number.parseInt(args[index + 1], 10);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+const depth = numberOption('depth', 10);
+
+/** Search options gathered from the command line, for search/analyze. */
+function searchOptions(defaults = {}) {
+  const options = { depth, ...defaults };
+  const movetime = numberOption('movetime', undefined);
+  const nodes = numberOption('nodes', undefined);
+  const multiPv = numberOption('multipv', undefined);
+  const hashMb = numberOption('hash', undefined);
+  const skillLevel = numberOption('skill', undefined);
+  if (movetime !== undefined) options.movetime = movetime;
+  if (nodes !== undefined) options.nodes = nodes;
+  if (multiPv !== undefined) options.multiPv = multiPv;
+  if (hashMb !== undefined) options.hashMb = hashMb;
+  if (skillLevel !== undefined) options.skillLevel = skillLevel;
+  return options;
+}
+
+/** Formats a score as pawns, or as `#N` for a forced mate. */
+function formatScore(result) {
+  return result.mateIn != null
+    ? `#${result.mateIn}`
+    : `${(result.score / 100).toFixed(2)} (${result.score} cp)`;
+}
 
 function output(data) {
   if (jsonOutput) {
@@ -129,16 +168,51 @@ try {
 
     case 'search': {
       const fen = requireFen();
-      const result = wasm.bestMove(fen, depth);
+      const result = wasm.analyze(fen, searchOptions());
       if (jsonOutput) {
         console.log(JSON.stringify(result, null, 2));
       } else {
         console.log(`Best move : ${result.bestMove?.notation ?? '(none)'}`);
-        console.log(`Score     : ${result.score} cp`);
-        console.log(`Depth     : ${result.depth}`);
+        console.log(`Score     : ${formatScore(result)}`);
+        console.log(`Depth     : ${result.depth}/${result.seldepth}`);
         console.log(`PV        : ${result.pv.join(' ')}`);
-        console.log(`Nodes     : ${result.nodes}`);
+        console.log(`Nodes     : ${result.nodes} (${result.nps} n/s)`);
         console.log(`Time      : ${result.timeMs} ms`);
+      }
+      break;
+    }
+
+    case 'analyze': {
+      const fen = requireFen();
+      const result = wasm.analyze(fen, searchOptions({ multiPv: 3 }));
+      if (jsonOutput) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(
+          `Analysis at depth ${result.depth}/${result.seldepth} — ` +
+            `${result.nodes} nodes in ${result.timeMs} ms (${result.nps} n/s)`
+        );
+        for (const line of result.lines) {
+          const score =
+            line.mateIn != null
+              ? `#${line.mateIn}`
+              : (line.score / 100).toFixed(2).padStart(7);
+          console.log(`  ${line.rank}. ${score}  ${line.moves.join(' ')}`);
+        }
+      }
+      break;
+    }
+
+    case 'info': {
+      const info = wasm.engineInfo();
+      if (jsonOutput) {
+        console.log(JSON.stringify(info, null, 2));
+      } else {
+        console.log(`${info.name} ${info.version} (WebAssembly)`);
+        console.log(`Max depth   : ${info.maxDepth}`);
+        console.log(`Max MultiPV : ${info.maxMultiPv}`);
+        console.log(`Threads     : ${info.threadsSupported ? 'yes' : 'no (single-threaded WASM build)'}`);
+        console.log(`Features    : ${info.features.join(', ')}`);
       }
       break;
     }

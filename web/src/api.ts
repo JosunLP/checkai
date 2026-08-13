@@ -12,6 +12,8 @@ import type {
   LegalMove,
   MoveResponse,
   MoveSubmission,
+  PositionAnalysis,
+  PositionAnalysisRequest,
   ReplayState,
   StorageStats,
 } from './types';
@@ -108,6 +110,18 @@ export function getAnalysis(jobId: string): Promise<AnalysisJob> {
 
 export function cancelAnalysis(jobId: string): Promise<void> {
   return request('DELETE', `/analysis/jobs/${encodeURIComponent(jobId)}`);
+}
+
+/**
+ * Analyse a single position and get the verdict in the same request.
+ *
+ * Backs the live engine panel: one bounded search (default one second) that
+ * returns the evaluation, the best move and — with `multi_pv` — the top
+ * alternatives, plus opening-book and tablebase information when the server
+ * has them configured.
+ */
+export function analyzePosition(req: PositionAnalysisRequest): Promise<PositionAnalysis> {
+  return request('POST', '/analysis/position', req);
 }
 
 // ── FEN Import/Export ────────────────────────────────────────────────────────

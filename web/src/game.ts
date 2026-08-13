@@ -4,6 +4,7 @@
 
 import { batch } from '@bquery/bquery/reactive';
 import { resetAnalysisState } from './analysis';
+import { onPositionChanged, resetEngineState } from './engine';
 import * as api from './api';
 import { renderCurrentBoard } from './board';
 import { t } from './i18n';
@@ -43,6 +44,13 @@ export async function refreshCurrentGame(): Promise<void> {
     }
 
     renderGameView();
+
+    // Feed the live engine panel when the position actually moved on.
+    const ply = game.move_history?.length ?? 0;
+    if (ply !== lastAnalysedPly) {
+      lastAnalysedPly = ply;
+      onPositionChanged();
+    }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     showToast(t('toast.error', { error: msg }), 'error');
@@ -54,6 +62,7 @@ export async function loadGame(gameId: string): Promise<void> {
   if (prev && prev !== gameId) {
     wsUnsubscribe(prev);
     resetAnalysisState();
+    resetEngineState();
   }
 
   batch(() => {
@@ -407,6 +416,15 @@ export function renderGameView(): void {
   renderMoveHistory(game.move_history);
   renderCurrentBoard();
 }
+
+/**
+ * Position tracker for the live engine panel.
+ *
+ * `renderGameView` runs on every refresh, including ones that did not change
+ * the position (a redraw, a language switch). Comparing the move count keeps
+ * the engine from re-searching a position it has already answered.
+ */
+let lastAnalysedPly = -1;
 
 function renderMoveHistory(history: MoveHistoryEntry[]): void {
   const container = document.getElementById('move-history');

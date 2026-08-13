@@ -38,8 +38,17 @@ pub mod zobrist;
 #[path = "../../src/polyglot_keys.rs"]
 pub mod polyglot_keys;
 
-// search.rs uses std::time::Instant which panics on wasm32-unknown-unknown.
-// This local copy replaces it with web_time::Instant.
+#[path = "../../src/opening_book.rs"]
+pub mod opening_book;
+
+#[path = "../../src/tablebase.rs"]
+pub mod tablebase;
+
+// The search engine is shared verbatim with the native crate; the only
+// platform difference is the clock, which `engine_time` abstracts away.
+mod engine_time;
+
+#[path = "../../src/search.rs"]
 pub mod search;
 
 use serde::Serialize;
@@ -620,9 +629,95 @@ struct SearchResultJson {
     best_move: Option<MoveJson>,
     score: i32,
     depth: i32,
+    /// Greatest ply reached anywhere in the tree.
+    seldepth: i32,
+    /// Full moves until mate, when the line is a forced mate.
+    mate_in: Option<i32>,
     pv: Vec<String>,
+    /// All requested principal variations, best first.
+    lines: Vec<PvLineJson>,
     nodes: u64,
+    /// Nodes per second over the whole search.
+    nps: u64,
     time_ms: u64,
+    /// Transposition table fill level in per mille.
+    hashfull: u32,
+}
+
+/// One principal variation in a MultiPV result.
+#[derive(Serialize)]
+struct PvLineJson {
+    /// 1-based rank (1 = best line).
+    rank: usize,
+    score: i32,
+    mate_in: Option<i32>,
+    moves: Vec<String>,
+}
+
+/// Search parameters accepted by [`analyze`].
+#[derive(serde::Deserialize, Default)]
+#[serde(default, rename_all = "camelCase")]
+struct AnalyzeOptions {
+    /// Maximum search depth in plies.
+    depth: Option<i32>,
+    /// Time budget in milliseconds.
+    movetime: Option<u64>,
+    /// Node budget.
+    nodes: Option<u64>,
+    /// Number of principal variations to report.
+    multi_pv: Option<usize>,
+    /// Transposition table size in MB.
+    hash_mb: Option<usize>,
+    /// Artificial strength limit, `0`–`20` (omit for full strength).
+    skill_level: Option<u8>,
+}
+
+/// Runs a search and converts the result into the JSON shape above.
+fn run_search(
+    pos: &search::SearchPosition,
+    options: &AnalyzeOptions,
+) -> SearchResultJson {
+    let config = search::EngineConfig {
+        // WebAssembly heaps are small; keep the default table modest.
+        tt_size_mb: options.hash_mb.unwrap_or(16).clamp(1, 512),
+        multi_pv: options
+            .multi_pv
+            .unwrap_or(1)
+            .clamp(1, search::MAX_MULTI_PV),
+        skill_level: options.skill_level,
+        ..search::EngineConfig::default()
+    };
+    let limits = search::SearchLimits {
+        max_depth: options.depth.unwrap_or(12).clamp(1, search::MAX_DEPTH),
+        move_time_ms: options.movetime,
+        max_nodes: options.nodes,
+        ..search::SearchLimits::default()
+    };
+    let mut engine = search::SearchEngine::with_config(config);
+    let result = engine.search_limited(pos, &limits, None);
+
+    SearchResultJson {
+        best_move: result.best_move.as_ref().map(MoveJson::from),
+        score: result.score,
+        depth: result.depth,
+        seldepth: result.seldepth,
+        mate_in: search::score_to_mate_in(result.score),
+        pv: result.pv.iter().map(|m| m.to_string()).collect(),
+        lines: result
+            .pv_lines
+            .iter()
+            .map(|line| PvLineJson {
+                rank: line.rank,
+                score: line.score,
+                mate_in: line.mate_in,
+                moves: line.moves.iter().map(|m| m.to_string()).collect(),
+            })
+            .collect(),
+        nodes: result.stats.nodes,
+        nps: result.nps(),
+        time_ms: result.time_ms,
+        hashfull: result.hashfull,
+    }
 }
 
 #[derive(Serialize)]
@@ -662,23 +757,87 @@ pub fn evaluate(fen: &str) -> Result<i32, JsError> {
 }
 
 /// Searches for the best move at the given depth.
-/// Returns a JSON object with best_move, score, depth, pv, nodes, time_ms.
+///
+/// Returns a JSON object with `bestMove`, `score`, `depth`, `seldepth`,
+/// `mateIn`, `pv`, `lines`, `nodes`, `nps`, `timeMs` and `hashfull`.
 #[wasm_bindgen(js_name = "bestMove")]
 pub fn best_move(fen: &str, depth: i32) -> Result<JsValue, JsError> {
     let pos = fen_to_search_pos(fen).map_err(|e| JsError::new(&e))?;
-    let depth = depth.clamp(1, 30);
-    let mut engine = search::SearchEngine::new(16); // 16 MB TT for WASM
-    let result = engine.search(&pos, depth);
-
-    let json = SearchResultJson {
-        best_move: result.best_move.as_ref().map(MoveJson::from),
-        score: result.score,
-        depth: result.depth,
-        pv: result.pv.iter().map(|m| m.to_string()).collect(),
-        nodes: result.stats.nodes,
-        time_ms: result.time_ms,
-    };
+    let json = run_search(
+        &pos,
+        &AnalyzeOptions {
+            depth: Some(depth.clamp(1, search::MAX_DEPTH)),
+            ..AnalyzeOptions::default()
+        },
+    );
     serde_wasm_bindgen::to_value(&json).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Analyses a position with the full engine feature set.
+///
+/// `options` is an object accepting `depth`, `movetime`, `nodes`, `multiPv`,
+/// `hashMb` and `skillLevel`; every field is optional. With `multiPv > 1` the
+/// result's `lines` array holds the best N variations in descending order.
+///
+/// ```js
+/// const result = analyze(fen, { movetime: 1000, multiPv: 3 });
+/// for (const line of result.lines) console.log(line.rank, line.score, line.moves[0]);
+/// ```
+#[wasm_bindgen(js_name = "analyze")]
+pub fn analyze(fen: &str, options: JsValue) -> Result<JsValue, JsError> {
+    let pos = fen_to_search_pos(fen).map_err(|e| JsError::new(&e))?;
+    let options: AnalyzeOptions = if options.is_undefined() || options.is_null() {
+        AnalyzeOptions::default()
+    } else {
+        serde_wasm_bindgen::from_value(options)
+            .map_err(|e| JsError::new(&format!("invalid options: {e}")))?
+    };
+    let json = run_search(&pos, &options);
+    serde_wasm_bindgen::to_value(&json).map_err(|e| JsError::new(&e.to_string()))
+}
+
+/// Returns the engine's capability and version metadata.
+///
+/// Useful for feature-detection in JavaScript callers, and for confirming
+/// that the WASM build is running the same search as the native binary.
+#[wasm_bindgen(js_name = "engineInfo")]
+pub fn engine_info() -> Result<JsValue, JsError> {
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct EngineInfo {
+        name: &'static str,
+        version: &'static str,
+        max_depth: i32,
+        max_multi_pv: usize,
+        max_skill: u8,
+        /// WebAssembly has no worker threads, so Lazy SMP is unavailable.
+        threads_supported: bool,
+        features: Vec<&'static str>,
+    }
+
+    let info = EngineInfo {
+        name: "CheckAI",
+        version: env!("CARGO_PKG_VERSION"),
+        max_depth: search::MAX_DEPTH,
+        max_multi_pv: search::MAX_MULTI_PV,
+        max_skill: search::MAX_SKILL,
+        threads_supported: false,
+        features: vec![
+            "pvs",
+            "iterative-deepening",
+            "aspiration-windows",
+            "transposition-table",
+            "multipv",
+            "null-move-pruning",
+            "late-move-reductions",
+            "singular-extensions",
+            "continuation-history",
+            "static-exchange-evaluation",
+            "quiescence-search",
+            "skill-limiting",
+        ],
+    };
+    serde_wasm_bindgen::to_value(&info).map_err(|e| JsError::new(&e.to_string()))
 }
 
 /// Returns `true` if the side to move is in checkmate.

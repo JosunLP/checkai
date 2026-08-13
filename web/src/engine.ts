@@ -1,0 +1,281 @@
+// ============================================================================
+// CheckAI Web UI — Live Engine Panel
+// ============================================================================
+//
+// The counterpart to the job-based game analysis: a single bounded search on
+// the position currently on the board, answered in one request. It drives the
+// evaluation bar, the best-move arrow, the MultiPV candidate list and the
+// opening-book / tablebase readouts.
+
+import { batch } from '@bquery/bquery/reactive';
+import * as api from './api';
+import { t } from './i18n';
+import { store } from './store';
+import type { PositionAnalysis } from './types';
+import { showToast } from './ui';
+
+/** Guards against a slow response overwriting a newer one. */
+let requestToken = 0;
+
+/** White's winning expectancy for a centipawn score (logistic curve). */
+export function winProbability(scoreWhiteCp: number): number {
+  const cp = Math.max(-3000, Math.min(3000, scoreWhiteCp));
+  return 1 / (1 + Math.pow(10, -cp / 400));
+}
+
+/** Formats a score as pawns (`+1.23`) or mate distance (`#3`). */
+export function formatScore(scoreCp: number, mateIn: number | null): string {
+  if (mateIn !== null && mateIn !== undefined) return `#${mateIn}`;
+  const pawns = scoreCp / 100;
+  return `${pawns >= 0 ? '+' : ''}${pawns.toFixed(2)}`;
+}
+
+/** Formats a node count compactly (`950`, `8.5k`, `1.2M`). */
+export function humanizeCount(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
+  if (n < 1_000_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  return `${(n / 1_000_000_000).toFixed(2)}G`;
+}
+
+/** Runs one live evaluation of the current game position. */
+export async function evaluatePosition(): Promise<void> {
+  const gameId = store.currentGameId.value;
+  if (!gameId) return;
+
+  const token = ++requestToken;
+  batch(() => {
+    store.engine.value = { ...store.engine.value, running: true, error: null };
+  });
+  renderEnginePanel();
+
+  try {
+    const analysis = await api.analyzePosition({
+      game_id: gameId,
+      movetime_ms: store.engineMovetimeMs.value,
+      multi_pv: store.engineMultiPv.value,
+      threads: store.engineThreads.value,
+    });
+    if (token !== requestToken) return; // superseded by a newer request
+    store.engine.value = { running: false, error: null, analysis };
+  } catch (err: unknown) {
+    if (token !== requestToken) return;
+    const message = err instanceof Error ? err.message : String(err);
+    store.engine.value = { running: false, error: message, analysis: null };
+    showToast(t('toast.error', { error: message }), 'error');
+  }
+  renderEnginePanel();
+}
+
+/** Clears the live engine state (called when the game changes). */
+export function resetEngineState(): void {
+  requestToken++;
+  store.engine.value = { running: false, error: null, analysis: null };
+  renderEnginePanel();
+}
+
+/** Re-evaluates when auto-analysis is on; otherwise clears stale output. */
+export function onPositionChanged(): void {
+  if (store.engineAuto.value) {
+    void evaluatePosition();
+  } else {
+    resetEngineState();
+  }
+}
+
+/** Renders the live engine panel into `#engine-content`. */
+export function renderEnginePanel(): void {
+  const host = document.getElementById('engine-content');
+  if (!host) return;
+
+  const state = store.engine.value;
+  const startBtn = document.getElementById('btn-engine-run') as HTMLButtonElement | null;
+  if (startBtn) startBtn.disabled = state.running || !store.currentGameId.value;
+
+  if (state.error) {
+    host.innerHTML = '';
+    host.appendChild(paragraph(state.error, 'engine-error'));
+    return;
+  }
+  if (!state.analysis) {
+    host.innerHTML = '';
+    host.appendChild(
+      paragraph(state.running ? t('engine.thinking') : t('engine.idle'), 'analysis-idle'),
+    );
+    return;
+  }
+
+  host.innerHTML = '';
+  host.appendChild(buildEvalBar(state.analysis));
+  host.appendChild(buildSummary(state.analysis));
+  host.appendChild(buildLines(state.analysis));
+
+  const book = state.analysis.book;
+  if (book && book.book_moves.length > 0) {
+    host.appendChild(buildBook(book.book_moves));
+  }
+  const tablebase = state.analysis.tablebase;
+  if (tablebase && tablebase.wdl) {
+    host.appendChild(
+      paragraph(
+        t('engine.tablebase', {
+          config: tablebase.configuration,
+          wdl: tablebase.wdl,
+          source: tablebase.source,
+        }),
+        'engine-tablebase',
+      ),
+    );
+  }
+}
+
+/** The horizontal evaluation bar, scaled by White's winning expectancy. */
+function buildEvalBar(analysis: PositionAnalysis): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'eval-bar';
+  wrap.setAttribute('role', 'img');
+  wrap.setAttribute(
+    'aria-label',
+    t('engine.eval_aria', {
+      score: formatScore(analysis.score_white_cp, analysis.mate_in),
+    }),
+  );
+
+  const fill = document.createElement('div');
+  fill.className = 'eval-bar-fill';
+  fill.style.width = `${(winProbability(analysis.score_white_cp) * 100).toFixed(1)}%`;
+
+  const label = document.createElement('span');
+  label.className = 'eval-bar-label';
+  label.textContent = formatScore(analysis.score_white_cp, analysis.mate_in);
+
+  wrap.appendChild(fill);
+  wrap.appendChild(label);
+  return wrap;
+}
+
+/** Depth / node / speed summary line. */
+function buildSummary(analysis: PositionAnalysis): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'engine-summary';
+  const parts = [
+    t('engine.depth', { depth: analysis.depth, seldepth: analysis.seldepth }),
+    t('engine.nodes', {
+      nodes: humanizeCount(analysis.nodes),
+      nps: humanizeCount(analysis.nps),
+    }),
+    `${analysis.time_ms} ms`,
+    t('engine.hashfull', { permille: analysis.hashfull }),
+  ];
+  if (analysis.source !== 'search') parts.push(analysis.source);
+  el.textContent = parts.join(' · ');
+  return el;
+}
+
+/** The MultiPV candidate list; clicking a line plays its first move. */
+function buildLines(analysis: PositionAnalysis): HTMLElement {
+  const list = document.createElement('ol');
+  list.className = 'engine-lines';
+  for (const line of analysis.lines) {
+    const item = document.createElement('li');
+    item.className = 'engine-line';
+
+    const score = document.createElement('span');
+    score.className = 'engine-line-score';
+    score.textContent = formatScore(line.score_cp, line.mate_in);
+
+    const moves = document.createElement('span');
+    moves.className = 'engine-line-moves';
+    moves.textContent = line.moves.join(' ');
+
+    item.appendChild(score);
+    item.appendChild(moves);
+    list.appendChild(item);
+  }
+  return list;
+}
+
+/** Opening-book moves with their relative popularity. */
+function buildBook(entries: { notation: string; probability: number }[]): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'engine-book';
+
+  const heading = document.createElement('h4');
+  heading.textContent = t('engine.book');
+  wrap.appendChild(heading);
+
+  for (const entry of entries) {
+    const row = document.createElement('div');
+    row.className = 'engine-book-row';
+
+    const move = document.createElement('span');
+    move.className = 'engine-book-move';
+    move.textContent = entry.notation;
+
+    const meter = document.createElement('div');
+    meter.className = 'engine-book-meter';
+    const fill = document.createElement('div');
+    fill.className = 'engine-book-fill';
+    fill.style.width = `${(entry.probability * 100).toFixed(1)}%`;
+    meter.appendChild(fill);
+
+    const percent = document.createElement('span');
+    percent.className = 'engine-book-percent';
+    percent.textContent = `${(entry.probability * 100).toFixed(1)}%`;
+
+    row.appendChild(move);
+    row.appendChild(meter);
+    row.appendChild(percent);
+    wrap.appendChild(row);
+  }
+  return wrap;
+}
+
+/** Small helper for a single styled paragraph. */
+function paragraph(text: string, className: string): HTMLElement {
+  const el = document.createElement('p');
+  el.className = className;
+  el.textContent = text;
+  return el;
+}
+
+/** Wires up the engine panel controls. */
+export function bindEngineEvents(): void {
+  document
+    .getElementById('btn-engine-run')
+    ?.addEventListener('click', () => void evaluatePosition());
+
+  const auto = document.getElementById('toggle-engine-auto') as HTMLInputElement | null;
+  if (auto) {
+    auto.checked = store.engineAuto.value;
+    auto.addEventListener('change', () => {
+      store.engineAuto.value = auto.checked;
+      if (auto.checked) void evaluatePosition();
+    });
+  }
+
+  bindNumberInput('input-engine-movetime', store.engineMovetimeMs, 10, 60000);
+  bindNumberInput('input-engine-multipv', store.engineMultiPv, 1, 16);
+  bindNumberInput('input-engine-threads', store.engineThreads, 1, 64);
+
+  const arrow = document.getElementById('toggle-engine-arrow') as HTMLInputElement | null;
+  if (arrow) {
+    arrow.checked = store.engineShowArrow.value;
+    arrow.addEventListener('change', () => {
+      store.engineShowArrow.value = arrow.checked;
+    });
+  }
+}
+
+/** Binds a numeric input to a signal, clamping to `[min, max]`. */
+function bindNumberInput(id: string, target: { value: number }, min: number, max: number): void {
+  const input = document.getElementById(id) as HTMLInputElement | null;
+  if (!input) return;
+  input.value = String(target.value);
+  input.addEventListener('change', () => {
+    const parsed = Number.parseInt(input.value, 10);
+    const clamped = Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : target.value;
+    target.value = clamped;
+    input.value = String(clamped);
+  });
+}

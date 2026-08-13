@@ -346,6 +346,53 @@ export type AnalysisStatus =
   | { InProgress: { moves_analyzed: number; total_moves: number } }
   | { Failed: { error: string } };
 
+/** Request body for `POST /api/analysis/position`. */
+export interface PositionAnalysisRequest {
+  /** Position to analyse; omit to analyse `game_id` instead. */
+  fen?: string;
+  /** Analyse the current position of this active game. */
+  game_id?: string;
+  /** Maximum search depth in plies. */
+  depth?: number;
+  /** Time budget in milliseconds (default 1000). */
+  movetime_ms?: number;
+  /** Number of principal variations to report (1-16). */
+  multi_pv?: number;
+  /** Lazy SMP search threads (1-64). */
+  threads?: number;
+}
+
+/** One principal variation returned by the live engine. */
+export interface PositionPvLine {
+  rank: number;
+  score_cp: number;
+  score_white_cp: number;
+  mate_in: number | null;
+  moves: string[];
+}
+
+/** Result of `POST /api/analysis/position`. */
+export interface PositionAnalysis {
+  fen: string;
+  turn: PieceColor;
+  best_move: AnalysisMoveJson | null;
+  score_cp: number;
+  score_white_cp: number;
+  mate_in: number | null;
+  static_eval_cp: number;
+  depth: number;
+  seldepth: number;
+  nodes: number;
+  nps: number;
+  time_ms: number;
+  hashfull: number;
+  /** `search`, `book` or `tablebase`. */
+  source: string;
+  lines: PositionPvLine[];
+  book?: AnalysisBookInfo;
+  tablebase?: AnalysisTablebaseInfo;
+}
+
 export interface AnalysisJob {
   id: string;
   game_id: string | null;

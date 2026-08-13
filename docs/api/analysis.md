@@ -10,17 +10,91 @@ These endpoints are architecturally isolated from the player-facing game API.
 http://localhost:8080/api/analysis
 ```
 
-## What the API Returns
+## Two ways to analyse
 
-The analysis API is **game-review oriented**, not a live search-info stream.
+The API has two distinct modes, and picking the right one matters:
 
-- While a job is running, you receive the job `status` only.
-- When the job completes, `result` contains per-move annotations and a summary.
-- The API does **not** expose live `score`, `nodes`, `nps`, `time_ms`, or a rolling principal variation while the job is in progress.
+| | `POST /api/analysis/position` | `POST /api/analysis/game/{id}` |
+| --- | --- | --- |
+| Shape | Synchronous — answers in the same request | Asynchronous job you poll |
+| Scope | One position | Every move of a game |
+| Typical budget | 0.2–2 seconds | Minutes |
+| Returns | Evaluation, best move, MultiPV lines, book, tablebase | Per-move annotations and a summary |
+| Use for | Live evaluation bars, hint buttons, agent decisions | Post-game review |
 
-That distinction matters for web clients: poll the job endpoint for status, then read `result.summary` and `result.annotations` after completion.
+The job-based mode is **game-review oriented**, not a live search-info stream:
+while a job runs you receive its `status` only; `result` appears when it
+completes. It does not expose a rolling score, node count or principal
+variation. For anything interactive, use the position endpoint instead.
 
 ## Endpoints
+
+### Analyse a Single Position
+
+```http
+POST /api/analysis/position
+Content-Type: application/json
+```
+
+Runs one bounded search and returns the verdict immediately. Identify the
+position with either `fen` or `game_id`.
+
+**Request**
+
+```json
+{
+  "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
+  "movetime_ms": 700,
+  "multi_pv": 3,
+  "threads": 2
+}
+```
+
+| Field         | Type   | Default | Description                                     |
+| ------------- | ------ | ------- | ----------------------------------------------- |
+| `fen`         | string | —       | Position to analyse (4–6 field FEN)             |
+| `game_id`     | string | —       | Analyse the current position of an active game  |
+| `depth`       | number | 128     | Maximum search depth in plies                   |
+| `movetime_ms` | number | 1000    | Time budget, capped at 60 000                   |
+| `multi_pv`    | number | 1       | Number of principal variations (1–16)           |
+| `threads`     | number | 1       | Lazy SMP search threads (1–64)                  |
+
+**Response** `200 OK`
+
+```json
+{
+  "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 4 4",
+  "turn": "white",
+  "best_move": { "from": "f3", "to": "f7", "promotion": null },
+  "score_cp": 29999,
+  "score_white_cp": 29999,
+  "mate_in": 1,
+  "static_eval_cp": 2,
+  "depth": 8,
+  "seldepth": 24,
+  "nodes": 194560,
+  "nps": 276363,
+  "time_ms": 704,
+  "hashfull": 17,
+  "source": "search",
+  "lines": [
+    { "rank": 1, "score_cp": 29999, "score_white_cp": 29999, "mate_in": 1, "moves": ["f3f7"] },
+    { "rank": 2, "score_cp": 35, "score_white_cp": 35, "mate_in": null, "moves": ["c4f7", "e8e7", "f7g8"] }
+  ]
+}
+```
+
+`score_white_cp` is always from White's point of view, which is what an
+evaluation bar wants; `score_cp` is relative to the side to move. `source` is
+`search`, `book` or `tablebase`. When a book or tablebase is configured on the
+server, the response also carries `book` and `tablebase` objects.
+
+**Errors**
+
+| Status | Cause                                        |
+| ------ | -------------------------------------------- |
+| `400`  | Invalid FEN, or neither `fen` nor `game_id`  |
+| `404`  | `game_id` does not exist                     |
 
 ### Submit Game for Analysis
 

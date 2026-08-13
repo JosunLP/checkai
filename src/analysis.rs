@@ -284,6 +284,47 @@ pub struct AnalysisJob {
     pub completed_at: Option<u64>,
 }
 
+/// Input for a one-off position analysis.
+#[derive(Debug, Clone)]
+pub struct PositionRequest {
+    /// The position to analyse, including its move history (used for
+    /// repetition detection inside the search).
+    pub game: Game,
+    /// Maximum search depth in plies.
+    pub depth: Option<u32>,
+    /// Time budget in milliseconds (default 1000, capped at 60 000).
+    pub movetime_ms: Option<u64>,
+    /// Number of principal variations to report.
+    pub multi_pv: Option<usize>,
+    /// Lazy SMP search threads.
+    pub threads: Option<usize>,
+}
+
+/// Result of a one-off position analysis.
+#[derive(Debug, Clone)]
+pub struct PositionAnalysis {
+    /// The raw search result, including every MultiPV line.
+    pub result: crate::search::SearchResult,
+    /// Static evaluation of the position, from the side to move's view.
+    pub static_eval_cp: i32,
+    /// Opening-book information for the engine's chosen move, if a book
+    /// is configured.
+    pub book: Option<BookMoveInfo>,
+}
+
+/// Zobrist hashes of every position preceding the current one.
+///
+/// Mirrors [`crate::cli::fen::history_hashes`] but works on the API side,
+/// where the CLI module is not in scope.
+fn position_history_hashes(game: &Game) -> Vec<u64> {
+    let preceding = game.position_history.len().saturating_sub(1);
+    game.position_history[..preceding]
+        .iter()
+        .filter_map(|position| Game::from_fen(&format!("{position} 0 1")).ok())
+        .map(|g| crate::zobrist::hash_position(&g.board, g.turn, &g.castling, g.en_passant))
+        .collect()
+}
+
 /// Outcome of an [`AnalysisManager::delete_job`] call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DeleteJobOutcome {
@@ -316,9 +357,9 @@ pub struct AnalysisManager {
     /// Analysis configuration.
     config: AnalysisConfig,
     /// Opening book (loaded once at startup).
-    book: Option<OpeningBook>,
+    book: Option<Arc<OpeningBook>>,
     /// Syzygy tablebase (loaded once at startup).
-    tablebase: Option<SyzygyTablebase>,
+    tablebase: Option<Arc<SyzygyTablebase>>,
     /// Job store (thread-safe).
     jobs: Arc<RwLock<HashMap<String, AnalysisJob>>>,
     /// Cancellation flags for in-progress jobs.
@@ -344,7 +385,7 @@ impl AnalysisManager {
                         b.len(),
                         path.display()
                     );
-                    Some(b)
+                    Some(Arc::new(b))
                 }
                 Err(e) => {
                     log::warn!("Failed to load opening book: {}", e);
@@ -364,7 +405,7 @@ impl AnalysisManager {
                             tb.max_pieces,
                             path.display()
                         );
-                        Some(tb)
+                        Some(Arc::new(tb))
                     }
                     Err(e) => {
                         log::warn!("Failed to load Syzygy tablebase: {}", e);
@@ -378,6 +419,70 @@ impl AnalysisManager {
             tablebase,
             jobs: Arc::new(RwLock::new(HashMap::new())),
             cancel_tokens: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Runs a bounded, synchronous search on a single position.
+    ///
+    /// Unlike [`AnalysisManager::analyze_game`], which queues a long job, this
+    /// answers immediately and is meant for interactive clients: the web UI's
+    /// live engine panel, the desktop analysis board, and any agent that wants
+    /// a quick verdict on a position. Book and tablebase knowledge configured
+    /// for the server is shared with the search.
+    ///
+    /// The call blocks for at most `movetime_ms` (default one second), so it
+    /// must be invoked from a blocking context — the HTTP handler wraps it in
+    /// `spawn_blocking`.
+    pub fn analyze_position(&self, request: &PositionRequest) -> PositionAnalysis {
+        let position = SearchPosition::new(
+            request.game.board.clone(),
+            request.game.turn,
+            request.game.castling,
+            request.game.en_passant,
+            request.game.halfmove_clock,
+        );
+
+        let config = crate::search::EngineConfig {
+            tt_size_mb: self.config.tt_size_mb,
+            threads: request.threads.unwrap_or(1),
+            multi_pv: request.multi_pv.unwrap_or(1),
+            book: self.book.clone(),
+            // Interactive analysis should search, not quote the book; the book
+            // moves are reported separately so the client can show both.
+            use_book: false,
+            tablebase: self.tablebase.clone(),
+            ..crate::search::EngineConfig::default()
+        };
+        let limits = crate::search::SearchLimits {
+            max_depth: request
+                .depth
+                .map(|d| d as i32)
+                .unwrap_or(MAX_DEPTH)
+                .clamp(1, MAX_DEPTH),
+            move_time_ms: Some(request.movetime_ms.unwrap_or(1_000).clamp(10, 60_000)),
+            ..crate::search::SearchLimits::default()
+        };
+
+        let mut engine = SearchEngine::with_config(config);
+        engine.set_game_history(&position_history_hashes(&request.game));
+        let result = engine.search_limited(&position, &limits, None);
+
+        let book = self.book.as_ref().and_then(|book| {
+            result.best_move.map(|mv| {
+                book.probe_move(
+                    &request.game.board,
+                    request.game.turn,
+                    &request.game.castling,
+                    request.game.en_passant,
+                    &mv,
+                )
+            })
+        });
+
+        PositionAnalysis {
+            static_eval_cp: crate::eval::evaluate(&request.game.board, request.game.turn),
+            result,
+            book,
         }
     }
 
