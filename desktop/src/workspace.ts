@@ -382,8 +382,16 @@ async function refreshActiveGame(silent = false): Promise<boolean> {
       // describes a game that is no longer on screen.
       return;
     }
-    const advanced =
-      (nextGame.move_history?.length ?? 0) !== (current.move_history?.length ?? 0);
+    const nextPly = nextGame.move_history?.length ?? 0;
+    const currentPly = current.move_history?.length ?? 0;
+    if (nextPly < currentPly) {
+      // The server answered this poll before the user's move reached it, and
+      // the answer outlived `refreshAfterOwnMove`. Applying it would roll the
+      // board back a ply while the legal moves fetched below are for the
+      // newer position, and would count as a position change on top.
+      return;
+    }
+    const advanced = nextPly !== currentPly;
     activeGame.set(nextGame);
 
     if (!nextGame.is_over) {

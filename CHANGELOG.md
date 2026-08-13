@@ -59,6 +59,10 @@ the live-engine-panel defects found while reviewing both UIs.
   above the maximum twice left the box showing the rejected number while the
   engine used the clamped one, and clearing a field snapped the setting to its
   minimum (a 10 ms search budget) instead of keeping the current value
+- **OpenAPI advertised the wrong version** — `info.version` was a hand-maintained
+  literal and had to be bumped by hand on every release. It now comes from
+  `CARGO_PKG_VERSION`, so `/swagger-ui/` and the generated `openapi.json` cannot
+  drift from the crate again
 - **Docs** — the Docker guide still pinned its pull example to `0.3.1`
 
 ## [1.0.0] - 2026-08-13

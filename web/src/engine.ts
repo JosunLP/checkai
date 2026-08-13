@@ -80,12 +80,13 @@ export async function evaluatePosition(): Promise<void> {
     // `runEvaluation` sets `running` before it awaits and returns without
     // clearing it when the answer turns out to be stale — which is what
     // happens when the game is deleted or switched mid-search. Nothing else
-    // ever clears the flag, so the panel would sit on "Thinking…" with the
-    // Evaluate button disabled until another game was loaded.
+    // ever clears the flag, so the panel would sit on "Thinking…" forever.
     if (store.engine.value.running) {
       store.engine.value = { ...store.engine.value, running: false };
-      renderEnginePanel();
     }
+    // Unconditional: the button is disabled while `inFlight` is set, so it has
+    // to be re-drawn now that the wire is free again.
+    renderEnginePanel();
   }
 }
 
@@ -125,11 +126,11 @@ export function resetEngineState(): void {
   requestToken++;
   // Whatever the queued re-run was for is no longer on the board.
   rerunQueued = false;
-  // A request already on the wire cannot be recalled — the server runs the
-  // search to completion either way. Reporting `running: false` while one is
-  // still out there re-enables the Evaluate button, and pressing it only sets
-  // `rerunQueued`, so the click would appear to do nothing at all.
-  store.engine.value = { running: inFlight !== null, error: null, analysis: null };
+  // `running` stays false: the search still on the wire belongs to the
+  // position the user just left and its answer is already invalidated, so
+  // claiming the panel is thinking about the new one would be a lie. The
+  // Evaluate button is held by `inFlight` instead — see `renderEnginePanel`.
+  store.engine.value = { running: false, error: null, analysis: null };
   renderEnginePanel();
 }
 
@@ -158,7 +159,12 @@ export function renderEnginePanel(): void {
 
   const state = store.engine.value;
   const startBtn = document.getElementById('btn-engine-run') as HTMLButtonElement | null;
-  if (startBtn) startBtn.disabled = state.running || !store.currentGameId.value;
+  // `inFlight` matters on top of `running`: a request whose answer has been
+  // invalidated is still occupying the server's engine slot, and pressing
+  // Evaluate would only queue a re-run behind it with nothing to show for it.
+  if (startBtn) {
+    startBtn.disabled = state.running || inFlight !== null || !store.currentGameId.value;
+  }
 
   if (state.error) {
     host.innerHTML = '';

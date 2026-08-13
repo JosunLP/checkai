@@ -21,6 +21,7 @@ A follow-up to 1.0.0. The Linux desktop artifacts never made it into the 1.0.0 r
 - **Desktop — a poll tick could restart the search it had just triggered** — the refresh compared the new game state against a snapshot taken before its own request, so a move made while the poll was in flight counted twice and cost two full search budgets before a verdict appeared. A poll answering for a game the user has since left is now discarded instead of overwriting the new one
 - **Desktop — duplicate opening-book moves crashed the board view** — the book list was keyed on the move notation, and a polyglot file can hold several entries for the same move; a duplicate key is a hard runtime error in Svelte 5
 - **Desktop — out-of-range engine settings stuck on screen** — entering a value above the maximum twice left the box showing the rejected number while the engine used the clamped one, and clearing a field snapped the setting to its minimum (a 10 ms search budget) instead of keeping the current value
+- **OpenAPI advertised the wrong version** — `info.version` was a hand-maintained literal and had to be bumped by hand on every release. It now comes from `CARGO_PKG_VERSION`, so `/swagger-ui/` and the generated `openapi.json` cannot drift from the crate again
 - **Docs** — the Docker guide still pinned its pull example to `0.3.1`
 
 ## [1.0.0] — 2026-08-13
