@@ -71,6 +71,9 @@ checkai serve [OPTIONS]
 | `--analysis-max-jobs <N>`              | `256`     | Maximum number of analysis jobs kept in memory                           |
 | `--analysis-max-concurrent-jobs <N>`   | `4`       | Maximum analysis jobs to run in parallel                                 |
 | `--analysis-completed-ttl-secs <SECS>` | `3600`    | Time-to-live for completed analysis jobs                                 |
+| `--analysis-position-max-threads <N>`  | `4`       | Search threads one live position analysis may use                        |
+| `--analysis-position-max-movetime-ms <MS>` | `10000` | Longest time budget for one live position analysis                     |
+| `--analysis-max-concurrent-positions <N>` | `4`    | Live position analyses allowed to run at the same time                   |
 
 ```bash
 checkai serve                                          # default
@@ -198,7 +201,9 @@ checkai analyze [OPTIONS]
 | `--pgn <FILE>`    | PGN file to import and annotate                         |
 | `--depth <N>`     | Fixed search depth                                      |
 | `--movetime <MS>` | Time budget (per move in game mode)                     |
-| `--multipv <N>`   | Report the best N lines in position mode                |
+
+Plus the shared [engine options](#engine-options); `--multipv <N>` reports the
+best N lines in position mode.
 
 ```bash
 checkai analyze --fen "<FEN>" --multipv 4     # the four best lines

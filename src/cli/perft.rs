@@ -150,6 +150,12 @@ pub fn perft(pos: &SearchPosition, depth: u32) -> u64 {
 /// Root moves are dealt out round-robin, which keeps the split cheap and
 /// balances well in practice because sibling subtrees are similar in size.
 /// The result is identical to [`perft`] — only the wall-clock time changes.
+///
+/// # Panics
+///
+/// Re-raises a worker panic on the calling thread. `perft` is a correctness
+/// oracle, so a silently truncated total would be worse than a crash: it would
+/// print a plausible-looking number for a custom FEN and hide the real fault.
 pub fn perft_parallel(pos: &SearchPosition, depth: u32, threads: usize) -> u64 {
     let threads = threads.max(1);
     if threads == 1 || depth <= 1 {
@@ -177,7 +183,10 @@ pub fn perft_parallel(pos: &SearchPosition, depth: u32, threads: usize) -> u64 {
             .collect();
         handles
             .into_iter()
-            .map(|handle| handle.join().unwrap_or(0))
+            .map(|handle| match handle.join() {
+                Ok(subtotal) => subtotal,
+                Err(payload) => std::panic::resume_unwind(payload),
+            })
             .sum()
     })
 }

@@ -406,3 +406,5 @@ cli.cmd_eval_desc: '局面の評価を調べる'
 cli.quickstart_analyze: 'PGN ファイルの棋譜に注釈を付ける'
 analysis.position_required: "解析するには 'fen' または 'game_id' を指定してください。"
 analysis.state_unavailable: 'ゲーム状態が一時的に利用できません。'
+analysis.parameter_out_of_range: "パラメータ '%{field}' が範囲外です。許容範囲: %{range}。"
+analysis.position_limit_exceeded: '局面解析の同時実行数の上限に達しました: 実行中=%{active} (最大 %{max_active})。しばらくしてから再試行してください。'

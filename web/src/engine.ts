@@ -17,6 +17,12 @@ import { showToast } from './ui';
 /** Guards against a slow response overwriting a newer one. */
 let requestToken = 0;
 
+/** The evaluation currently in flight; at most one runs at a time. */
+let inFlight: Promise<void> | null = null;
+
+/** Set when the position moved on while a search was still running. */
+let rerunQueued = false;
+
 /** White's winning expectancy for a centipawn score (logistic curve). */
 export function winProbability(scoreWhiteCp: number): number {
   const cp = Math.max(-3000, Math.min(3000, scoreWhiteCp));
@@ -38,8 +44,35 @@ export function humanizeCount(n: number): string {
   return `${(n / 1_000_000_000).toFixed(2)}G`;
 }
 
-/** Runs one live evaluation of the current game position. */
+/**
+ * Runs one live evaluation of the current game position.
+ *
+ * Only one search is ever in flight. The server answers a position analysis
+ * synchronously and cannot stop a search once the engine has started it, so a
+ * second request would occupy another engine slot for a position the user has
+ * already left — and be turned away with `429` once the server is saturated.
+ * A position change during a search therefore only sets a flag; the search
+ * that lands re-runs once, for whatever is on the board by then.
+ */
 export async function evaluatePosition(): Promise<void> {
+  if (inFlight) {
+    rerunQueued = true;
+    return inFlight;
+  }
+
+  try {
+    do {
+      rerunQueued = false;
+      inFlight = runEvaluation();
+      await inFlight;
+    } while (rerunQueued);
+  } finally {
+    inFlight = null;
+  }
+}
+
+/** One request/response round trip against the position endpoint. */
+async function runEvaluation(): Promise<void> {
   const gameId = store.currentGameId.value;
   if (!gameId) return;
 
@@ -56,10 +89,12 @@ export async function evaluatePosition(): Promise<void> {
       multi_pv: store.engineMultiPv.value,
       threads: store.engineThreads.value,
     });
-    if (token !== requestToken) return; // superseded by a newer request
+    // Both the token and the game must still be current: the panel describes
+    // the board in front of the user, not the one the search started from.
+    if (token !== requestToken || store.currentGameId.value !== gameId) return;
     store.engine.value = { running: false, error: null, analysis };
   } catch (err: unknown) {
-    if (token !== requestToken) return;
+    if (token !== requestToken || store.currentGameId.value !== gameId) return;
     const message = err instanceof Error ? err.message : String(err);
     store.engine.value = { running: false, error: message, analysis: null };
     showToast(t('toast.error', { error: message }), 'error');
@@ -70,6 +105,8 @@ export async function evaluatePosition(): Promise<void> {
 /** Clears the live engine state (called when the game changes). */
 export function resetEngineState(): void {
   requestToken++;
+  // Whatever the queued re-run was for is no longer on the board.
+  rerunQueued = false;
   store.engine.value = { running: false, error: null, analysis: null };
   renderEnginePanel();
 }
@@ -77,6 +114,9 @@ export function resetEngineState(): void {
 /** Re-evaluates when auto-analysis is on; otherwise clears stale output. */
 export function onPositionChanged(): void {
   if (store.engineAuto.value) {
+    // A search may still be running for the position we just left; whatever
+    // it returns must not land in the panel.
+    requestToken++;
     void evaluatePosition();
   } else {
     resetEngineState();

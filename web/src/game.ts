@@ -59,10 +59,14 @@ export async function refreshCurrentGame(): Promise<void> {
 
 export async function loadGame(gameId: string): Promise<void> {
   const prev = store.currentGameId.value;
-  if (prev && prev !== gameId) {
-    wsUnsubscribe(prev);
+  if (prev !== gameId) {
+    if (prev) wsUnsubscribe(prev);
     resetAnalysisState();
     resetEngineState();
+    // A different game starts from a clean slate. Without this the tracker
+    // still holds the previous game's ply count, so a game that happens to be
+    // the same number of moves in would never trigger its first analysis.
+    lastAnalysedPly = -1;
   }
 
   batch(() => {

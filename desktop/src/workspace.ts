@@ -839,16 +839,62 @@ export async function viewAnalysisJob(jobId: string): Promise<void> {
 }
 
 /**
+ * Identifies the position a live evaluation was started for.
+ *
+ * Bumped whenever the active position changes, so a response that arrives
+ * after the user moved on — or opened another game — can be recognised as
+ * describing a board that is no longer there and dropped.
+ */
+let engineRequestToken = 0;
+
+/** The evaluation currently in flight; at most one runs at a time. */
+let engineInFlight: Promise<void> | null = null;
+
+/** Set when the position moved on while a search was still running. */
+let engineRerunQueued = false;
+
+/**
  * Runs one live evaluation of the position currently on the board.
  *
  * Unlike {@link submitAnalysisForGame}, which queues a full-game job, this
  * answers in a single request and feeds the board view's engine panel.
+ *
+ * Only one search runs at a time: the server cannot stop a position analysis
+ * once the engine has started it, so a second request would occupy another
+ * engine slot for a position the user has already left. A position change
+ * during a search therefore queues a re-run rather than being dropped —
+ * otherwise auto-analysis would go quiet exactly when the user plays quickly.
  */
 export async function evaluateActivePosition(): Promise<void> {
-  const gameId = get(activeGame)?.game_id ?? null;
-  if (!gameId || get(engineRunning)) return;
+  if (!get(activeGame)) return;
+  if (engineInFlight) {
+    engineRerunQueued = true;
+    return engineInFlight;
+  }
 
   engineRunning.set(true);
+  try {
+    do {
+      engineRerunQueued = false;
+      engineInFlight = runActiveEvaluation();
+      await engineInFlight;
+    } while (engineRerunQueued);
+  } finally {
+    engineInFlight = null;
+    engineRunning.set(false);
+  }
+}
+
+/** One request/response round trip against the position endpoint. */
+async function runActiveEvaluation(): Promise<void> {
+  const gameId = get(activeGame)?.game_id ?? null;
+  if (!gameId) return;
+
+  const token = ++engineRequestToken;
+  /** The response is only usable while it still describes the live board. */
+  const stillCurrent = () =>
+    token === engineRequestToken && get(activeGame)?.game_id === gameId;
+
   try {
     const analysis = await analyzePosition({
       game_id: gameId,
@@ -856,18 +902,29 @@ export async function evaluateActivePosition(): Promise<void> {
       multi_pv: get(engineMultiPv),
       threads: get(engineThreads),
     });
+    if (!stillCurrent()) return;
     enginePosition.set(analysis);
   } catch (error) {
+    if (!stillCurrent()) return;
     enginePosition.set(null);
     pushError(error instanceof Error ? error.message : String(error));
-  } finally {
-    engineRunning.set(false);
   }
 }
 
 /** Clears the live engine panel (called when the active game changes). */
 export function resetEnginePanel(): void {
+  invalidateEngineRequests();
   enginePosition.set(null);
+}
+
+/**
+ * Marks every outstanding evaluation as describing a stale position.
+ *
+ * Their responses are discarded instead of being written to the panel.
+ */
+function invalidateEngineRequests(): void {
+  engineRequestToken += 1;
+  engineRerunQueued = false;
 }
 
 /**
@@ -878,6 +935,9 @@ export function resetEnginePanel(): void {
  */
 export function onActivePositionChanged(): void {
   if (get(engineAuto)) {
+    // A search may still be running for the position we just left; whatever
+    // it returns must not land in the panel.
+    engineRequestToken += 1;
     void evaluateActivePosition();
   } else {
     resetEnginePanel();

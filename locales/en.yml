@@ -383,3 +383,5 @@ cli.cmd_eval_desc: 'Inspect the evaluation of a position'
 cli.quickstart_analyze: 'Annotate a game from a PGN file'
 analysis.position_required: "Provide either a 'fen' or a 'game_id' to analyse."
 analysis.state_unavailable: 'Game state is temporarily unavailable.'
+analysis.parameter_out_of_range: "Parameter '%{field}' is out of range; accepted: %{range}."
+analysis.position_limit_exceeded: 'Position analysis capacity exceeded: active=%{active} (max %{max_active}). Retry shortly.'

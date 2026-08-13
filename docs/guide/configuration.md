@@ -18,6 +18,14 @@ All server settings are passed as CLI flags to `checkai serve`:
 | Max retained jobs  | `--analysis-max-jobs`            | —         | Maximum number of completed analysis jobs kept                |
 | Max concurrent jobs| `--analysis-max-concurrent-jobs` | —         | Maximum number of analysis jobs run in parallel               |
 | Completed-job TTL  | `--analysis-completed-ttl-secs`  | —         | TTL for completed analysis jobs in seconds (e.g. `86400`=24h) |
+| Position threads   | `--analysis-position-max-threads`    | `4`   | Search threads one live position analysis may use             |
+| Position movetime  | `--analysis-position-max-movetime-ms` | `10000` | Longest time budget for one live position analysis (ms)    |
+| Max live analyses  | `--analysis-max-concurrent-positions` | `4`  | Live position analyses allowed to run at the same time         |
+
+The last three bound `POST /api/analysis/position`, where the caller picks the
+search parameters: a request above a ceiling is reduced to it, and a request
+arriving while every slot is busy is answered with `429` instead of being
+queued.
 
 ## Environment Variables
 

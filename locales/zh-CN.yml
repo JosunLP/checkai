@@ -406,3 +406,5 @@ cli.cmd_eval_desc: '查看局面评估'
 cli.quickstart_analyze: '为 PGN 文件中的对局添加注释'
 analysis.position_required: "请提供 'fen' 或 'game_id' 以进行分析。"
 analysis.state_unavailable: '对局状态暂时不可用。'
+analysis.parameter_out_of_range: "参数 '%{field}' 超出范围；允许值：%{range}。"
+analysis.position_limit_exceeded: '局面分析并发数已达上限：进行中=%{active}（最多 %{max_active}）。请稍后重试。'

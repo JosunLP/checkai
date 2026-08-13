@@ -405,3 +405,5 @@ cli.cmd_eval_desc: 'Bewertung einer Stellung untersuchen'
 cli.quickstart_analyze: 'Partie aus einer PGN-Datei kommentieren'
 analysis.position_required: "Bitte entweder 'fen' oder 'game_id' zur Analyse angeben."
 analysis.state_unavailable: 'Spielzustand ist vorübergehend nicht verfügbar.'
+analysis.parameter_out_of_range: "Parameter '%{field}' liegt außerhalb des gültigen Bereichs; erlaubt: %{range}."
+analysis.position_limit_exceeded: 'Kapazität für Stellungsanalysen erschöpft: aktiv=%{active} (max %{max_active}). Bitte kurz erneut versuchen.'

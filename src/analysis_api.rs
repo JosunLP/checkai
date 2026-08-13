@@ -9,12 +9,13 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::analysis::{
-    AnalysisJobSummary, AnalysisManager, AnalysisSubmitError, DeleteJobOutcome, PositionRequest,
+    AnalysisJobSummary, AnalysisManager, AnalysisSubmitError, DeleteJobOutcome,
+    MAX_POSITION_MOVETIME_MS, MIN_POSITION_MOVETIME_MS, PositionRequest,
 };
 use crate::api::AppState;
 use crate::game::Game;
 use crate::opening_book::BookMoveInfo;
-use crate::search::{MoveSource, score_to_mate_in};
+use crate::search::{MAX_DEPTH, MAX_MULTI_PV, MAX_THREADS, MoveSource, score_to_mate_in};
 use crate::storage::ArchiveLoadError;
 use crate::tablebase::TablebaseInfo;
 use crate::types::{Color, MoveJson};
@@ -58,20 +59,62 @@ pub struct AnalysisJobListResponse {
 ///
 /// Exactly one of `fen` or `game_id` identifies the position; when both are
 /// given, `fen` wins.
+///
+/// Every search parameter is optional. A value outside its documented range is
+/// rejected with `400`; a value the server considers too expensive for an
+/// interactive request is reduced to the configured ceiling (see
+/// `--analysis-position-max-threads` and `--analysis-position-max-movetime-ms`),
+/// so a successful response may reflect a smaller search than was asked for.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct AnalyzePositionRequest {
     /// Position to analyse, as a 4–6 field FEN string.
     pub fen: Option<String>,
     /// Analyse the current position of this active game instead.
     pub game_id: Option<String>,
-    /// Maximum search depth in plies.
+    /// Maximum search depth in plies (1–128, default: unlimited).
+    #[schema(minimum = 1, maximum = 128)]
     pub depth: Option<u32>,
-    /// Time budget in milliseconds (default 1000, capped at 60 000).
+    /// Time budget in milliseconds (10–60 000, default 1000).
+    #[schema(minimum = 10, maximum = 60000)]
     pub movetime_ms: Option<u64>,
-    /// Number of principal variations to report (1–16).
+    /// Number of principal variations to report (1–16, default 1).
+    #[schema(minimum = 1, maximum = 16)]
     pub multi_pv: Option<usize>,
-    /// Lazy SMP search threads (1–64).
+    /// Lazy SMP search threads (1–64, default 1).
+    #[schema(minimum = 1, maximum = 64)]
     pub threads: Option<usize>,
+}
+
+impl AnalyzePositionRequest {
+    /// Checks every search parameter against its documented range.
+    ///
+    /// Returns the name of the offending field and the range it must fall in,
+    /// ready to be reported as a `400`. Out-of-range values are a client
+    /// mistake worth naming: silently clamping `threads: 0` or
+    /// `movetime_ms: 10_000_000` would answer with a search nobody asked for.
+    fn validate(&self) -> Result<(), (&'static str, String)> {
+        let check_usize = |name, value: Option<usize>, min: usize, max: usize| match value {
+            Some(v) if !(min..=max).contains(&v) => Err((name, format!("{min}–{max}"))),
+            _ => Ok(()),
+        };
+        check_usize("threads", self.threads, 1, MAX_THREADS)?;
+        check_usize("multi_pv", self.multi_pv, 1, MAX_MULTI_PV)?;
+        check_usize(
+            "depth",
+            self.depth.map(|d| d as usize),
+            1,
+            MAX_DEPTH as usize,
+        )?;
+        match self.movetime_ms {
+            Some(ms) if !(MIN_POSITION_MOVETIME_MS..=MAX_POSITION_MOVETIME_MS).contains(&ms) => {
+                Err((
+                    "movetime_ms",
+                    format!("{MIN_POSITION_MOVETIME_MS}–{MAX_POSITION_MOVETIME_MS}"),
+                ))
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 /// One principal variation of a position analysis.
@@ -371,6 +414,11 @@ pub fn configure_analysis_routes(cfg: &mut web::ServiceConfig) {
 /// request, so a UI can show a live evaluation bar, the best move, and — with
 /// `multi_pv` — the top alternatives. The server's opening book and endgame
 /// tablebase are reported alongside the search result when configured.
+///
+/// Because the caller picks the search parameters, the endpoint is bounded on
+/// both axes: each request is clamped to the server's interactive ceilings,
+/// and only a fixed number of analyses may run at once — the rest are turned
+/// away with `429` rather than queued.
 #[utoipa::path(
     post,
     path = "/api/analysis/position",
@@ -378,8 +426,9 @@ pub fn configure_analysis_routes(cfg: &mut web::ServiceConfig) {
     request_body = AnalyzePositionRequest,
     responses(
         (status = 200, description = "Analysis complete", body = PositionAnalysisResponse),
-        (status = 400, description = "Invalid FEN or missing position", body = AnalysisErrorResponse),
+        (status = 400, description = "Invalid FEN, missing position, or search parameter out of range", body = AnalysisErrorResponse),
         (status = 404, description = "Game not found", body = AnalysisErrorResponse),
+        (status = 429, description = "Too many position analyses running", body = AnalysisErrorResponse),
     )
 )]
 pub async fn analyze_position(
@@ -387,6 +436,17 @@ pub async fn analyze_position(
     analysis: web::Data<AnalysisManager>,
     body: web::Json<AnalyzePositionRequest>,
 ) -> impl Responder {
+    if let Err((field, range)) = body.validate() {
+        return HttpResponse::BadRequest().json(AnalysisErrorResponse {
+            error: t!(
+                "analysis.parameter_out_of_range",
+                field = field,
+                range = range
+            )
+            .to_string(),
+        });
+    }
+
     // Resolve the position: an explicit FEN, or the current state of a game.
     let game = match (&body.fen, &body.game_id) {
         (Some(fen), _) => match Game::from_fen(fen) {
@@ -438,7 +498,17 @@ pub async fn analyze_position(
     // The search is CPU-bound; keep it off the async worker threads.
     let manager = analysis.clone();
     let analysed = match web::block(move || manager.analyze_position(&request)).await {
-        Ok(analysed) => analysed,
+        Ok(Ok(analysed)) => analysed,
+        Ok(Err(exceeded)) => {
+            return HttpResponse::TooManyRequests().json(AnalysisErrorResponse {
+                error: t!(
+                    "analysis.position_limit_exceeded",
+                    active = exceeded.active,
+                    max_active = exceeded.max_concurrent
+                )
+                .to_string(),
+            });
+        }
         Err(err) => {
             return HttpResponse::InternalServerError().json(AnalysisErrorResponse {
                 error: err.to_string(),
@@ -493,4 +563,71 @@ pub async fn analyze_position(
         book: analysed.book.clone(),
         tablebase: result.tablebase.clone(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn request_with(threads: Option<usize>, multi_pv: Option<usize>) -> AnalyzePositionRequest {
+        AnalyzePositionRequest {
+            fen: None,
+            game_id: None,
+            depth: None,
+            movetime_ms: None,
+            multi_pv,
+            threads,
+        }
+    }
+
+    /// The `#[schema(...)]` bounds published in the OpenAPI document are plain
+    /// literals, so nothing stops them drifting away from what `validate`
+    /// actually enforces. Pin both to the same numbers here.
+    #[test]
+    fn test_schema_bounds_match_the_enforced_limits() {
+        assert_eq!(MAX_THREADS, 64);
+        assert_eq!(MAX_MULTI_PV, 16);
+        assert_eq!(MAX_DEPTH, 128);
+        assert_eq!(MIN_POSITION_MOVETIME_MS, 10);
+        assert_eq!(MAX_POSITION_MOVETIME_MS, 60_000);
+    }
+
+    #[test]
+    fn test_position_request_accepts_documented_ranges() {
+        assert!(request_with(None, None).validate().is_ok(), "all defaults");
+        assert!(
+            request_with(Some(MAX_THREADS), Some(MAX_MULTI_PV))
+                .validate()
+                .is_ok(),
+            "the upper bounds themselves are valid"
+        );
+    }
+
+    #[test]
+    fn test_position_request_rejects_out_of_range_values() {
+        // Zero is the interesting case: it would otherwise be clamped up to 1
+        // and answered with a search the client never asked for.
+        for (label, request) in [
+            ("threads=0", request_with(Some(0), None)),
+            ("threads>max", request_with(Some(MAX_THREADS + 1), None)),
+            ("multi_pv=0", request_with(None, Some(0))),
+            ("multi_pv>max", request_with(None, Some(MAX_MULTI_PV + 1))),
+        ] {
+            assert!(
+                request.validate().is_err(),
+                "{label} must be rejected with 400"
+            );
+        }
+
+        let mut request = request_with(None, None);
+        request.movetime_ms = Some(MAX_POSITION_MOVETIME_MS + 1);
+        assert_eq!(request.validate().unwrap_err().0, "movetime_ms");
+
+        request.movetime_ms = Some(MIN_POSITION_MOVETIME_MS - 1);
+        assert_eq!(request.validate().unwrap_err().0, "movetime_ms");
+
+        request.movetime_ms = None;
+        request.depth = Some(MAX_DEPTH as u32 + 1);
+        assert_eq!(request.validate().unwrap_err().0, "depth");
+    }
 }

@@ -292,6 +292,21 @@ Examples:\n\
         #[arg(long, default_value_t = 3600)]
         #[arg(help_heading = "Analysis")]
         analysis_completed_ttl_secs: u64,
+
+        /// Search threads one live position analysis may use.
+        #[arg(long, default_value_t = 4)]
+        #[arg(help_heading = "Analysis")]
+        analysis_position_max_threads: usize,
+
+        /// Longest time budget for one live position analysis (ms).
+        #[arg(long, default_value_t = 10_000)]
+        #[arg(help_heading = "Analysis")]
+        analysis_position_max_movetime_ms: u64,
+
+        /// Maximum live position analyses running at the same time.
+        #[arg(long, default_value_t = 4)]
+        #[arg(help_heading = "Analysis")]
+        analysis_max_concurrent_positions: usize,
     },
 
     /// Play chess in the terminal — vs the built-in engine or a human.
@@ -367,6 +382,9 @@ struct ServeConfig {
     analysis_max_jobs: usize,
     analysis_max_concurrent_jobs: usize,
     analysis_completed_ttl_secs: u64,
+    analysis_position_max_threads: usize,
+    analysis_position_max_movetime_ms: u64,
+    analysis_max_concurrent_positions: usize,
 }
 
 #[actix_web::main]
@@ -410,6 +428,9 @@ async fn main() -> std::io::Result<()> {
             analysis_max_jobs,
             analysis_max_concurrent_jobs,
             analysis_completed_ttl_secs,
+            analysis_position_max_threads,
+            analysis_position_max_movetime_ms,
+            analysis_max_concurrent_positions,
         }) => {
             // Check for updates in the background before starting the server
             update::check_for_updates().await;
@@ -424,6 +445,9 @@ async fn main() -> std::io::Result<()> {
                 analysis_max_jobs,
                 analysis_max_concurrent_jobs,
                 analysis_completed_ttl_secs,
+                analysis_position_max_threads,
+                analysis_position_max_movetime_ms,
+                analysis_max_concurrent_positions,
             })
             .await
         }
@@ -504,6 +528,9 @@ async fn run_server(cfg: ServeConfig) -> std::io::Result<()> {
         analysis_max_jobs,
         analysis_max_concurrent_jobs,
         analysis_completed_ttl_secs,
+        analysis_position_max_threads,
+        analysis_position_max_movetime_ms,
+        analysis_max_concurrent_positions,
     } = cfg;
 
     let openapi = ApiDoc::openapi();
@@ -529,6 +556,9 @@ async fn run_server(cfg: ServeConfig) -> std::io::Result<()> {
         } else {
             Some(analysis_completed_ttl_secs)
         },
+        max_position_threads: analysis_position_max_threads,
+        max_position_movetime_ms: analysis_position_max_movetime_ms,
+        max_concurrent_position_analyses: analysis_max_concurrent_positions,
     };
     let analysis_max_jobs = analysis_config.max_jobs_retained;
     let analysis_max_active = analysis_config.max_concurrent_jobs;
@@ -599,4 +629,20 @@ async fn run_server(cfg: ServeConfig) -> std::io::Result<()> {
     .bind((host.as_str(), port))?
     .run()
     .await
+}
+
+#[cfg(test)]
+mod cli_tests {
+    use super::*;
+    use clap::CommandFactory;
+
+    /// Every engine command flattens [`cli::engine::EngineArgs`], so a
+    /// command-local field that repeats one of its names silently shadows the
+    /// shared flag and makes Clap reject the whole subcommand at startup.
+    /// `debug_assert` catches that (and every other builder mistake) here
+    /// instead of in the user's terminal.
+    #[test]
+    fn test_cli_definition_is_valid() {
+        Cli::command().debug_assert();
+    }
 }

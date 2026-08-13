@@ -603,7 +603,11 @@ fn normalize_path(value: &str) -> Option<PathBuf> {
 struct UciState {
     /// Engine instance; `None` while a search thread borrows it.
     engine: Option<SearchEngine>,
-    /// Shared abort token wired into the engine (set by `stop`).
+    /// Abort token of the current search (set by `stop`).
+    ///
+    /// Every `go` installs a *fresh* token instead of clearing this one, so a
+    /// token handed to something outlasting its search — the `ponderhit`
+    /// timer — can only ever stop the search it was taken from.
     abort: Arc<AtomicBool>,
     /// Running search thread, returning the engine when joined.
     search_thread: Option<JoinHandle<SearchEngine>>,
@@ -724,7 +728,10 @@ impl UciState {
         let Some(mut engine) = self.engine.take() else {
             return;
         };
-        engine.reset_abort();
+        // A fresh token per search: the previous one may still be held by a
+        // `ponderhit` timer that has not fired yet.
+        self.abort = Arc::new(AtomicBool::new(false));
+        engine.set_abort_token(Arc::clone(&self.abort));
         // Feed the moves already played so the search scores a line that
         // repeats an earlier game position as a draw (finds/avoids perpetuals).
         engine.set_game_history(&fen::history_hashes(&self.game));
@@ -805,6 +812,12 @@ impl UciState {
     /// The running search has no deadline, so the simplest correct handling
     /// is to let it finish naturally when the GUI sends `stop`; when a budget
     /// is known we schedule the stop ourselves.
+    ///
+    /// The timer cannot be cancelled, so it may well outlive the search it was
+    /// scheduled for — the pondered search often finishes on its own first.
+    /// It therefore captures *this* search's abort token: by the time a stale
+    /// timer fires, `go` has installed a new token for the next search and the
+    /// store lands harmlessly on the finished one.
     fn ponder_hit(&mut self) {
         if !self.pondering {
             return;
@@ -1149,5 +1162,40 @@ mod tests {
         let mut options = UciOptions::default();
         options.set("Skill Level", Some("5"));
         assert_eq!(options.to_config().skill_level, Some(5));
+    }
+
+    /// The `ponderhit` timer holds a clone of the abort token and cannot be
+    /// cancelled. If `go` reused one shared token, a timer left over from a
+    /// pondered search that already finished would stop the *next* search
+    /// after a handful of nodes.
+    #[test]
+    fn test_a_stale_ponder_timer_cannot_stop_the_next_search() {
+        let mut state = UciState::new();
+        // What a `ponderhit` timer would have captured for the ponder search.
+        let pondered = Arc::clone(&state.abort);
+
+        state.go(GoParams {
+            depth: Some(1),
+            ..GoParams::default()
+        });
+        let running = Arc::clone(&state.abort);
+
+        assert!(
+            !Arc::ptr_eq(&pondered, &running),
+            "every search needs its own abort token"
+        );
+
+        // The stale timer fires late: it must not reach the running search.
+        pondered.store(true, Ordering::Relaxed);
+        assert!(
+            !running.load(Ordering::Relaxed),
+            "a superseded timer stopped the current search"
+        );
+
+        state.stop_search();
+        assert!(
+            running.load(Ordering::Relaxed),
+            "`stop` must still reach the current search"
+        );
     }
 }

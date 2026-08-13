@@ -75,10 +75,6 @@ pub struct AnalyzeArgs {
     #[arg(long)]
     pub movetime: Option<u64>,
 
-    /// Report this many principal variations in position mode.
-    #[arg(long, value_name = "N")]
-    pub multipv: Option<usize>,
-
     #[command(flatten)]
     pub engine: EngineArgs,
 }
@@ -128,14 +124,9 @@ fn limits_for(args: &AnalyzeArgs, default_ms: u64) -> SearchLimits {
     }
 }
 
-/// Builds the analysis engine, honouring `--multipv` from either flag.
-fn build_engine(args: &AnalyzeArgs, multi_pv: usize) -> SearchEngine {
+/// Builds the analysis engine from the shared `--multipv` flag.
+fn build_engine(args: &AnalyzeArgs) -> SearchEngine {
     let mut config = args.engine.build_config(ANALYSIS_TT_MB);
-    config.multi_pv = args
-        .multipv
-        .or(Some(multi_pv))
-        .unwrap_or(1)
-        .clamp(1, crate::search::MAX_MULTI_PV);
     // Analysis must be reproducible and exhaustive: never let the book
     // short-circuit a position the user explicitly asked about.
     config.use_book = false;
@@ -184,7 +175,7 @@ fn analyze_position(ctx: &CliContext, args: &AnalyzeArgs) -> CliResult {
         t!("analyze.position_header").to_string().yellow().bold()
     );
     println!("  {}", fen::game_to_fen(&game).dimmed());
-    let mut engine = build_engine(args, 1);
+    let mut engine = build_engine(args);
     super::engine::print_engine_banner(&ctx.theme, engine.config());
     engine.set_game_history(&fen::history_hashes(&game));
     let multi_pv = engine.config().multi_pv;
@@ -301,7 +292,7 @@ fn analyze_game(
 
     let mut game = start;
     let limits = limits_for(args, DEFAULT_MOVE_ANALYSIS_MS);
-    let mut engine = build_engine(args, 1);
+    let mut engine = build_engine(args);
     super::engine::print_engine_banner(&ctx.theme, engine.config());
     let pb = bar(
         &ctx.theme,
@@ -475,7 +466,6 @@ mod tests {
             pgn: None,
             depth,
             movetime,
-            multipv: None,
             engine: EngineArgs::default(),
         }
     }
@@ -510,7 +500,7 @@ mod tests {
 
     #[test]
     fn test_analysis_engine_ignores_the_book() {
-        let engine = build_engine(&args_with(None, None), 1);
+        let engine = build_engine(&args_with(None, None));
         assert!(
             !engine.config().use_book,
             "analysis must search, not quote the book"
@@ -520,7 +510,7 @@ mod tests {
     #[test]
     fn test_multipv_flag_overrides_default() {
         let mut args = args_with(None, None);
-        args.multipv = Some(5);
-        assert_eq!(build_engine(&args, 1).config().multi_pv, 5);
+        args.engine.multipv = Some(5);
+        assert_eq!(build_engine(&args).config().multi_pv, 5);
     }
 }

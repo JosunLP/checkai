@@ -406,3 +406,5 @@ cli.cmd_eval_desc: 'Изучить оценку позиции'
 cli.quickstart_analyze: 'Прокомментировать партию из PGN-файла'
 analysis.position_required: "Укажите 'fen' или 'game_id' для анализа."
 analysis.state_unavailable: 'Состояние игры временно недоступно.'
+analysis.parameter_out_of_range: "Параметр '%{field}' вне допустимого диапазона; допустимо: %{range}."
+analysis.position_limit_exceeded: 'Достигнут предел одновременных анализов позиции: активно=%{active} (макс. %{max_active}). Повторите попытку позже.'

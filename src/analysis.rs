@@ -35,13 +35,13 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 use crate::game::Game;
 use crate::opening_book::{BookMoveInfo, OpeningBook};
-use crate::search::{MAX_DEPTH, SearchEngine, SearchPosition};
+use crate::search::{MAX_DEPTH, MAX_MULTI_PV, MAX_THREADS, SearchEngine, SearchPosition};
 use crate::storage;
 use crate::tablebase::{SyzygyTablebase, TablebaseInfo, WDL};
 use crate::types::*;
@@ -69,7 +69,31 @@ pub struct AnalysisConfig {
     ///
     /// If `None`, finished jobs are only removed by capacity-based eviction.
     pub completed_job_ttl_secs: Option<u64>,
+    /// Search threads a single interactive position analysis may use.
+    ///
+    /// The engine-wide [`crate::search::MAX_THREADS`] exists for the CLI,
+    /// where the caller owns the machine. Requests arriving over HTTP get a
+    /// much lower ceiling so one client cannot claim every core.
+    pub max_position_threads: usize,
+    /// Longest time budget an interactive position analysis may ask for.
+    pub max_position_movetime_ms: u64,
+    /// How many position analyses may run at the same time.
+    ///
+    /// Each one occupies up to [`Self::max_position_threads`] threads and
+    /// allocates its own transposition table of [`Self::tt_size_mb`], so this
+    /// is what bounds the endpoint's total CPU and memory footprint.
+    pub max_concurrent_position_analyses: usize,
 }
+
+/// Smallest time budget a position analysis is allowed to request.
+pub const MIN_POSITION_MOVETIME_MS: u64 = 10;
+/// Largest time budget the position API will accept from a client.
+///
+/// A request above this is a client error; the server may still cut the
+/// search short at [`AnalysisConfig::max_position_movetime_ms`].
+pub const MAX_POSITION_MOVETIME_MS: u64 = 60_000;
+/// Default time budget when a request does not name one.
+pub const DEFAULT_POSITION_MOVETIME_MS: u64 = 1_000;
 
 impl Default for AnalysisConfig {
     fn default() -> Self {
@@ -81,6 +105,9 @@ impl Default for AnalysisConfig {
             max_jobs_retained: 256,
             max_concurrent_jobs: 4,
             completed_job_ttl_secs: Some(60 * 60),
+            max_position_threads: 4,
+            max_position_movetime_ms: 10_000,
+            max_concurrent_position_analyses: 4,
         }
     }
 }
@@ -300,6 +327,24 @@ pub struct PositionRequest {
     pub threads: Option<usize>,
 }
 
+/// Returned when the position endpoint is already at capacity.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PositionCapacityExceeded {
+    /// Analyses running when the request arrived.
+    pub active: usize,
+    /// The configured ceiling.
+    pub max_concurrent: usize,
+}
+
+/// Holds one of the concurrent position-analysis slots for its lifetime.
+struct PositionSlot(Arc<AtomicUsize>);
+
+impl Drop for PositionSlot {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
 /// Result of a one-off position analysis.
 #[derive(Debug, Clone)]
 pub struct PositionAnalysis {
@@ -364,6 +409,9 @@ pub struct AnalysisManager {
     jobs: Arc<RwLock<HashMap<String, AnalysisJob>>>,
     /// Cancellation flags for in-progress jobs.
     cancel_tokens: Arc<RwLock<HashMap<String, Arc<AtomicBool>>>>,
+    /// Position analyses currently running (see
+    /// [`AnalysisConfig::max_concurrent_position_analyses`]).
+    active_position_analyses: Arc<AtomicUsize>,
 }
 
 impl AnalysisManager {
@@ -373,6 +421,11 @@ impl AnalysisManager {
         // Keep limits sane even if config comes from external input.
         config.max_jobs_retained = config.max_jobs_retained.max(1);
         config.max_concurrent_jobs = config.max_concurrent_jobs.max(1);
+        config.max_position_threads = config.max_position_threads.clamp(1, MAX_THREADS);
+        config.max_position_movetime_ms = config
+            .max_position_movetime_ms
+            .clamp(MIN_POSITION_MOVETIME_MS, MAX_POSITION_MOVETIME_MS);
+        config.max_concurrent_position_analyses = config.max_concurrent_position_analyses.max(1);
 
         // Load opening book
         let book = config
@@ -419,6 +472,33 @@ impl AnalysisManager {
             tablebase,
             jobs: Arc::new(RwLock::new(HashMap::new())),
             cancel_tokens: Arc::new(RwLock::new(HashMap::new())),
+            active_position_analyses: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    /// Takes one of the concurrent position-analysis slots, or reports that
+    /// the endpoint is saturated. The slot is released when the guard drops.
+    fn acquire_position_slot(&self) -> Result<PositionSlot, PositionCapacityExceeded> {
+        let max_concurrent = self.config.max_concurrent_position_analyses;
+        let mut active = self.active_position_analyses.load(Ordering::Relaxed);
+        loop {
+            if active >= max_concurrent {
+                return Err(PositionCapacityExceeded {
+                    active,
+                    max_concurrent,
+                });
+            }
+            match self.active_position_analyses.compare_exchange_weak(
+                active,
+                active + 1,
+                Ordering::AcqRel,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => {
+                    return Ok(PositionSlot(Arc::clone(&self.active_position_analyses)));
+                }
+                Err(current) => active = current,
+            }
         }
     }
 
@@ -433,7 +513,19 @@ impl AnalysisManager {
     /// The call blocks for at most `movetime_ms` (default one second), so it
     /// must be invoked from a blocking context — the HTTP handler wraps it in
     /// `spawn_blocking`.
-    pub fn analyze_position(&self, request: &PositionRequest) -> PositionAnalysis {
+    ///
+    /// The request chooses its own cost, so every knob is clamped to the
+    /// server's interactive ceilings and the number of analyses running at
+    /// once is capped — otherwise a single client could claim every core and
+    /// a transposition table per request. Returns
+    /// [`PositionCapacityExceeded`] while the endpoint is saturated.
+    pub fn analyze_position(
+        &self,
+        request: &PositionRequest,
+    ) -> Result<PositionAnalysis, PositionCapacityExceeded> {
+        // Held for the whole search; released when this function returns.
+        let _slot = self.acquire_position_slot()?;
+
         let position = SearchPosition::new(
             request.game.board.clone(),
             request.game.turn,
@@ -444,8 +536,11 @@ impl AnalysisManager {
 
         let config = crate::search::EngineConfig {
             tt_size_mb: self.config.tt_size_mb,
-            threads: request.threads.unwrap_or(1),
-            multi_pv: request.multi_pv.unwrap_or(1),
+            threads: request
+                .threads
+                .unwrap_or(1)
+                .clamp(1, self.config.max_position_threads),
+            multi_pv: request.multi_pv.unwrap_or(1).clamp(1, MAX_MULTI_PV),
             book: self.book.clone(),
             // Interactive analysis should search, not quote the book; the book
             // moves are reported separately so the client can show both.
@@ -459,7 +554,15 @@ impl AnalysisManager {
                 .map(|d| d as i32)
                 .unwrap_or(MAX_DEPTH)
                 .clamp(1, MAX_DEPTH),
-            move_time_ms: Some(request.movetime_ms.unwrap_or(1_000).clamp(10, 60_000)),
+            move_time_ms: Some(
+                request
+                    .movetime_ms
+                    .unwrap_or(DEFAULT_POSITION_MOVETIME_MS)
+                    .clamp(
+                        MIN_POSITION_MOVETIME_MS,
+                        self.config.max_position_movetime_ms,
+                    ),
+            ),
             ..crate::search::SearchLimits::default()
         };
 
@@ -479,11 +582,11 @@ impl AnalysisManager {
             })
         });
 
-        PositionAnalysis {
+        Ok(PositionAnalysis {
             static_eval_cp: crate::eval::evaluate(&request.game.board, request.game.turn),
             result,
             book,
-        }
+        })
     }
 
     /// Submits a game for analysis (by game snapshot).
@@ -1291,6 +1394,69 @@ mod tests {
         assert_eq!(config.max_jobs_retained, 256);
         assert_eq!(config.max_concurrent_jobs, 4);
         assert_eq!(config.completed_job_ttl_secs, Some(3600));
+        assert_eq!(config.max_position_threads, 4);
+        assert_eq!(config.max_position_movetime_ms, 10_000);
+        assert_eq!(config.max_concurrent_position_analyses, 4);
+    }
+
+    /// The position endpoint lets the caller pick the search parameters, so
+    /// the server has to bound both the size of one request and how many can
+    /// run at once.
+    #[test]
+    fn test_position_analysis_is_bounded() {
+        let manager = AnalysisManager::new(AnalysisConfig {
+            max_position_threads: 2,
+            max_position_movetime_ms: 50,
+            max_concurrent_position_analyses: 1,
+            ..AnalysisConfig::default()
+        });
+        // Everything here asks for far more than the server allows.
+        let request = PositionRequest {
+            game: Game::new(),
+            depth: None,
+            movetime_ms: Some(MAX_POSITION_MOVETIME_MS),
+            multi_pv: Some(usize::MAX),
+            threads: Some(MAX_THREADS),
+        };
+
+        let analysed = manager
+            .analyze_position(&request)
+            .expect("the first analysis has a free slot");
+        assert!(
+            analysed.result.time_ms < 5_000,
+            "the 60 s budget must be cut to the interactive ceiling, took {} ms",
+            analysed.result.time_ms
+        );
+
+        // With the only slot taken, further requests are refused rather than
+        // piling more searches onto the same cores.
+        let held = manager.acquire_position_slot().expect("slot free again");
+        let refused = manager
+            .analyze_position(&request)
+            .expect_err("a saturated endpoint must refuse, not queue");
+        assert_eq!(refused.max_concurrent, 1);
+
+        drop(held);
+        assert!(
+            manager.analyze_position(&request).is_ok(),
+            "the slot must be released when the analysis finishes"
+        );
+    }
+
+    #[test]
+    fn test_position_ceilings_are_sanitised() {
+        let manager = AnalysisManager::new(AnalysisConfig {
+            max_position_threads: 0,
+            max_position_movetime_ms: u64::MAX,
+            max_concurrent_position_analyses: 0,
+            ..AnalysisConfig::default()
+        });
+        assert_eq!(manager.config.max_position_threads, 1);
+        assert_eq!(
+            manager.config.max_position_movetime_ms,
+            MAX_POSITION_MOVETIME_MS
+        );
+        assert_eq!(manager.config.max_concurrent_position_analyses, 1);
     }
 
     // Helper: create a manager with default config (no book / tablebase).

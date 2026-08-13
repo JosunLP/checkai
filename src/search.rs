@@ -1970,6 +1970,29 @@ impl SearchEngine {
                 start.elapsed().as_millis()
             );
         }
+
+        self.restore_interrupted_scores();
+    }
+
+    /// Re-instates the last completed iteration's scores after an abort.
+    ///
+    /// [`Self::search_root_window`] wipes the root scores to `-INFINITY`
+    /// before it searches, and every abort path returns without filling them
+    /// in again. Left as-is, [`Self::finish_result`] would report a score of
+    /// `0` and an empty MultiPV list next to a `best_move` and PV that still
+    /// come from the previous iteration — and because the soft limit only
+    /// gates the *start* of an iteration, a time-limited search almost always
+    /// stops in the middle of one.
+    ///
+    /// Moves whose score survived the interrupted iteration keep it; the rest
+    /// fall back to `previous_score`. The array order is untouched, so the
+    /// chosen move never changes as a result of this repair.
+    fn restore_interrupted_scores(&mut self) {
+        for rm in &mut self.root_moves {
+            if rm.score == -INFINITY {
+                rm.score = rm.previous_score;
+            }
+        }
     }
 
     /// Searches every MultiPV line at one iterative-deepening depth.
@@ -3096,6 +3119,42 @@ mod tests {
             result.stats.nodes < 200_000,
             "node limit should bound the search, got {}",
             result.stats.nodes
+        );
+    }
+
+    #[test]
+    fn test_interrupted_search_keeps_the_last_completed_score() {
+        // Black is a queen down, so any honest verdict is clearly winning for
+        // White. The node budget is small enough that the search is cut off in
+        // the middle of an iteration, which used to wipe every root score and
+        // leave the caller with `score == 0` and no MultiPV lines at all.
+        let game =
+            crate::game::Game::from_fen("rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+                .unwrap();
+        let pos = SearchPosition::new(
+            game.board.clone(),
+            game.turn,
+            game.castling,
+            game.en_passant,
+            game.halfmove_clock,
+        );
+        let mut engine = SearchEngine::with_defaults();
+        let result = engine.search_limited(&pos, &SearchLimits::nodes(5_000), None);
+
+        assert!(result.best_move.is_some(), "should still return a move");
+        assert!(
+            result.score > 300,
+            "an interrupted search must report the last completed iteration's \
+             score, got {}",
+            result.score
+        );
+        assert!(
+            !result.pv_lines.is_empty(),
+            "an interrupted search must still report its principal variation"
+        );
+        assert_eq!(
+            result.pv_lines[0].score, result.score,
+            "the reported score and the top line must agree"
         );
     }
 

@@ -54,10 +54,17 @@ position with either `fen` or `game_id`.
 | ------------- | ------ | ------- | ----------------------------------------------- |
 | `fen`         | string | —       | Position to analyse (4–6 field FEN)             |
 | `game_id`     | string | —       | Analyse the current position of an active game  |
-| `depth`       | number | 128     | Maximum search depth in plies                   |
-| `movetime_ms` | number | 1000    | Time budget, capped at 60 000                   |
+| `depth`       | number | 128     | Maximum search depth in plies (1–128)           |
+| `movetime_ms` | number | 1000    | Time budget in milliseconds (10–60 000)         |
 | `multi_pv`    | number | 1       | Number of principal variations (1–16)           |
 | `threads`     | number | 1       | Lazy SMP search threads (1–64)                  |
+
+A value outside its range is rejected with `400`. Inside the range, the server
+still applies its own interactive ceilings — `--analysis-position-max-threads`
+and `--analysis-position-max-movetime-ms`, see
+[Configuration](/guide/configuration) — so a response may reflect a smaller
+search than was requested. Only `--analysis-max-concurrent-positions` analyses
+run at a time; beyond that the endpoint answers `429` rather than queueing.
 
 **Response** `200 OK`
 
@@ -91,10 +98,11 @@ server, the response also carries `book` and `tablebase` objects.
 
 **Errors**
 
-| Status | Cause                                        |
-| ------ | -------------------------------------------- |
-| `400`  | Invalid FEN, or neither `fen` nor `game_id`  |
-| `404`  | `game_id` does not exist                     |
+| Status | Cause                                                          |
+| ------ | -------------------------------------------------------------- |
+| `400`  | Invalid FEN, neither `fen` nor `game_id`, or a parameter out of range |
+| `404`  | `game_id` does not exist                                       |
+| `429`  | Every position-analysis slot is busy — retry shortly           |
 
 ### Submit Game for Analysis
 
