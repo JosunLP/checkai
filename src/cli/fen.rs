@@ -22,8 +22,11 @@ pub const START_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq 
 /// counting only sees moves played after the import.
 pub fn game_from_fen(fen: &str) -> Result<Game, String> {
     let parts: Vec<&str> = fen.split_whitespace().collect();
-    if parts.len() < 4 {
-        return Err("FEN must have at least 4 fields".to_string());
+    if !(4..=6).contains(&parts.len()) {
+        return Err(format!(
+            "FEN must have 4 to 6 fields, found {}",
+            parts.len()
+        ));
     }
 
     // Piece placement.
@@ -210,6 +213,8 @@ mod tests {
         assert!(game_from_fen("8/8/8/8/8/8/8/8 w - -").is_err()); // no kings
         let no_black_king = "4K3/8/8/8/8/8/8/8 w - - 0 1";
         assert!(game_from_fen(no_black_king).is_err());
+        // Six fields is the whole of FEN; a seventh is not silently dropped.
+        assert!(game_from_fen(&format!("{START_FEN} extra")).is_err());
     }
 
     #[test]
