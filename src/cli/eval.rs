@@ -126,6 +126,12 @@ impl CliCommand for EvalArgs {
             self.top.min(legal.len())
         }
         .clamp(1, crate::search::MAX_MULTI_PV);
+        // `eval` exists to show what the engine sees. A book hit answers at the
+        // root before the search — and before the tablebase probe — so with
+        // `--book` the whole ranked table would collapse to one `+0.00` row at
+        // depth 0 and `--tablebase` would be silently swallowed. `analyze` and
+        // `bench` disable the book for the same reason.
+        config.use_book = false;
         super::engine::print_engine_banner(&ctx.theme, &config);
 
         let mut engine = crate::search::SearchEngine::with_config(config);

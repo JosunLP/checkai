@@ -112,6 +112,7 @@ types.reason.seventy_five: 'Règle des 75 coups'
 types.reason.insufficient: 'Matériel insuffisant'
 types.reason.resignation: 'Abandon'
 types.reason.draw_agreement: 'Nulle par accord'
+types.reason.timeout: 'Temps écoulé'
 
 # ---------------------------------------------------------------------------
 # Validation des coups

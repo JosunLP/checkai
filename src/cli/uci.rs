@@ -639,15 +639,37 @@ impl UciState {
     }
 
     /// Stops any running search and reclaims the engine instance.
+    ///
+    /// A search thread owns the engine, so a panic inside it takes the engine
+    /// with it. Rebuilding is the difference between one lost search and a
+    /// permanently mute engine: `go` bails out when `self.engine` is `None`,
+    /// printing no `info`, no `bestmove` and no error, and the GUI waits for
+    /// an answer that can never come. A broken pipe on `println!` is enough to
+    /// get there — Rust ignores SIGPIPE — so this is reachable whenever a GUI
+    /// dies or stops draining stdout.
     fn stop_search(&mut self) {
         self.abort.store(true, Ordering::Relaxed);
-        if let Some(handle) = self.search_thread.take()
-            && let Ok(engine) = handle.join()
-        {
-            self.engine = Some(engine);
+        if let Some(handle) = self.search_thread.take() {
+            match handle.join() {
+                Ok(engine) => self.engine = Some(engine),
+                Err(_) => {
+                    log::error!("search thread panicked; rebuilding the engine");
+                    self.rebuild_engine();
+                }
+            }
         }
         self.pondering = false;
         self.ponder_limits = None;
+    }
+
+    /// Installs a fresh engine built from the current options.
+    ///
+    /// The transposition table and every learned table are lost, which is the
+    /// price of surviving; the alternative is answering nothing ever again.
+    fn rebuild_engine(&mut self) {
+        let mut engine = SearchEngine::with_config(self.options.to_config());
+        engine.set_abort_token(Arc::clone(&self.abort));
+        self.engine = Some(engine);
     }
 
     /// Applies a `setoption` pair, rebuilding the engine when needed.
@@ -662,13 +684,10 @@ impl UciState {
         if self.options.set(name, value) {
             self.stop_search();
             let config = self.options.to_config();
-            match self.engine.as_mut() {
-                Some(engine) => engine.set_config(config),
-                None => {
-                    let mut engine = SearchEngine::with_config(config);
-                    engine.set_abort_token(Arc::clone(&self.abort));
-                    self.engine = Some(engine);
-                }
+            if let Some(engine) = self.engine.as_mut() {
+                engine.set_config(config);
+            } else {
+                self.rebuild_engine();
             }
         }
     }
@@ -725,6 +744,12 @@ impl UciState {
     /// Starts a search thread for the current position.
     fn go(&mut self, params: GoParams) {
         self.stop_search();
+        // `stop_search` already rebuilds after a panic, so this should never
+        // fire — but a `go` that silently answers nothing is the one failure a
+        // GUI cannot recover from, so never leave it to chance.
+        if self.engine.is_none() {
+            self.rebuild_engine();
+        }
         let Some(mut engine) = self.engine.take() else {
             return;
         };
@@ -787,11 +812,25 @@ impl UciState {
             .map(move_to_uci)
             .unwrap_or_else(|| "0000".to_string());
 
+        // `go infinite` and `go ponder` run until the GUI says otherwise. The
+        // engine cannot search past MAX_DEPTH, so the iterative-deepening loop
+        // *does* terminate on its own — in a simple endgame within
+        // milliseconds. Answering then would be an unsolicited `bestmove`: in
+        // analysis mode the GUI desynchronises, during pondering it is not
+        // listening for one at all, and the later `stop` yields nothing.
+        let open_ended = params.infinite || params.ponder;
+        let abort = Arc::clone(&self.abort);
+
         self.search_thread = Some(std::thread::spawn(move || {
             let mut on_iteration = |info: &IterationInfo| {
                 println!("{}", format_info_line(info));
             };
             let result = engine.search_limited(&pos, &limits, Some(&mut on_iteration));
+            // Hold the answer back until `stop`, `quit` or the `ponderhit`
+            // timer sets the abort token.
+            while open_ended && !abort.load(Ordering::Relaxed) {
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
             let best = result
                 .best_move
                 .map(|mv| move_to_uci(&mv))
@@ -1162,6 +1201,35 @@ mod tests {
         let mut options = UciOptions::default();
         options.set("Skill Level", Some("5"));
         assert_eq!(options.to_config().skill_level, Some(5));
+    }
+
+    /// A search thread owns the engine, so its panic used to take the engine
+    /// with it and every later `go` bailed out silently — no `info`, no
+    /// `bestmove`, no error, and a GUI waiting until it loses on time.
+    #[test]
+    fn test_engine_survives_a_panicking_search_thread() {
+        let mut state = UciState::new();
+        state.engine = None;
+        state.search_thread = Some(std::thread::spawn(|| -> SearchEngine {
+            panic!("simulated search thread failure");
+        }));
+
+        state.stop_search();
+        assert!(
+            state.engine.is_some(),
+            "a panicked search must not mute the engine permanently"
+        );
+
+        // And the rebuilt engine really does answer the next `go`.
+        state.go(GoParams {
+            depth: Some(1),
+            ..GoParams::default()
+        });
+        assert!(
+            state.search_thread.is_some(),
+            "`go` must start a search again after the rebuild"
+        );
+        state.stop_search();
     }
 
     /// The `ponderhit` timer holds a clone of the abort token and cannot be

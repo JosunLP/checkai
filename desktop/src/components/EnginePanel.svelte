@@ -21,7 +21,13 @@
 
   /** Formats a score as pawns (`+1.23`) or mate distance (`#3`). */
   function formatScore(scoreCp: number, mateIn: number | null): string {
-    if (mateIn !== null && mateIn !== undefined) return `#${mateIn}`;
+    // The sign comes from the score, never from `mateIn`: the API reports
+    // `mate_in` from the side to move's point of view while `score_white_cp`
+    // is White's, so pairing them verbatim made a Black mate in three read
+    // `#3` beside a bar pinned at 0% for Black.
+    if (mateIn !== null && mateIn !== undefined) {
+      return `#${scoreCp < 0 ? '-' : ''}${Math.abs(mateIn)}`;
+    }
     const pawns = scoreCp / 100;
     return `${pawns >= 0 ? '+' : ''}${pawns.toFixed(2)}`;
   }
@@ -122,7 +128,9 @@
     <ol class="engine-lines">
       {#each analysis.lines as line (line.rank)}
         <li class="engine-line" class:engine-line-best={line.rank === 1}>
-          <span class="engine-line-score">{formatScore(line.score_cp, line.mate_in)}</span>
+          <!-- White's point of view, like the evaluation bar above: the
+               side-to-move score flips sign on every ply. -->
+          <span class="engine-line-score">{formatScore(line.score_white_cp, line.mate_in)}</span>
           <span class="engine-line-moves">{line.moves.join(' ')}</span>
         </li>
       {/each}

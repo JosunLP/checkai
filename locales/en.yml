@@ -214,6 +214,7 @@ types.reason.seventy_five: '75-move rule'
 types.reason.insufficient: 'Insufficient material'
 types.reason.resignation: 'Resignation'
 types.reason.draw_agreement: 'Draw by agreement'
+types.reason.timeout: 'Timeout'
 
 # ---------------------------------------------------------------------------
 # Move validation

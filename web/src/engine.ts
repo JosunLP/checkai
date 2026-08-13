@@ -29,9 +29,18 @@ export function winProbability(scoreWhiteCp: number): number {
   return 1 / (1 + Math.pow(10, -cp / 400));
 }
 
-/** Formats a score as pawns (`+1.23`) or mate distance (`#3`). */
+/**
+ * Formats a score as pawns (`+1.23`) or mate distance (`#3`, `#-2`).
+ *
+ * The sign comes from `scoreCp`, never from `mateIn`. The API reports
+ * `mate_in` from the side to move's point of view while `score_white_cp` is
+ * White's, so pairing the two verbatim made a Black mate in three read `#3`
+ * next to an evaluation bar pinned at 0% for Black.
+ */
 export function formatScore(scoreCp: number, mateIn: number | null): string {
-  if (mateIn !== null && mateIn !== undefined) return `#${mateIn}`;
+  if (mateIn !== null && mateIn !== undefined) {
+    return `#${scoreCp < 0 ? '-' : ''}${Math.abs(mateIn)}`;
+  }
   const pawns = scoreCp / 100;
   return `${pawns >= 0 ? '+' : ''}${pawns.toFixed(2)}`;
 }
@@ -222,7 +231,10 @@ function buildLines(analysis: PositionAnalysis): HTMLElement {
 
     const score = document.createElement('span');
     score.className = 'engine-line-score';
-    score.textContent = formatScore(line.score_cp, line.mate_in);
+    // White's point of view, like the evaluation bar directly above — the
+    // side-to-move score flips sign every ply, so the same move read +3.10
+    // here and -3.10 in the bar.
+    score.textContent = formatScore(line.score_white_cp, line.mate_in);
 
     const moves = document.createElement('span');
     moves.className = 'engine-line-moves';

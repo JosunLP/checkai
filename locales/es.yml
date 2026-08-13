@@ -112,6 +112,7 @@ types.reason.seventy_five: 'Regla de 75 movimientos'
 types.reason.insufficient: 'Material insuficiente'
 types.reason.resignation: 'Renuncia'
 types.reason.draw_agreement: 'Tablas por acuerdo'
+types.reason.timeout: 'Tiempo agotado'
 
 # ---------------------------------------------------------------------------
 # Validación de movimientos

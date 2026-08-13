@@ -112,6 +112,7 @@ types.reason.seventy_five: '75步规则'
 types.reason.insufficient: '子力不足'
 types.reason.resignation: '认输'
 types.reason.draw_agreement: '协议和棋'
+types.reason.timeout: '超时'
 
 # ---------------------------------------------------------------------------
 # 走法验证

@@ -440,28 +440,34 @@ pub fn parse_pgn(text: &str) -> Result<Vec<PgnGame>, String> {
     let mut games = Vec::new();
     let mut current = PgnGame::default();
     let mut in_moves = false;
+    let mut state = MovetextState::default();
 
     for raw in text.lines() {
         let line = raw.trim();
         if line.is_empty() {
             continue;
         }
-        if line.starts_with('[') && line.ends_with(']') {
-            // A tag after movetext means the next game has started.
-            if in_moves {
-                games.push(std::mem::take(&mut current));
-                in_moves = false;
+        // Inside a wrapped comment or variation the line is movetext content,
+        // never structure: `{[%clk 0:03:00]}` broken over two lines leaves a
+        // line that looks exactly like a tag and would start a new game.
+        if !state.inside_span() {
+            if line.starts_with('[') && line.ends_with(']') {
+                // A tag after movetext means the next game has started.
+                if in_moves {
+                    games.push(std::mem::take(&mut current));
+                    in_moves = false;
+                }
+                if let Some((key, value)) = parse_tag(line) {
+                    current.tags.push((key, value));
+                }
+                continue;
             }
-            if let Some((key, value)) = parse_tag(line) {
-                current.tags.push((key, value));
+            if line.starts_with(';') {
+                continue;
             }
-            continue;
-        }
-        if line.starts_with(';') {
-            continue;
         }
         in_moves = true;
-        parse_movetext(line, &mut current);
+        parse_movetext(line, &mut current, &mut state);
     }
     if in_moves || !current.tags.is_empty() {
         games.push(current);
@@ -483,11 +489,36 @@ fn parse_tag(line: &str) -> Option<(String, String)> {
     ))
 }
 
+/// Movetext parser state that has to survive a line break.
+///
+/// `{ ... }` comments and `( ... )` variations may span any number of lines —
+/// every real exporter wraps movetext at around 80 columns, and annotated
+/// games from Lichess, chess.com and ChessBase all carry inline
+/// `{[%eval ...]}` comments — so the nesting belongs to the game, not the
+/// line. Tracking it per line let the tail of a wrapped comment through as if
+/// it were moves.
+#[derive(Default)]
+struct MovetextState {
+    /// Inside a `{ ... }` comment.
+    in_comment: bool,
+    /// Nesting depth of `( ... )` variations.
+    variation_depth: usize,
+}
+
+impl MovetextState {
+    /// `true` while the parser is inside a comment or a variation, i.e. every
+    /// character belongs to skipped content rather than to the main line.
+    fn inside_span(&self) -> bool {
+        self.in_comment || self.variation_depth > 0
+    }
+}
+
 /// Appends the move tokens of one movetext line to `game`.
-fn parse_movetext(line: &str, game: &mut PgnGame) {
-    let mut chars = line.chars().peekable();
+///
+/// `state` carries comment and variation nesting over from the previous line.
+fn parse_movetext(line: &str, game: &mut PgnGame, state: &mut MovetextState) {
+    let mut chars = line.chars();
     let mut token = String::new();
-    let mut depth = 0usize;
 
     let flush = |token: &mut String, game: &mut PgnGame| {
         if token.is_empty() {
@@ -509,15 +540,20 @@ fn parse_movetext(line: &str, game: &mut PgnGame) {
         }
     };
 
-    while let Some(c) = chars.next() {
+    for c in chars.by_ref() {
+        // A comment swallows everything, including variation brackets and the
+        // `;` line-comment marker, until its closing brace — which may well be
+        // on a later line.
+        if state.in_comment {
+            if c == '}' {
+                state.in_comment = false;
+            }
+            continue;
+        }
         match c {
             '{' => {
                 flush(&mut token, game);
-                for inner in chars.by_ref() {
-                    if inner == '}' {
-                        break;
-                    }
-                }
+                state.in_comment = true;
             }
             ';' => {
                 flush(&mut token, game);
@@ -525,11 +561,11 @@ fn parse_movetext(line: &str, game: &mut PgnGame) {
             }
             '(' => {
                 flush(&mut token, game);
-                depth += 1;
+                state.variation_depth += 1;
             }
-            ')' => depth = depth.saturating_sub(1),
+            ')' => state.variation_depth = state.variation_depth.saturating_sub(1),
             c if c.is_whitespace() => flush(&mut token, game),
-            _ if depth > 0 => {}
+            _ if state.variation_depth > 0 => {}
             c => token.push(c),
         }
     }
@@ -654,5 +690,49 @@ mod tests {
     #[test]
     fn test_parse_rejects_empty_input() {
         assert!(parse_pgn("").is_err());
+    }
+
+    /// Exporters wrap movetext at around 80 columns, so a comment or a
+    /// variation regularly straddles a line break. Tracking the nesting per
+    /// line let the tail through as if it were moves.
+    #[test]
+    fn test_pgn_comments_and_variations_survive_line_breaks() {
+        let pgn = "[Event \"T\"]\n\n\
+             1. e4 { this comment\n\
+             continues onto the next line } e5\n\
+             2. Nf3 (2. Bc4 Nc6\n\
+             3. Nf3) Nc6 *\n";
+        let parsed = parse_pgn(pgn).expect("PGN must parse");
+        assert_eq!(parsed.len(), 1, "one game, not one per line");
+        assert_eq!(parsed[0].moves, vec!["e4", "e5", "Nf3", "Nc6"]);
+        assert_eq!(parsed[0].result, "*");
+    }
+
+    /// A wrapped `{[%clk ...]}` leaves a line that looks exactly like a tag.
+    /// Treating it as one used to split the game in two and swallow the rest.
+    #[test]
+    fn test_pgn_bracketed_comment_line_is_not_a_tag() {
+        let pgn = "[Event \"T\"]\n\n\
+             1. e4 { e4 is fine\n\
+             [%clk 0:03:00]\n\
+             } e5 2. Nf3 Nc6 1-0\n";
+        let parsed = parse_pgn(pgn).expect("PGN must parse");
+        assert_eq!(parsed.len(), 1, "a comment line must not start a new game");
+        assert_eq!(parsed[0].moves, vec!["e4", "e5", "Nf3", "Nc6"]);
+        assert_eq!(parsed[0].tag("Event"), Some("T"));
+        assert_eq!(parsed[0].result, "1-0");
+    }
+
+    /// Two games in one file must still be split, and the second game must
+    /// start with a clean comment/variation state.
+    #[test]
+    fn test_pgn_multiple_games_still_split() {
+        let pgn = "[Event \"A\"]\n\n1. e4 { one\ntwo } e5 1-0\n\n\
+             [Event \"B\"]\n\n1. d4 d5 0-1\n";
+        let parsed = parse_pgn(pgn).expect("PGN must parse");
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].moves, vec!["e4", "e5"]);
+        assert_eq!(parsed[1].moves, vec!["d4", "d5"]);
+        assert_eq!(parsed[1].tag("Event"), Some("B"));
     }
 }

@@ -579,27 +579,33 @@ export async function importFenFromFile(): Promise<void> {
   }
 }
 
+/** Pulls a game's current state into the workspace stores. */
+async function loadGameState(gameId: string): Promise<void> {
+  const game = await getGame(gameId);
+  activeGame.set(game);
+  updateDesktopState((state) => ({ ...state, lastGameId: gameId }));
+
+  if (!game.is_over) {
+    const moveResult = await getLegalMoves(game.game_id);
+    legalMoves.set(moveResult.moves);
+  } else {
+    legalMoves.set([]);
+  }
+
+  await refreshBoardAscii(game.game_id);
+}
+
 export async function openGame(
   gameId: string,
   options: { keepCurrentView?: boolean; silent?: boolean } = {}
 ): Promise<void> {
   try {
-    const game = await getGame(gameId);
-    activeGame.set(game);
     selectedSquare.set(null);
     replayState.set(null);
     replayGameId.set(null);
     resetEnginePanel();
-    updateDesktopState((state) => ({ ...state, lastGameId: gameId }));
 
-    if (!game.is_over) {
-      const moveResult = await getLegalMoves(game.game_id);
-      legalMoves.set(moveResult.moves);
-    } else {
-      legalMoves.set([]);
-    }
-
-    await refreshBoardAscii(game.game_id);
+    await loadGameState(gameId);
 
     if (!options.keepCurrentView) {
       navigateTo('board');
@@ -608,6 +614,25 @@ export async function openGame(
     if (!options.silent) {
       pushError(error instanceof Error ? error.message : String(error));
     }
+  }
+}
+
+/**
+ * Reloads the active game after the local player moved.
+ *
+ * Deliberately not {@link openGame}: opening a game clears the engine panel,
+ * which is right when you switch games and wrong after your own move. Worse,
+ * `openGame` also writes the advanced position into `activeGame`, so the next
+ * polling tick saw no change either and {@link onActivePositionChanged} never
+ * fired — with auto-analysis on, the panel only ever reacted to the
+ * opponent's moves.
+ */
+async function refreshAfterOwnMove(gameId: string): Promise<void> {
+  try {
+    await loadGameState(gameId);
+    onActivePositionChanged();
+  } catch (error) {
+    pushError(error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -665,7 +690,7 @@ export async function handleBoardSquareClick(square: string): Promise<void> {
           pushError(response.message);
           return;
         }
-        await openGame(game.game_id, { keepCurrentView: true });
+        await refreshAfterOwnMove(game.game_id);
       } catch (error) {
         pushError(error instanceof Error ? error.message : String(error));
       } finally {

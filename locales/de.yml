@@ -112,6 +112,7 @@ types.reason.seventy_five: '75-Züge-Regel'
 types.reason.insufficient: 'Unzureichendes Material'
 types.reason.resignation: 'Aufgabe'
 types.reason.draw_agreement: 'Remis durch Vereinbarung'
+types.reason.timeout: 'Zeitüberschreitung'
 
 # ---------------------------------------------------------------------------
 # Zugvalidierung

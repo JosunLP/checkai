@@ -1292,13 +1292,17 @@ fn compute_summary(annotations: &[MoveAnnotation]) -> AnalysisSummary {
         }
 
         if !ann.is_book_move {
+            // Cap the per-move contribution: a move that walks into mate is
+            // worth tens of thousands of centipawns and would swamp the whole
+            // game's average on its own.
+            let counted = crate::cli::score::counted_cp_loss(ann.centipawn_loss) as i64;
             match ann.side {
                 Color::White => {
-                    white_cp_loss += ann.centipawn_loss as i64;
+                    white_cp_loss += counted;
                     white_moves += 1;
                 }
                 Color::Black => {
-                    black_cp_loss += ann.centipawn_loss as i64;
+                    black_cp_loss += counted;
                     black_moves += 1;
                 }
             }

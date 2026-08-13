@@ -92,6 +92,16 @@ const ASPIRATION_GIVE_UP: i32 = 700;
 /// `nodes & (NODE_CHECK_INTERVAL - 1) == 0`.
 const NODE_CHECK_INTERVAL: u64 = 2048;
 
+/// Tighter re-check interval used while a node budget is active.
+///
+/// What makes the check expensive is [`Instant::now`], not the node count, so
+/// a search under `--nodes` can afford to poll far more often. Every thread
+/// may overshoot by up to one interval, so the coarse value alone let a
+/// 32-thread search run tens of thousands of nodes past its budget — useless
+/// for the reproducible, node-limited runs the flag exists for.
+/// Must be a power of two and divide [`NODE_CHECK_INTERVAL`].
+const NODE_LIMIT_CHECK_INTERVAL: u64 = 128;
+
 /// Futility pruning margins (indexed by depth remaining).
 /// At depth `d` (1..=3) quiet moves are skipped when
 /// `static_eval + FUTILITY_MARGINS[d] <= alpha`.
@@ -1294,6 +1304,14 @@ pub struct SearchEngine {
     path: Vec<u64>,
     /// Static evaluation per ply, backing the "improving" heuristic.
     eval_stack: Vec<i32>,
+    /// Nodes searched by *every* thread of the current search.
+    ///
+    /// [`SearchLimits::max_nodes`] is one budget for the search as a whole, so
+    /// helpers share this counter with the main thread rather than each
+    /// policing a private slice of it.
+    shared_nodes: Arc<AtomicU64>,
+    /// This thread's node count as last published into [`Self::shared_nodes`].
+    published_nodes: u64,
     /// Move excluded at a given ply during singular-extension verification.
     excluded: Vec<Option<ChessMove>>,
     /// Continuation context (opponent's previous move) per ply.
@@ -1354,6 +1372,8 @@ impl SearchEngine {
             stopped: false,
             path: vec![0u64; plies],
             eval_stack: vec![0i32; plies],
+            shared_nodes: Arc::new(AtomicU64::new(0)),
+            published_nodes: 0,
             excluded: vec![None; plies],
             cont_stack: vec![None; plies],
             game_history: Vec::new(),
@@ -1439,6 +1459,8 @@ impl SearchEngine {
         );
         helper.abort = Arc::clone(&self.abort);
         helper.secondary_abort = Some(Arc::clone(stop));
+        // One node budget for the whole search, shared with the main thread.
+        helper.shared_nodes = Arc::clone(&self.shared_nodes);
         helper.game_history = self.game_history.clone();
         helper.rng = self.rng ^ ((thread_id as u64 + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15));
         helper
@@ -1540,17 +1562,38 @@ impl SearchEngine {
     /// Checks the wall-clock and node hard limits. Called periodically from
     /// inside the tree (every [`NODE_CHECK_INTERVAL`] nodes) so the relatively
     /// expensive [`Instant::now`] call stays off the hot path.
+    /// `true` when the node counter has reached an in-tree re-check boundary.
     #[inline]
-    fn hit_hard_limit(&self) -> bool {
+    fn at_limit_checkpoint(&self) -> bool {
+        let interval = if self.node_limit.is_some() {
+            NODE_LIMIT_CHECK_INTERVAL
+        } else {
+            NODE_CHECK_INTERVAL
+        };
+        self.stats.nodes & (interval - 1) == 0
+    }
+
+    #[inline]
+    fn hit_hard_limit(&mut self) -> bool {
+        // The wall-clock probe is the expensive half, so it stays on the
+        // coarse boundary even when the node budget is polled more often.
         if let Some(deadline) = self.deadline
+            && self.stats.nodes & (NODE_CHECK_INTERVAL - 1) == 0
             && Instant::now() >= deadline
         {
             return true;
         }
-        if let Some(limit) = self.node_limit
-            && self.stats.nodes >= limit
-        {
-            return true;
+        if let Some(limit) = self.node_limit {
+            // `--nodes` is one budget for the whole search, not one per helper
+            // thread. Publish what this thread searched since the last check
+            // and stop on the *global* total: dividing the budget per thread
+            // made an identical `--nodes` reach depth 12 on one thread and
+            // depth 1 on 32, while the reported count overshot several-fold.
+            let delta = self.stats.nodes.saturating_sub(self.published_nodes);
+            self.published_nodes = self.stats.nodes;
+            if self.shared_nodes.fetch_add(delta, Ordering::Relaxed) + delta >= limit {
+                return true;
+            }
         }
         false
     }
@@ -1623,11 +1666,27 @@ impl SearchEngine {
 
         // Build (and optionally restrict) the root move list.
         let mut legal = pos.legal_moves();
+        if legal.is_empty() {
+            // Terminal position: there is no move to search, but the score is
+            // emphatically not zero. Reporting 0 for a checkmate makes the
+            // mating move look like a ~30000 cp blunder to every caller that
+            // compares the evaluation before and after it — which is what
+            // dragged both sides to 0.0% accuracy on any decisive game.
+            let mut result = SearchResult::empty(start.elapsed().as_millis() as u64);
+            result.score = if pos.is_in_check() {
+                -MATE_SCORE
+            } else {
+                DRAW_SCORE
+            };
+            return result;
+        }
         if !limits.search_moves.is_empty() {
             legal.retain(|mv| limits.search_moves.contains(mv));
-        }
-        if legal.is_empty() {
-            return SearchResult::empty(start.elapsed().as_millis() as u64);
+            // `searchmoves` matching nothing is a caller mistake, not a
+            // terminal position — leave the score at zero.
+            if legal.is_empty() {
+                return SearchResult::empty(start.elapsed().as_millis() as u64);
+            }
         }
 
         // 1. Opening book — an instant, zero-node answer.
@@ -1656,7 +1715,28 @@ impl SearchEngine {
         }
 
         // 3. Alpha-beta search.
-        self.root_moves = legal.into_iter().map(RootMove::new).collect();
+        //
+        // Order the root list up front. A search stopped before it completes
+        // even one iteration still has to answer, and it answers with
+        // `root_moves.first()` — in raw generation order that is whatever the
+        // move generator happened to emit first (`a1b1` for a rook on a1).
+        // Ordered, the worst case becomes the engine's best static guess: the
+        // transposition-table move, a queen promotion or a winning capture.
+        let tt_move = self.tt.probe(pos.hash).and_then(|entry| {
+            entry
+                .best_move
+                .map(|em| em.to_chess_move())
+                .filter(|mv| legal.contains(mv))
+        });
+        self.root_moves = self
+            .order_moves(&legal, pos, tt_move.as_ref(), 0, None, None)
+            .into_iter()
+            .map(|(mv, _)| RootMove::new(mv))
+            .collect();
+
+        // Open the shared node budget before any helper can start counting.
+        self.shared_nodes.store(0, Ordering::Relaxed);
+        self.published_nodes = 0;
         let threads = if THREADS_SUPPORTED {
             self.config.threads.max(1)
         } else {
@@ -1671,15 +1751,11 @@ impl SearchEngine {
             let mut helpers: Vec<SearchEngine> = (1..threads)
                 .map(|id| self.spawn_helper(id, &stop))
                 .collect();
-            // Split any node budget evenly so `--nodes` stays meaningful.
-            let helper_limits = SearchLimits {
-                max_nodes: limits.max_nodes.map(|n| n / threads as u64),
-                ..limits.clone()
-            };
-            let main_limits = SearchLimits {
-                max_nodes: limits.max_nodes.map(|n| n / threads as u64),
-                ..limits.clone()
-            };
+            // Every thread carries the full budget and they all police the
+            // same shared counter, so `--nodes N` means N nodes in total
+            // however many threads are running.
+            let helper_limits = limits.clone();
+            let main_limits = limits.clone();
             let root_moves = self.root_moves.clone();
 
             let helper_stats = std::thread::scope(|scope| {
@@ -1717,11 +1793,23 @@ impl SearchEngine {
     /// Assembles the final [`SearchResult`] from the root move list.
     fn finish_result(&mut self, start: Instant, tablebase: Option<TablebaseInfo>) -> SearchResult {
         let elapsed = start.elapsed().as_millis() as u64;
+
+        // Each MultiPV pass runs its own aspiration window and re-sorts only
+        // its own tail (`sort_root_moves(pv_index)`), so the order the root
+        // list is left in is pass order, not score order. Rank once here, or
+        // `pv_lines` comes out unsorted and `root_moves.first()` — the move
+        // the engine actually plays — can be worse than a line it reported
+        // below itself.
+        self.root_moves
+            .sort_by_key(|rm| std::cmp::Reverse(rm.score));
+
         let lines: Vec<PvLine> = self
             .root_moves
             .iter()
-            .take(self.config.multi_pv)
+            // Drop never-scored moves *before* taking the top N: filtering
+            // afterwards silently answers a five-line request with four.
             .filter(|rm| rm.score > -INFINITY)
+            .take(self.config.multi_pv)
             .enumerate()
             .map(|(i, rm)| PvLine {
                 rank: i + 1,
@@ -1901,6 +1989,16 @@ impl SearchEngine {
         self.excluded.iter_mut().for_each(|e| *e = None);
         self.cont_stack.iter_mut().for_each(|c| *c = None);
 
+        // Seed the root's static eval. `alpha_beta` is never entered at ply 0,
+        // so without this every ply-2 node compares against the vector's zero
+        // initialiser and `improving` collapses into `static_eval > 0` —
+        // permanently false in a lost position, permanently true in a won one,
+        // silently mis-tuning RFP margins, LMP budgets and LMR reductions.
+        self.eval_stack.iter_mut().for_each(|e| *e = -INFINITY);
+        if !pos.is_in_check() {
+            self.eval_stack[0] = eval::evaluate(&pos.board, pos.turn);
+        }
+
         let multi_pv = self.config.multi_pv.min(self.root_moves.len()).max(1);
         let soft_ms = limits.effective_soft_ms();
         let mut stable_iterations = 0u32;
@@ -1928,9 +2026,16 @@ impl SearchEngine {
                     break;
                 }
             }
+            // The main thread always completes depth 1 — an engine with no
+            // move at all is worse than one slightly over budget. Helpers only
+            // warm the shared table, so they stop the moment the budget is
+            // spent instead of each running a full first iteration.
+            let owes_a_move = self.thread_id == 0 && depth <= 1;
             if let Some(max_nodes) = limits.max_nodes
-                && depth > 1
-                && self.stats.nodes >= max_nodes
+                && !owes_a_move
+                && self.shared_nodes.load(Ordering::Relaxed) + self.stats.nodes
+                    - self.published_nodes
+                    >= max_nodes
             {
                 break;
             }
@@ -2166,7 +2271,7 @@ impl SearchEngine {
         self.seldepth = self.seldepth.max(ply);
 
         // Periodic hard time/node-limit check, kept off the per-node hot path.
-        if self.stats.nodes & (NODE_CHECK_INTERVAL - 1) == 0 && self.hit_hard_limit() {
+        if self.at_limit_checkpoint() && self.hit_hard_limit() {
             self.stopped = true;
             return 0;
         }
@@ -2656,7 +2761,7 @@ impl SearchEngine {
         self.stats.quiescence_nodes += 1;
         self.seldepth = self.seldepth.max(ply);
 
-        if self.stats.nodes & (NODE_CHECK_INTERVAL - 1) == 0 && self.hit_hard_limit() {
+        if self.at_limit_checkpoint() && self.hit_hard_limit() {
             self.stopped = true;
             return 0;
         }
@@ -3120,6 +3225,46 @@ mod tests {
             "node limit should bound the search, got {}",
             result.stats.nodes
         );
+    }
+
+    /// A terminal position has no move to search, but returning score 0 for a
+    /// checkmate made the mating move look like a ~30000 cp blunder to every
+    /// caller that diffs the evaluation across it.
+    #[test]
+    fn test_terminal_positions_score_the_outcome_not_zero() {
+        let mated = crate::game::Game::from_fen(
+            "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3",
+        )
+        .unwrap();
+        let pos = SearchPosition::new(
+            mated.board.clone(),
+            mated.turn,
+            mated.castling,
+            mated.en_passant,
+            mated.halfmove_clock,
+        );
+        let mut engine = SearchEngine::with_defaults();
+        let result = engine.search(&pos, 4);
+        assert_eq!(
+            score_to_mate_in(result.score),
+            Some(0),
+            "the side to move is checkmated, got {}",
+            result.score
+        );
+        assert!(result.best_move.is_none(), "a mated side has no move");
+
+        // Stalemate is a draw, which really is zero.
+        let stalemate = crate::game::Game::from_fen("7k/5Q2/6K1/8/8/8/8/8 b - - 0 1").unwrap();
+        let pos = SearchPosition::new(
+            stalemate.board.clone(),
+            stalemate.turn,
+            stalemate.castling,
+            stalemate.en_passant,
+            stalemate.halfmove_clock,
+        );
+        let result = engine.search(&pos, 4);
+        assert_eq!(result.score, 0);
+        assert!(result.best_move.is_none());
     }
 
     #[test]

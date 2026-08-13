@@ -622,6 +622,8 @@ pub enum GameEndReason {
     InsufficientMaterial,
     Resignation,
     DrawAgreement,
+    /// A side's clock ran out.
+    Timeout,
 }
 
 impl fmt::Display for GameEndReason {
@@ -636,6 +638,7 @@ impl fmt::Display for GameEndReason {
             GameEndReason::InsufficientMaterial => write!(f, "{}", t!("types.reason.insufficient")),
             GameEndReason::Resignation => write!(f, "{}", t!("types.reason.resignation")),
             GameEndReason::DrawAgreement => write!(f, "{}", t!("types.reason.draw_agreement")),
+            GameEndReason::Timeout => write!(f, "{}", t!("types.reason.timeout")),
         }
     }
 }

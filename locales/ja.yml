@@ -112,6 +112,7 @@ types.reason.seventy_five: '75手ルール'
 types.reason.insufficient: '駒不足'
 types.reason.resignation: '投了'
 types.reason.draw_agreement: '合意による引き分け'
+types.reason.timeout: '時間切れ'
 
 # ---------------------------------------------------------------------------
 # 手の検証

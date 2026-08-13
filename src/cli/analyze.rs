@@ -422,7 +422,7 @@ fn print_game_report(reports: &[MoveReport]) {
         let losses: Vec<i32> = reports
             .iter()
             .filter(|r| r.side == side)
-            .map(|r| r.cp_loss)
+            .map(|r| super::score::counted_cp_loss(r.cp_loss))
             .collect();
         if losses.is_empty() {
             continue;

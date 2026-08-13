@@ -33,7 +33,7 @@ use super::{CliCommand, CliContext, CliResult, cli_error};
 use crate::game::Game;
 use crate::search::{IterationInfo, MoveSource, SearchEngine, SearchLimits, SearchResult};
 use crate::terminal::{GameCommand, read_input_line};
-use crate::types::{ActionJson, ChessMove, Color, MoveJson};
+use crate::types::{ActionJson, ChessMove, Color, GameEndReason, GameResult, MoveJson};
 
 /// Default file name used by `save` when no path is given.
 const DEFAULT_PGN_FILE: &str = "checkai-game.pgn";
@@ -800,6 +800,11 @@ impl PlaySession<'_> {
                 self.game = game;
                 self.redo_stack.clear();
                 self.started = Instant::now();
+                // `flagged` is sticky, so a clock carried over from a game that
+                // ended on time would terminate the new one immediately.
+                if let Some(clock) = self.clock.as_mut() {
+                    clock.reset();
+                }
                 self.engine.clear_memory();
                 println!("{}", t!("play.new_game").to_string().green());
                 self.render_board();
@@ -906,14 +911,17 @@ impl PlaySession<'_> {
                 .red()
                 .bold()
         );
-        let action = ActionJson {
-            action: "resign".to_string(),
-            reason: Some("timeout".to_string()),
-        };
-        // The clock's loser is the side to move, so a resignation records the
-        // correct winner.
-        if self.game.turn == loser {
-            let _ = self.game.process_action(&action);
+        // The clock is stopped *after* `make_move` has flipped the turn, so
+        // the flagged side is no longer the side to move — resigning "for the
+        // side to move" recorded no winner at all and the game-over panel read
+        // "Winner: Game unfinished" with an empty reason. Record the outcome
+        // directly instead of routing it through a resignation.
+        if !self.game.is_over() {
+            self.game.result = Some(match loser {
+                Color::White => GameResult::BlackWins,
+                Color::Black => GameResult::WhiteWins,
+            });
+            self.game.end_reason = Some(GameEndReason::Timeout);
         }
         self.print_result();
     }

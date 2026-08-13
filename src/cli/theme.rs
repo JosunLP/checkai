@@ -64,17 +64,84 @@ pub fn term_width() -> usize {
         .unwrap_or(DEFAULT_TERM_WIDTH)
 }
 
+/// Splits `text` into `(is_escape, segment)` runs.
+///
+/// ANSI escapes occupy no terminal columns, but every byte of them looks like
+/// an ordinary character to `unicode-width`: one truecolor introducer,
+/// `\x1b[38;2;69;113;191m`, measures 19 columns on its own, so a 24-cell
+/// gradient bar "measures" over 500. Width and truncation maths has to skip
+/// them — and a cut must never land inside one, because a half-emitted CSI
+/// leaks its colour into everything printed afterwards and is never reset.
+fn ansi_segments(text: &str) -> Vec<(bool, &str)> {
+    const ESC: u8 = 0x1b;
+    let bytes = text.as_bytes();
+    let mut segments = Vec::new();
+    let mut visible_start = 0;
+    let mut i = 0;
+
+    while i < bytes.len() {
+        if bytes[i] != ESC {
+            i += 1;
+            continue;
+        }
+        if visible_start < i {
+            segments.push((false, &text[visible_start..i]));
+        }
+        let escape_start = i;
+        i += 1;
+        match bytes.get(i) {
+            // CSI: parameter bytes, then a final byte in 0x40..=0x7e.
+            Some(b'[') => {
+                i += 1;
+                while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
+                    i += 1;
+                }
+                i = (i + 1).min(bytes.len());
+            }
+            // OSC: runs until BEL or the ST terminator `ESC \`.
+            Some(b']') => {
+                i += 1;
+                while i < bytes.len() && bytes[i] != 0x07 {
+                    if bytes[i] == ESC && bytes.get(i + 1) == Some(&b'\\') {
+                        i += 1;
+                        break;
+                    }
+                    i += 1;
+                }
+                i = (i + 1).min(bytes.len());
+            }
+            // Any other two-character escape.
+            Some(_) => i += 1,
+            None => {}
+        }
+        segments.push((true, &text[escape_start..i]));
+        visible_start = i;
+    }
+
+    if visible_start < bytes.len() {
+        segments.push((false, &text[visible_start..]));
+    }
+    segments
+}
+
 /// Display width of `text` in terminal columns (East-Asian wide glyphs
-/// count as two). Use this — never `chars().count()` — for any box-drawing
-/// or column-alignment math so CJK text lines up correctly.
+/// count as two, ANSI escapes count as zero). Use this — never
+/// `chars().count()` — for any box-drawing or column-alignment math so CJK
+/// and coloured text line up correctly.
 pub fn display_width(text: &str) -> usize {
-    UnicodeWidthStr::width(text)
+    ansi_segments(text)
+        .into_iter()
+        .filter(|(is_escape, _)| !is_escape)
+        .map(|(_, segment)| UnicodeWidthStr::width(segment))
+        .sum()
 }
 
 /// Truncates `text` to at most `max` display columns, appending `…` when cut.
 ///
-/// Operates on `char` boundaries (so multi-byte input can never panic) and
-/// accounts for wide glyphs, so the result never exceeds `max` columns.
+/// Operates on `char` boundaries (so multi-byte input can never panic),
+/// accounts for wide glyphs, and passes ANSI escapes through without charging
+/// them any width. A truncated string is always closed with a reset so a cut
+/// inside a coloured run cannot bleed into the rest of the screen.
 pub fn truncate_chars(text: &str, max: usize) -> String {
     if display_width(text) <= max {
         return text.to_string();
@@ -82,13 +149,29 @@ pub fn truncate_chars(text: &str, max: usize) -> String {
     let budget = max.saturating_sub(1); // reserve one column for the '…'
     let mut out = String::new();
     let mut width = 0;
-    for ch in text.chars() {
-        let cw = UnicodeWidthChar::width(ch).unwrap_or(0);
-        if width + cw > budget {
-            break;
+    let mut coloured = false;
+    let mut cut = false;
+
+    'outer: for (is_escape, segment) in ansi_segments(text) {
+        if is_escape {
+            coloured = true;
+            out.push_str(segment);
+            continue;
         }
-        out.push(ch);
-        width += cw;
+        for ch in segment.chars() {
+            let cw = UnicodeWidthChar::width(ch).unwrap_or(0);
+            if width + cw > budget {
+                cut = true;
+                break 'outer;
+            }
+            out.push(ch);
+            width += cw;
+        }
+    }
+
+    // Everything after the cut is dropped, including the styling's own reset.
+    if cut && coloured {
+        out.push_str("\u{1b}[0m");
     }
     out.push('…');
     out
@@ -115,5 +198,36 @@ mod tests {
         let out = truncate_chars("♔♕♖♗♘♙♚♛", 4);
         assert_eq!(out.chars().count(), 4);
         assert!(out.ends_with('…'));
+    }
+
+    /// A truecolor introducer is 19 bytes wide and zero columns wide. Charging
+    /// it as text made the thinking panel's 24-cell gradient bar "measure"
+    /// over 500 columns, so it was cut after four cells.
+    #[test]
+    fn test_display_width_ignores_ansi_escapes() {
+        let coloured = "\u{1b}[38;2;69;113;191m█\u{1b}[0m";
+        assert_eq!(display_width(coloured), 1);
+        assert_eq!(display_width("\u{1b}[1mbold\u{1b}[0m"), 4);
+        assert_eq!(display_width("plain"), 5);
+    }
+
+    #[test]
+    fn test_truncate_keeps_colour_and_never_cuts_inside_an_escape() {
+        let bar: String = (0..24)
+            .map(|_| "\u{1b}[38;2;69;113;191m█\u{1b}[0m")
+            .collect();
+        // Fits comfortably in 79 columns once escapes stop being counted.
+        assert_eq!(display_width(&bar), 24);
+        assert_eq!(truncate_chars(&bar, 79), bar, "no cut was needed at all");
+
+        let cut = truncate_chars(&bar, 10);
+        assert_eq!(display_width(&cut), 10, "9 cells plus the ellipsis");
+        assert!(cut.ends_with("\u{1b}[0m…"), "a cut run must be closed");
+        // Every escape in the output is complete.
+        assert_eq!(
+            cut.matches('\u{1b}').count(),
+            cut.matches('m').count(),
+            "a half-emitted CSI would leak colour into the rest of the screen"
+        );
     }
 }

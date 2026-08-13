@@ -112,6 +112,7 @@ types.reason.seventy_five: 'Правило 75 ходов'
 types.reason.insufficient: 'Недостаточно материала'
 types.reason.resignation: 'Сдача'
 types.reason.draw_agreement: 'Ничья по соглашению'
+types.reason.timeout: 'Просрочка времени'
 
 # ---------------------------------------------------------------------------
 # Валидация ходов

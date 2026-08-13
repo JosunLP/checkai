@@ -113,6 +113,8 @@ pub struct GameClock {
     running_for: Color,
     /// The side that ran out of time, once one has.
     flagged: Option<Color>,
+    /// The control this clock was created from, so it can be reset.
+    control: TimeControl,
 }
 
 /// Index of a colour in the clock arrays.
@@ -132,13 +134,31 @@ impl GameClock {
             started: None,
             running_for: Color::White,
             flagged: None,
+            control,
         }
     }
 
     /// Starts timing `color`'s move.
+    ///
+    /// Starting an already-running clock is a no-op. The REPL calls this at the
+    /// top of every iteration — including after an informational command such
+    /// as `board` or `hint`, an unrecognised token or a parse error — and
+    /// resetting the stopwatch there would hand the player back every second
+    /// they had already spent thinking.
     pub fn start(&mut self, color: Color) {
+        if self.started.is_some() && self.running_for == color {
+            return;
+        }
         self.started = Some(Instant::now());
         self.running_for = color;
+    }
+
+    /// Returns the clock to its starting state for a fresh game.
+    ///
+    /// [`Self::flagged`] is sticky, so without this a restart after a flag
+    /// fall would end the new game before its first move.
+    pub fn reset(&mut self) {
+        *self = Self::new(self.control);
     }
 
     /// Stops the running measurement, deducts the elapsed time and adds the
@@ -307,5 +327,50 @@ mod tests {
         assert_eq!(format_clock(65_000), "1:05");
         assert_eq!(format_clock(3_725_000), "1:02:05");
         assert_eq!(format_clock(4_200), "4.2");
+    }
+
+    /// The REPL calls `start` at the top of every iteration, including after
+    /// `board`, `hint`, an unknown token or a parse error. Restarting the
+    /// stopwatch there handed the player back all the time they had spent.
+    #[test]
+    fn test_start_does_not_restart_a_running_clock() {
+        let mut clock = GameClock::new(TimeControl {
+            base_ms: 60_000,
+            increment_ms: 0,
+        });
+        clock.start(Color::White);
+        std::thread::sleep(std::time::Duration::from_millis(40));
+        clock.start(Color::White); // an informational command came in
+        let spent = clock.stop();
+        assert!(
+            spent >= 30,
+            "thinking time must survive a non-move command, got {spent}ms"
+        );
+
+        // Switching sides still starts a fresh measurement.
+        clock.start(Color::Black);
+        assert_eq!(clock.remaining_ms(Color::White), 60_000 - spent);
+    }
+
+    /// `flagged` is sticky, so a clock carried into a new game ended it before
+    /// the first move.
+    #[test]
+    fn test_reset_clears_a_sticky_flag() {
+        let mut clock = GameClock::new(TimeControl {
+            base_ms: 1,
+            increment_ms: 0,
+        });
+        clock.start(Color::White);
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        clock.stop();
+        assert!(clock.is_flagged());
+
+        clock.reset();
+        assert!(
+            !clock.is_flagged(),
+            "a restarted game must not inherit the previous flag fall"
+        );
+        assert_eq!(clock.remaining_ms(Color::White), 1);
+        assert_eq!(clock.remaining_ms(Color::Black), 1);
     }
 }

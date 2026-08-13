@@ -112,6 +112,7 @@ types.reason.seventy_five: 'Regra dos 75 lances'
 types.reason.insufficient: 'Material insuficiente'
 types.reason.resignation: 'Desistência'
 types.reason.draw_agreement: 'Empate por acordo'
+types.reason.timeout: 'Tempo esgotado'
 
 # ---------------------------------------------------------------------------
 # Validação de lances

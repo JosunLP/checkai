@@ -146,6 +146,23 @@ pub fn sparkline(scores: &[i32]) -> String {
         .collect()
 }
 
+/// Upper bound on a single move's centipawn loss when averaging.
+///
+/// A move that walks into mate produces a loss in the tens of thousands.
+/// Averaged in raw, one such move swamps every other move in the game — a
+/// four-move miniature reports an "average loss" of 15 000 cp — and pins
+/// accuracy at 0.0% no matter how the rest was played. Past a few pawns the
+/// magnitude carries no information anyway: the move simply loses.
+pub const MAX_COUNTED_CP_LOSS: i32 = 1_000;
+
+/// Clamps one move's loss to the range the accuracy average can represent.
+///
+/// This is the aggregate counterpart to [`format_cp_loss`], which already
+/// refuses to print a mate-range loss as a pawn count.
+pub fn counted_cp_loss(loss_cp: i32) -> i32 {
+    loss_cp.clamp(0, MAX_COUNTED_CP_LOSS)
+}
+
 /// Converts an average centipawn loss into a 0–100 accuracy percentage.
 ///
 /// Uses the exponential decay `100 * e^(-loss / 90)`, which maps a flawless
@@ -245,6 +262,20 @@ mod tests {
         assert_eq!(chars[0], '▁');
         assert_eq!(chars[2], '█');
         assert!(chars[1] != chars[0] && chars[1] != chars[2]);
+    }
+
+    #[test]
+    fn test_counted_cp_loss_caps_mate_range_losses() {
+        assert_eq!(counted_cp_loss(150), 150);
+        assert_eq!(counted_cp_loss(-20), 0, "a gain is not a loss");
+        // Walking into mate must not swamp the game average on its own.
+        assert_eq!(counted_cp_loss(MATE_SCORE), MAX_COUNTED_CP_LOSS);
+        let mated_game = accuracy_from_cp_loss(f64::from(counted_cp_loss(MATE_SCORE)) / 4.0);
+        assert!(
+            mated_game > 0.0 && mated_game < 10.0,
+            "a four-move miniature ending in mate should read as a very low \
+             accuracy, not as an average loss of 15000 cp, got {mated_game}"
+        );
     }
 
     #[test]
