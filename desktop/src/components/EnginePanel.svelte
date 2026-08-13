@@ -40,9 +40,35 @@
     return `${(n / 1_000_000_000).toFixed(2)}G`;
   }
 
-  /** Clamps a numeric input into its supported range. */
-  function clamp(value: number, min: number, max: number): number {
-    return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : min;
+  /**
+   * Clamps a numeric input into its supported range.
+   *
+   * An empty or unparseable field keeps `fallback` — the setting currently in
+   * force — rather than snapping to `min`, which would silently drop the
+   * search budget to 10 ms the moment the user cleared the box to retype it.
+   */
+  function clamp(value: number, min: number, max: number, fallback: number): number {
+    return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+  }
+
+  /**
+   * Applies a clamped value to both the store and the input element.
+   *
+   * Writing it back to the DOM is what keeps an out-of-range entry from
+   * lingering on screen: Svelte only re-renders `value={...}` when the store
+   * actually changes, so typing `999999` twice would leave the box showing
+   * `999999` while the engine used the clamped 60000.
+   */
+  function applyNumber(
+    input: HTMLInputElement,
+    store: { set: (v: number) => void },
+    min: number,
+    max: number,
+    fallback: number
+  ): void {
+    const next = clamp(Number.parseInt(input.value, 10), min, max, fallback);
+    store.set(next);
+    input.value = String(next);
   }
 </script>
 
@@ -74,9 +100,7 @@
         step="100"
         value={$engineMovetimeMs}
         on:change={(event) =>
-          engineMovetimeMs.set(
-            clamp(Number.parseInt(event.currentTarget.value, 10), 10, 60000)
-          )}
+          applyNumber(event.currentTarget, engineMovetimeMs, 10, 60000, $engineMovetimeMs)}
       />
     </label>
     <label>
@@ -87,7 +111,7 @@
         max="16"
         value={$engineMultiPv}
         on:change={(event) =>
-          engineMultiPv.set(clamp(Number.parseInt(event.currentTarget.value, 10), 1, 16))}
+          applyNumber(event.currentTarget, engineMultiPv, 1, 16, $engineMultiPv)}
       />
     </label>
     <label>
@@ -98,7 +122,7 @@
         max="64"
         value={$engineThreads}
         on:change={(event) =>
-          engineThreads.set(clamp(Number.parseInt(event.currentTarget.value, 10), 1, 64))}
+          applyNumber(event.currentTarget, engineThreads, 1, 64, $engineThreads)}
       />
     </label>
   </div>
@@ -139,7 +163,10 @@
     {#if analysis.book && analysis.book.book_moves.length > 0}
       <h4 class="engine-subheading">Opening book</h4>
       <ul class="engine-book">
-        {#each analysis.book.book_moves as entry (entry.notation)}
+        <!-- Deliberately unkeyed: a polyglot book can hold several entries for
+             the same move, and a duplicate key is a hard runtime error in
+             Svelte 5 that would take down the whole board view. -->
+        {#each analysis.book.book_moves as entry}
           <li>
             <span class="engine-book-move">{entry.notation}</span>
             <span class="engine-book-meter">

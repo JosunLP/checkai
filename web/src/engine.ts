@@ -77,6 +77,15 @@ export async function evaluatePosition(): Promise<void> {
     } while (rerunQueued);
   } finally {
     inFlight = null;
+    // `runEvaluation` sets `running` before it awaits and returns without
+    // clearing it when the answer turns out to be stale — which is what
+    // happens when the game is deleted or switched mid-search. Nothing else
+    // ever clears the flag, so the panel would sit on "Thinking…" with the
+    // Evaluate button disabled until another game was loaded.
+    if (store.engine.value.running) {
+      store.engine.value = { ...store.engine.value, running: false };
+      renderEnginePanel();
+    }
   }
 }
 
@@ -116,7 +125,11 @@ export function resetEngineState(): void {
   requestToken++;
   // Whatever the queued re-run was for is no longer on the board.
   rerunQueued = false;
-  store.engine.value = { running: false, error: null, analysis: null };
+  // A request already on the wire cannot be recalled — the server runs the
+  // search to completion either way. Reporting `running: false` while one is
+  // still out there re-enables the Evaluate button, and pressing it only sets
+  // `rerunQueued`, so the click would appear to do nothing at all.
+  store.engine.value = { running: inFlight !== null, error: null, analysis: null };
   renderEnginePanel();
 }
 
@@ -126,6 +139,12 @@ export function onPositionChanged(): void {
     // A search may still be running for the position we just left; whatever
     // it returns must not land in the panel.
     requestToken++;
+    // Drop the previous position's verdict right away. It stays on screen for
+    // the whole of the next search otherwise — and the board reads
+    // `analysis.best_move` for the hint, so it would point at a move for a
+    // position that is no longer in front of the user.
+    store.engine.value = { ...store.engine.value, error: null, analysis: null };
+    renderEnginePanel();
     void evaluatePosition();
   } else {
     resetEngineState();
@@ -147,10 +166,12 @@ export function renderEnginePanel(): void {
     return;
   }
   if (!state.analysis) {
+    const key = state.running ? 'engine.thinking' : 'engine.idle';
     host.innerHTML = '';
-    host.appendChild(
-      paragraph(state.running ? t('engine.thinking') : t('engine.idle'), 'analysis-idle'),
-    );
+    // Tagged with `data-i18n` so a later language switch re-translates it.
+    // This paragraph replaces the static one from the HTML shell, and
+    // `translateDom` only revisits nodes that carry the attribute.
+    host.appendChild(paragraph(t(key), 'analysis-idle', key));
     return;
   }
 
@@ -284,10 +305,11 @@ function buildBook(entries: { notation: string; probability: number }[]): HTMLEl
 }
 
 /** Small helper for a single styled paragraph. */
-function paragraph(text: string, className: string): HTMLElement {
+function paragraph(text: string, className: string, i18nKey?: string): HTMLElement {
   const el = document.createElement('p');
   el.className = className;
   el.textContent = text;
+  if (i18nKey) el.dataset.i18n = i18nKey;
   return el;
 }
 

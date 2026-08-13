@@ -20,6 +20,10 @@ mac:
     - zip
     - dmg
 linux:
+  # Without this, electron-builder derives the executable name from the
+  # package name (`@checkai/desktop` -> `@checkaidesktop`) and refuses to
+  # build the AppImage, because `@` is not safe in a file path.
+  executableName: checkai-desktop
   target:
     - AppImage
     - deb

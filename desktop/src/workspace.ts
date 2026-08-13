@@ -371,8 +371,19 @@ async function refreshActiveGame(silent = false): Promise<boolean> {
 
   return attemptRefresh(silent, async () => {
     const nextGame = await getGame(game.game_id);
+    // Compare against the state as it stands now, not the snapshot taken
+    // before the request went out. A tick that starts just before the user
+    // moves reads back the ply that `refreshAfterOwnMove` has already applied
+    // and announced; measured against the stale snapshot it looks like a
+    // second position change and restarts the search that just began.
+    const current = get(activeGame);
+    if (!current || current.game_id !== nextGame.game_id) {
+      // The user switched games while this poll was in flight — its answer
+      // describes a game that is no longer on screen.
+      return;
+    }
     const advanced =
-      (nextGame.move_history?.length ?? 0) !== (game.move_history?.length ?? 0);
+      (nextGame.move_history?.length ?? 0) !== (current.move_history?.length ?? 0);
     activeGame.set(nextGame);
 
     if (!nextGame.is_over) {
@@ -606,6 +617,12 @@ export async function openGame(
     resetEnginePanel();
 
     await loadGameState(gameId);
+
+    // `resetEnginePanel` above cleared the previous game's verdict. With
+    // auto-analysis on the panel has to be refilled for the game just opened,
+    // otherwise it stays blank until the opponent moves — nothing else
+    // announces this position change.
+    onActivePositionChanged();
 
     if (!options.keepCurrentView) {
       navigateTo('board');

@@ -32,7 +32,7 @@ export default defineConfig({
       { text: 'API Reference', link: '/api/rest' },
       { text: 'Agent Protocol', link: '/agent/overview' },
       {
-        text: 'v1.0.0',
+        text: 'v1.0.1',
         items: [
           {
             text: 'Changelog',

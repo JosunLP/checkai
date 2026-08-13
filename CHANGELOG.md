@@ -7,6 +7,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-08-13
+
+A follow-up to 1.0.0. The Linux desktop artifacts never made it into the 1.0.0
+release because the packaging step failed, which also stopped the checksum file
+and the Docker image from being published. This release fixes that and clears
+the live-engine-panel defects found while reviewing both UIs.
+
+### Fixed
+
+- **Linux desktop packaging** — `electron-builder` derived the executable name
+  from the package name (`@checkai/desktop` → `@checkaidesktop`) and refused to
+  build the AppImage, because `@` is not safe in a file path. The Linux target
+  now sets `executableName: checkai-desktop` explicitly. This is what broke the
+  1.0.0 release: with the desktop job red, `Generate checksums` and
+  `Docker image` never ran, so neither `checksums-sha256.txt` nor the
+  `ghcr.io/josunlp/checkai` image was published for 1.0.0
+- **Checksums could miss the WASM tarball** — the `checksums` job did not depend
+  on the `wasm` job, yet its download glob (`checkai-*`) matches
+  `checkai-wasm-<version>.tgz`. Whether the npm tarball was listed in
+  `checksums-sha256.txt` came down to which job finished first
+- **Web UI — engine panel could hang on "Thinking…"** — a search whose answer
+  arrived after the game was deleted or switched was discarded as stale without
+  clearing the running flag, leaving the panel spinning and the Evaluate button
+  disabled until a different game was loaded
+- **Web UI — the Evaluate button lied while a search was in flight** — switching
+  games re-enabled it even though the previous request was still out, and
+  pressing it only queued a re-run, so the click looked like it did nothing
+- **Web UI — stale best-move hint** — with auto-analysis on, the previous
+  position's evaluation and its best-move marker stayed on the board for the
+  whole of the next search
+- **Web UI — engine hint collided with the legal-move dot** — both were drawn on
+  the same `::after` pseudo-element, so a suggested destination that was also a
+  legal target rendered as a shrunken dashed box in the corner of the square.
+  The hint moved to `::before`
+- **Web UI — engine panel ignored a language switch** — the rendered idle text
+  replaced the translated markup with an untagged paragraph, so it stayed in the
+  language the app started in
+- **Desktop — engine panel stayed blank after opening a game** — with Auto on,
+  opening or re-selecting a game cleared the panel and never started a search;
+  it filled in only once the opponent moved
+- **Desktop — a poll tick could restart the search it had just triggered** — the
+  refresh compared the new game state against a snapshot taken before its own
+  request, so a move made while the poll was in flight counted twice and cost
+  two full search budgets before a verdict appeared. A poll answering for a game
+  the user has since left is now discarded instead of overwriting the new one
+- **Desktop — duplicate opening-book moves crashed the board view** — the book
+  list was keyed on the move notation, and a polyglot file can hold several
+  entries for the same move; a duplicate key is a hard runtime error in Svelte 5
+- **Desktop — out-of-range engine settings stuck on screen** — entering a value
+  above the maximum twice left the box showing the rejected number while the
+  engine used the clamped one, and clearing a field snapped the setting to its
+  minimum (a 10 ms search budget) instead of keeping the current value
+- **Docs** — the Docker guide still pinned its pull example to `0.3.1`
+
 ## [1.0.0] - 2026-08-13
 
 The first stable release. The engine, the CLI, the web and desktop UIs and the

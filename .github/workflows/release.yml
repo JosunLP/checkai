@@ -131,10 +131,12 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: ${{ matrix.artifact }}
 
-  # Build checksums for all artifacts
+  # Build checksums for all artifacts. Every job that uploads an asset must be
+  # listed here — the download glob picks up `checkai-wasm-*.tgz` too, so
+  # leaving `wasm` out made its presence in the checksum file a race.
   checksums:
     name: Generate checksums
-    needs: [build-and-upload, desktop]
+    needs: [build-and-upload, desktop, wasm]
     runs-on: ubuntu-latest
     steps:
       - name: Download all release assets

@@ -58,12 +58,12 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 
 Recommended: pin the release you want and verify the downloaded binary against the
 published SHA-256 checksums before installing it. The examples below use
-`v1.0.0`; check the [Releases](https://github.com/JosunLP/checkai/releases)
+`v1.0.1`; check the [Releases](https://github.com/JosunLP/checkai/releases)
 page and replace it with the current or desired release tag.
 
 ```bash
 # Linux / macOS
-CHECKAI_VERSION=v1.0.0
+CHECKAI_VERSION=v1.0.1
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 [ "$OS" = "darwin" ] || OS="linux"
 ARCH="$(uname -m)"
@@ -91,7 +91,7 @@ sudo install -m 0755 "${ASSET}" /usr/local/bin/checkai
 
 ```powershell
 # Windows (PowerShell)
-$Version = "v1.0.0"
+$Version = "v1.0.1"
 $Asset = "checkai-windows-x86_64.exe"
 $BaseUrl = "https://github.com/JosunLP/checkai/releases/download/$Version"
 Invoke-WebRequest "$BaseUrl/$Asset" -OutFile $Asset
