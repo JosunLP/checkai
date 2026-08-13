@@ -131,10 +131,12 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: ${{ matrix.artifact }}
 
-  # Build checksums for all artifacts
+  # Build checksums for all artifacts. Every job that uploads an asset must be
+  # listed here — the download glob picks up `checkai-wasm-*.tgz` too, so
+  # leaving `wasm` out made its presence in the checksum file a race.
   checksums:
     name: Generate checksums
-    needs: [build-and-upload, desktop]
+    needs: [build-and-upload, desktop, wasm]
     runs-on: ubuntu-latest
     steps:
       - name: Download all release assets
@@ -219,7 +221,12 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: checkai-wasm-${{ needs.create-release.outputs.version }}.tgz
 
+      # `checksums` (and through it `docker`) waits for this job, so a failing
+      # publish must not take the rest of the release with it. Re-running a
+      # release whose version is already in the registry fails here by design;
+      # the step still goes red in the run summary.
       - name: Publish to GitHub Packages with Bun
+        continue-on-error: true
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

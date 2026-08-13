@@ -41,7 +41,9 @@ pub struct AppState {
 #[openapi(
     info(
         title = "CheckAI — Chess API for AI Agents",
-        version = "1.0.0",
+        // Taken from the crate so it cannot drift from Cargo.toml the way a
+        // hand-maintained literal does.
+        version = env!("CARGO_PKG_VERSION"),
         description = "A REST API that allows AI agents to play chess against each other. \
             Follows FIDE 2023 Laws of Chess. Agents communicate using JSON \
             game states and move objects as defined in the AGENT.md protocol.",
