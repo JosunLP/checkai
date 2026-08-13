@@ -17,11 +17,12 @@ use super::theme::Theme;
 const REVEAL_DELAY: Duration = Duration::from_millis(16);
 
 /// One welcome-screen command entry: `(name, i18n description key)`.
-const COMMANDS: [(&str, &str); 10] = [
+const COMMANDS: [(&str, &str); 11] = [
     ("serve", "cli.cmd_serve_desc"),
     ("play", "cli.cmd_play_desc"),
     ("watch", "cli.cmd_watch_desc"),
     ("analyze", "cli.cmd_analyze_desc"),
+    ("eval", "cli.cmd_eval_desc"),
     ("bench", "cli.cmd_bench_desc"),
     ("perft", "cli.cmd_perft_desc"),
     ("uci", "cli.cmd_uci_desc"),
@@ -31,32 +32,46 @@ const COMMANDS: [(&str, &str); 10] = [
 ];
 
 /// Quick-start entries: `(shell line, i18n description key)`.
-const QUICKSTART: [(&str, &str); 4] = [
+const QUICKSTART: [(&str, &str); 5] = [
     ("$ checkai play", "cli.quickstart_play"),
     ("$ checkai watch", "cli.quickstart_watch"),
+    ("$ checkai analyze --pgn game.pgn", "cli.quickstart_analyze"),
     ("$ checkai serve", "cli.quickstart_serve"),
     ("$ checkai <cmd> --help", "cli.quickstart_help"),
 ];
 
+/// The word-mark drawn above the banner on interactive terminals.
+const LOGO: [&str; 5] = [
+    "  ██████╗██╗  ██╗███████╗ ██████╗██╗  ██╗ █████╗ ██╗",
+    " ██╔════╝██║  ██║██╔════╝██╔════╝██║ ██╔╝██╔══██╗██║",
+    " ██║     ███████║█████╗  ██║     █████╔╝ ███████║██║",
+    " ██║     ██╔══██║██╔══╝  ██║     ██╔═██╗ ██╔══██║██║",
+    " ╚██████╗██║  ██║███████╗╚██████╗██║  ██╗██║  ██║██║",
+];
+
 /// Prints the welcome screen, animated on interactive terminals.
 pub fn print_welcome(theme: &Theme) {
-    let lines = build_lines();
-    if theme.interactive {
-        for line in lines {
-            println!("{line}");
-            std::thread::sleep(REVEAL_DELAY);
-        }
-    } else {
-        println!("{}", lines.join("\n"));
-    }
+    let lines = build_lines(theme);
+    super::animate::reveal_lines(theme, &lines, REVEAL_DELAY);
 }
 
 /// Builds every output line of the welcome screen.
-fn build_lines() -> Vec<String> {
+fn build_lines(theme: &Theme) -> Vec<String> {
     let version = crate::update::version();
     let locale = rust_i18n::locale().to_string();
 
     let mut lines: Vec<String> = vec![String::new()];
+
+    // Word-mark: a wide block of box glyphs, so it is only drawn when the
+    // terminal is both colourful and wide enough to hold it.
+    if theme.colors && super::theme::term_width() >= 60 {
+        for (index, row) in LOGO.iter().enumerate() {
+            // A subtle top-to-bottom fade across the five rows.
+            let shade = 210 - (index as u8) * 22;
+            lines.push(row.truecolor(shade / 3, shade, 235).to_string());
+        }
+        lines.push(String::new());
+    }
 
     // Banner.
     let banner_lines = vec![format!(
@@ -138,4 +153,42 @@ fn build_lines() -> Vec<String> {
     ));
     lines.push(String::new());
     lines
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn plain_theme() -> Theme {
+        colored::control::set_override(false);
+        Theme {
+            colors: false,
+            interactive: false,
+        }
+    }
+
+    #[test]
+    fn test_welcome_lists_every_command() {
+        let lines = build_lines(&plain_theme()).join("\n");
+        for (name, _) in COMMANDS {
+            assert!(lines.contains(name), "welcome must list '{name}'");
+        }
+    }
+
+    #[test]
+    fn test_welcome_without_colors_skips_the_logo() {
+        let lines = build_lines(&plain_theme());
+        assert!(
+            !lines.iter().any(|line| line.contains('█')),
+            "the block logo needs colour support"
+        );
+    }
+
+    #[test]
+    fn test_logo_rows_have_equal_width() {
+        let width = super::super::theme::display_width(LOGO[0]);
+        for row in LOGO {
+            assert_eq!(super::super::theme::display_width(row), width);
+        }
+    }
 }

@@ -22,11 +22,17 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 ### Chess Engine
 
 - **Full FIDE 2023 Rules** — Move generation and validation with castling, en passant, promotion, check/checkmate/stalemate, and all draw conditions (50-move rule, threefold repetition, insufficient material)
-- **Search** — Iterative deepening with aspiration windows; Principal Variation Search (PVS / Negascout) with re-searches; a transposition table with generation-based aging, depth-preferred replacement, and a cached static eval (probed in both main and quiescence search); adaptive null-move pruning with a high-depth verification search; table-driven Late Move Reductions; Late Move Pruning; reverse-futility (static null move), classic futility, and razoring at frontier nodes; Internal Iterative Reduction; check extensions; mate-distance pruning; full Static Exchange Evaluation (SEE) for capture ordering and pruning; killer-move, counter-move, and gravity-style history heuristics; in-tree repetition detection and 50-move awareness; and a quiescence search with stand-pat, per-capture delta pruning, SEE pruning, and TT cutoffs. Hard time/node limits are enforced inside the tree via `SearchLimits` / `search_limited`, discarding partial iterations
+- **Search** — Iterative deepening with per-line aspiration windows; Principal Variation Search (PVS / Negascout); singular extensions; adaptive null-move pruning with a high-depth verification search; table-driven Late Move Reductions; Late Move Pruning; reverse-futility, futility and razoring at frontier nodes; history-based pruning; Internal Iterative Reduction; check extensions; mate-distance pruning; full Static Exchange Evaluation (SEE) for capture ordering and pruning; killer-move, counter-move, butterfly-history and one-ply continuation-history ordering; in-tree repetition detection and 50-move awareness; and a quiescence search with stand-pat, delta pruning, SEE pruning and TT cutoffs
+- **Lazy SMP** — Up to 64 search threads sharing one lock-free transposition table (`--threads`, UCI `Threads`). Single-threaded search stays fully deterministic
+- **MultiPV** — Up to 16 principal variations from every surface: CLI, UCI, REST and both UIs
+- **Two-tier time management** — A hard in-tree limit plus a soft limit that stretches while the best move is unstable and shortens once it settles
+- **Strength limiting** — A 0–20 skill scale (or a target `UCI_Elo`) that makes weakened play look human rather than merely short-sighted
 - **PeSTO Evaluation** — Tapered midgame/endgame piece-square tables interpolated by game phase, plus pawn structure (passed, doubled, isolated, backward, connected pawns), bishop-pair bonus, rook open/semi-open file bonuses, king safety (open-file and pawn-shield penalties), per-piece mobility, and a tempo bonus. The evaluation is always relative to the side to move
 - **Async Game Analysis** — A separate job-based analysis service performs deep (30+ ply) game review on top of the same engine
-- **Opening Book** — Polyglot `.bin` format with binary search lookups
-- **Endgame Tablebases** — Syzygy tablebase detection with analytical evaluation for common endgames
+- **Live Position Analysis** — `POST /api/analysis/position` runs one bounded search and answers in the same request: evaluation, best move, MultiPV lines, book and tablebase information
+- **Opening Book** — Polyglot `.bin` format, consulted by the search itself, with weight-proportional move sampling
+- **Endgame Tablebases** — Syzygy tablebase detection with analytical evaluation for common endgames, probed at the search root
+- **PGN with real SAN** — Reading and writing complete PGN files, including disambiguated algebraic notation, `FEN`/`SetUp` start positions, comments, NAGs and variations
 
 ### APIs & Interfaces
 
@@ -34,7 +40,8 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 - **Analysis API** — Separate `/api/analysis/*` endpoints for asynchronous game review with job progress, completed summaries, and per-move annotations
 - **WebSocket API** — Full real-time API at `/ws` mirroring REST endpoints with push notifications and game subscriptions
 - **Swagger/OpenAPI** — Auto-generated interactive API docs at `/swagger-ui/`
-- **Animated Terminal CLI** — A richly-featured terminal experience: play against the built-in engine (10-level ladder) or a second human, watch an engine-vs-engine showcase, analyze positions and games, benchmark the engine, run perft, and speak UCI for chess GUIs. Animated boards, eval bar, and search spinners (built on `crossterm` + `indicatif`) render only on a TTY and degrade to clean plain text when piped; honors `--no-color` / `NO_COLOR`
+- **Animated Terminal CLI** — Play against the engine (10-level ladder) or a second human, watch engine-vs-engine games, analyze positions, move lists and PGN files, inspect the evaluation, benchmark the engine, run perft, and speak UCI for chess GUIs. Boards repaint in place with coloured squares and animated piece movement, next to a live search panel with a colour-graded evaluation bar. Every effect is TTY-gated and degrades to clean plain text when piped; honors `--no-color` / `NO_COLOR`
+- **Chess clocks** — `--time 5+3` gives `play` and `watch` a real two-sided clock that the engine paces itself from
 
 ### Web & Deployment
 
@@ -51,12 +58,12 @@ A Rust-powered chess server and CLI with REST, WebSocket, and deep analysis APIs
 
 Recommended: pin the release you want and verify the downloaded binary against the
 published SHA-256 checksums before installing it. The examples below use
-`v0.8.0`; check the [Releases](https://github.com/JosunLP/checkai/releases)
+`v1.0.0`; check the [Releases](https://github.com/JosunLP/checkai/releases)
 page and replace it with the current or desired release tag.
 
 ```bash
 # Linux / macOS
-CHECKAI_VERSION=v0.8.0
+CHECKAI_VERSION=v1.0.0
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 [ "$OS" = "darwin" ] || OS="linux"
 ARCH="$(uname -m)"
@@ -84,7 +91,7 @@ sudo install -m 0755 "${ASSET}" /usr/local/bin/checkai
 
 ```powershell
 # Windows (PowerShell)
-$Version = "v0.8.0"
+$Version = "v1.0.0"
 $Asset = "checkai-windows-x86_64.exe"
 $BaseUrl = "https://github.com/JosunLP/checkai/releases/download/$Version"
 Invoke-WebRequest "$BaseUrl/$Asset" -OutFile $Asset
@@ -211,7 +218,8 @@ checkai play
 | `serve`   | Start the REST + WebSocket API server with Swagger UI                 | `checkai serve --port 3000`                     |
 | `play`    | Play in the terminal — **defaults to playing vs the built-in engine** | `checkai play --level 9 --color black`          |
 | `watch`   | Watch the engine play itself (engine-vs-engine showcase)              | `checkai watch --level-white 9 --level-black 3` |
-| `analyze` | Analyze a position (`--fen`) or annotate a whole game (`--moves`)     | `checkai analyze --fen "<FEN>" --depth 16`      |
+| `analyze` | Analyze a position, a move list or a PGN file                         | `checkai analyze --pgn game.pgn`                |
+| `eval`    | Inspect the evaluation, ranked moves, book and tablebase              | `checkai eval --fen "<FEN>" --top 20`           |
 | `bench`   | Run the fixed engine benchmark suite (nodes, time, NPS)               | `checkai bench --depth 12`                      |
 | `perft`   | Verify move generation with perft node counts                         | `checkai perft 5 --divide`                      |
 | `uci`     | Run as a UCI engine on stdin/stdout (for chess GUIs / match runners)  | `checkai uci`                                   |
@@ -219,20 +227,34 @@ checkai play
 | `update`  | Update CheckAI to the latest version from GitHub                      | `checkai update`                                |
 | `version` | Print the current version                                             | `checkai version`                               |
 
+Every command that runs a search — `play`, `watch`, `analyze`, `eval`, `bench` — shares one engine option group:
+
+| Flag              | Description                                                | Default     |
+|-------------------|------------------------------------------------------------|-------------|
+| `--threads <N>`   | Lazy SMP search threads; `0` = one per CPU core             | `1`         |
+| `--hash <MB>`     | Transposition table size                                     | per command |
+| `--nodes <N>`     | Node budget per search                                       | unlimited   |
+| `--multipv <N>`   | Report the best N lines (1–16)                               | `1`         |
+| `--book <FILE>`   | Polyglot opening book (`.bin`)                               | none        |
+| `--tablebase <D>` | Syzygy tablebase directory                                   | none        |
+
 Highlights:
 
-- **`play` plays vs the engine by default** — pick a strength on the 1–10 level ladder (`--level`, default 5) and a side (`--color white|black|random`). Use `--vs human` for a local two-player game. Other flags: `--movetime`, `--depth`, `--fen`, `--ascii`, `--flip`.
-- **`watch`** runs an engine-vs-engine showcase — set both sides with `--level`, or asymmetrically with `--level-white` / `--level-black`; tune pacing with `--delay` (ms between moves) and cap length with `--max-moves`.
-- **Animated, TTY-aware UI** — animated boards, an evaluation bar, and live search spinners/progress bars (powered by `crossterm` + `indicatif`) appear only when stdout is a terminal; piped output stays plain and parseable.
+- **`play` plays vs the engine by default** — pick a strength on the 1–10 level ladder (`--level`, default 5) and a side (`--color white|black|random`). Use `--vs human` for a local two-player game. Other flags: `--time`, `--movetime`, `--depth`, `--fen`, `--pgn`, `--board`, `--ascii`, `--flip`.
+- **`watch`** runs an engine-vs-engine showcase — set both sides with `--level`, or asymmetrically with `--level-white` / `--level-black`; play it on a clock with `--time`, stop hopeless games with `--adjudicate`, and save the result with `--pgn-out`.
+- **Moves in either notation** — coordinate (`e2e4`, `e7e8q`) or standard algebraic (`e4`, `Nf3`, `exd5`, `O-O`) anywhere a move is accepted.
+- **Animated, TTY-aware UI** — boards repaint in place, pieces slide across the board, and the search panel updates live. Piped output stays plain and parseable.
 - **Color & locale** — `--no-color` / the `NO_COLOR` env var disable ANSI styling, and `--lang` selects one of 8 bundled languages (English is the source of truth and fallback).
 
 ```bash
 checkai play                              # White vs the engine at level 5
-checkai play --vs human --ascii           # Local two-player game, ASCII board
+checkai play --time 5+3 --board ice       # Five minutes each, blue board
+checkai play --threads 4 --book book.bin  # Give the engine cores and a book
 checkai watch --movetime 200 --delay 0    # Fast engine-vs-engine game
-checkai analyze --moves "e2e4 e7e5 g1f3"  # Annotate a line move by move
-checkai bench --depth 8                    # Faster, shallower benchmark
-checkai perft 6                            # Exact node counts up to depth 6
+checkai analyze --pgn game.pgn            # Annotate a whole game
+checkai eval --fen "<FEN>" --multipv 5    # What does the engine see here?
+checkai bench --depth 8                   # Faster, shallower benchmark
+checkai perft 6 --threads 0               # Exact node counts on every core
 ```
 
 ### UCI Mode
@@ -279,12 +301,13 @@ Adjust the opponent, time control, and game count to taste; the resulting score 
 
 ### Analysis Endpoints
 
-| Method   | Path                      | Description              |
-| -------- | ------------------------- | ------------------------ |
-| `POST`   | `/api/analysis/game/{id}` | Submit game for analysis |
-| `GET`    | `/api/analysis/jobs`      | List all analysis jobs   |
-| `GET`    | `/api/analysis/jobs/{id}` | Get job status & results |
-| `DELETE` | `/api/analysis/jobs/{id}` | Cancel or delete a job   |
+| Method   | Path                      | Description                                 |
+| -------- | ------------------------- | ------------------------------------------- |
+| `POST`   | `/api/analysis/position`  | Analyse one position, answered synchronously |
+| `POST`   | `/api/analysis/game/{id}` | Submit game for asynchronous analysis        |
+| `GET`    | `/api/analysis/jobs`      | List all analysis jobs                       |
+| `GET`    | `/api/analysis/jobs/{id}` | Get job status & results                     |
+| `DELETE` | `/api/analysis/jobs/{id}` | Cancel or delete a job                       |
 
 ### WebSocket
 
@@ -372,21 +395,31 @@ ws.onmessage = (event) => {
 
 These commands are available during an interactive `checkai play` game (single-letter aliases are shown by `help`):
 
-| Command   | Description                          |
-| --------- | ------------------------------------ |
-| `e2e4`    | Move piece (from-to notation)        |
-| `e7e8Q`   | Pawn promotion (append piece letter) |
-| `moves`   | List all legal moves                 |
-| `board`   | Show current board                   |
-| `history` | Show move history                    |
-| `fen`     | Show the current position as FEN     |
-| `json`    | Game state as JSON                   |
-| `hint`    | Ask the engine for a suggested move  |
-| `undo`    | Take back the last move              |
-| `resign`  | Resign the game                      |
-| `draw`    | Claim a draw (if eligible)           |
-| `help`    | Show help                            |
-| `quit`    | Quit                                 |
+| Command       | Description                              |
+| ------------- | ---------------------------------------- |
+| `e2e4` / `Nf3`| Play a move, in either notation          |
+| `e7e8Q`       | Pawn promotion (append the piece letter) |
+| `moves`       | List all legal moves in SAN              |
+| `board`       | Redraw the board                         |
+| `flip`        | Flip the board orientation               |
+| `history`     | Show move history                        |
+| `fen`         | Show the current position as FEN         |
+| `pgn`         | Print the game as PGN                    |
+| `json`        | Game state as JSON                       |
+| `hint`        | Ask the engine for a suggested move      |
+| `analyze`     | Deeper multi-line analysis               |
+| `eval`        | Static evaluation breakdown              |
+| `book`        | Opening-book moves for this position     |
+| `tb`          | Endgame tablebase verdict                |
+| `undo` / `redo` | Take back or replay a move             |
+| `level N`     | Change the engine level mid-game         |
+| `save [file]` | Save the game as PGN                     |
+| `load <file>` | Load a game from PGN                     |
+| `new`         | Start a fresh game                       |
+| `resign`      | Resign the game                          |
+| `draw`        | Claim a draw (if eligible)               |
+| `help`        | Show help                                |
+| `quit`        | Quit                                     |
 
 ## Updating
 

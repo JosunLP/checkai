@@ -24,8 +24,29 @@ export const engine = {
   /** Static evaluation in centipawns (positive = side to move is better). */
   evaluate: wasm.evaluate,
 
-  /** Search for the best move at the given depth (1-30). */
+  /**
+   * Search for the best move at the given depth.
+   *
+   * Returns `{ bestMove, score, depth, seldepth, mateIn, pv, lines, nodes,
+   * nps, timeMs, hashfull }`.
+   */
   bestMove: wasm.bestMove,
+
+  /**
+   * Analyse a position with the full engine feature set.
+   *
+   * Options (all optional): `depth`, `movetime` (ms), `nodes`, `multiPv`
+   * (1-16), `hashMb`, `skillLevel` (0-20, omit for full strength).
+   *
+   * ```js
+   * const result = engine.analyze(fen, { movetime: 1000, multiPv: 3 });
+   * result.lines.forEach((line) => console.log(line.rank, line.score, line.moves[0]));
+   * ```
+   */
+  analyze: (fen, options = {}) => wasm.analyze(fen, options),
+
+  /** Engine name, version, limits and the list of implemented features. */
+  engineInfo: wasm.engineInfo,
 
   /** Check if the position is checkmate. */
   isCheckmate: wasm.isCheckmate,

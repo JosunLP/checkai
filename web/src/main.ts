@@ -6,6 +6,7 @@ import './styles.css';
 
 import { effect } from '@bquery/bquery/reactive';
 import { bindAnalysisEvents } from './analysis';
+import { bindEngineEvents, renderEnginePanel } from './engine';
 import { bindArchiveEvents, refreshArchiveList } from './archive';
 import { renderCurrentBoard } from './board';
 import {
@@ -92,6 +93,9 @@ function setupBoardEffect(): void {
     void store.legalTargets.value;
     void store.lastMove.value;
     void store.isCheck.value;
+    // The engine panel drives the best-move hint drawn on the board.
+    void store.engine.value;
+    void store.engineShowArrow.value;
     renderCurrentBoard();
   });
 }
@@ -178,10 +182,12 @@ async function init(): Promise<void> {
   bindPromotionDialog();
   bindArchiveEvents();
   bindAnalysisEvents();
+  bindEngineEvents();
 
   setupViewEffect();
   setupWsIndicator();
   setupBoardEffect();
+  renderEnginePanel();
 
   // Wire WebSocket event handler: when the server pushes game updates,
   // refresh the affected game data in the UI.

@@ -22,7 +22,8 @@ The Web UI is compiled into the binary via `rust-embed`, so no external files ar
 - **Real-time Updates** — WebSocket-powered live game state with exponential-backoff auto-reconnect (1 s → 30 s max)
 - **FEN/PGN Tools** — Copy current position as FEN, export PGN, import from FEN string
 - **Board Flip** — Toggle board orientation
-- **Analysis Panel** — Start deep analysis and view real-time results (score, depth, best move, PV)
+- **Live Engine Panel** — Evaluate the position on the board in one request: an evaluation bar, the best-move hint drawn on the board, the top candidate lines (MultiPV), opening-book statistics and the tablebase verdict, with configurable search time, line count and thread count plus an auto-analyse toggle
+- **Analysis Panel** — Queue a full-game review and watch its progress, then read per-move annotations and the accuracy summary
 - **Game Archive** — Browse and replay completed games move by move
 - **Storage Statistics** — View data usage and game counts
 - **WebSocket Indicator** — Connection status dot in the header

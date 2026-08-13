@@ -113,7 +113,9 @@ const text = engine.gameToText(gameId);
 | `startingFen()`               | —                       | `string`                                                             |
 | `legalMoves(fen)`             | FEN string              | `Array<{ from, to, promotion?, notation }>`                          |
 | `evaluate(fen)`               | FEN string              | `number` (centipawns)                                                |
-| `bestMove(fen, depth)`        | FEN, depth 1–30         | `{ bestMove, score, depth, pv, nodes, timeMs }`                      |
+| `bestMove(fen, depth)`        | FEN, depth 1–128        | `{ bestMove, score, depth, seldepth, mateIn, pv, lines, nodes, nps, timeMs, hashfull }` |
+| `analyze(fen, options)`       | FEN, `{ depth, movetime, nodes, multiPv, hashMb, skillLevel }` | the same object, with `lines` holding the best N variations |
+| `engineInfo()`                | —                       | `{ name, version, maxDepth, maxMultiPv, maxSkill, threadsSupported, features }` |
 | `makeMove(fen, move)`         | FEN, move (e.g. "e2e4") | `{ fen, isCheck, isCheckmate, isStalemate, isInsufficientMaterial }` |
 | `isCheckmate(fen)`            | FEN string              | `boolean`                                                            |
 | `isStalemate(fen)`            | FEN string              | `boolean`                                                            |
@@ -142,6 +144,15 @@ const text = engine.gameToText(gameId);
 | `gameToPgn(id)`  | game ID    | `string` |
 | `gameToJson(id)` | game ID    | `string` |
 | `gameToText(id)` | game ID    | `string` |
+
+## Engine parity
+
+Since 1.0.0 the WebAssembly build compiles the **same search source** as the
+native binary: Principal Variation Search with singular extensions,
+continuation history, a lock-free transposition table, MultiPV and skill
+limiting. The only difference is threading — WebAssembly has no worker
+threads, so `analyze` always searches on one thread and `engineInfo().threadsSupported`
+reports `false`.
 
 ## How It Works
 

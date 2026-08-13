@@ -112,6 +112,7 @@ types.reason.seventy_five: 'Règle des 75 coups'
 types.reason.insufficient: 'Matériel insuffisant'
 types.reason.resignation: 'Abandon'
 types.reason.draw_agreement: 'Nulle par accord'
+types.reason.timeout: 'Temps écoulé'
 
 # ---------------------------------------------------------------------------
 # Validation des coups
@@ -337,3 +338,74 @@ perft.fail: 'ÉCHEC'
 perft.all_ok: 'Tous les nombres de nœuds calculés correspondent aux valeurs de référence.'
 perft.mismatch: 'DIVERGENCE — la génération des coups diffère des nombres de référence !'
 perft.divide_total: 'Total : %{total} nœuds sur %{moves} coups racine (%{ms} ms)'
+
+# ---------------------------------------------------------------------------
+# CheckAI 1.0 — engine options, evaluation, clocks, PGN and animations
+# ---------------------------------------------------------------------------
+engine.book_load_failed: "Impossible de charger le livre d'ouvertures"
+engine.tablebase_load_failed: 'Impossible de charger la base de finales'
+engine.threads_label: 'threads'
+engine.hash_label: 'hash'
+engine.multipv_label: 'variantes'
+engine.book_label: 'livre %{entries} entrées'
+engine.tablebase_label: 'base de finales %{pieces} pièces'
+eval.static_header: 'Évaluation statique'
+eval.material_line: 'Matériel %{balance}   Blancs ont pris %{white}   Noirs ont pris %{black}'
+eval.phase_line: "%{pieces} pièces sur l'échiquier, score matériel %{material}"
+eval.no_legal_moves: 'Aucun coup légal — cette position est terminale.'
+eval.ranking: 'Classement des coups …'
+eval.moves_header: 'Coups classés (profondeur %{depth})'
+eval.stats_header: 'Statistiques de recherche'
+eval.stat_nodes: 'Nœuds'
+eval.stat_depth: 'Profondeur / sélective'
+eval.stat_tt: 'Table de transposition'
+eval.stat_pruning: 'Élagage'
+eval.book_header: "Livre d'ouvertures"
+eval.book_miss: "Cette position n'est pas dans le livre."
+eval.tablebase_header: 'Base de finales'
+eval.tablebase_line: '%{config} : %{wdl}, DTZ %{dtz} (source : %{source})'
+play.pgn_read_failed: 'Impossible de lire le fichier PGN : %{error}'
+play.pgn_write_failed: "Impossible d'écrire le fichier PGN : %{error}"
+play.pgn_saved: 'Partie enregistrée dans %{path}'
+play.pgn_loaded: 'Partie chargée depuis %{path}'
+play.bad_time_control: 'Cadence invalide : %{error}'
+play.clock_intro: 'Pendule — Blancs %{white} · Noirs %{black}'
+play.flag_fall: '%{color} a dépassé le temps imparti.'
+play.engine_book_move: "Le moteur joue %{mv} depuis son livre d'ouvertures."
+play.engine_stats: '%{nodes} nœuds · %{nps} n/s · profondeur sélective %{seldepth}'
+play.analyze_thinking: 'Analyse de la position …'
+play.analyze_header: 'Meilleures variantes (profondeur %{depth})'
+play.eval_header: 'Évaluation statique'
+play.book_not_loaded: "Aucun livre d'ouvertures — démarrez avec --book <fichier>."
+play.tablebase_not_loaded: 'Aucune base de finales — démarrez avec --tablebase <dossier>.'
+play.cannot_redo: 'Rien à rétablir.'
+play.redo_done: 'Dernier coup rétabli.'
+play.new_game: 'Nouvelle partie commencée.'
+play.level_changed: 'Niveau du moteur réglé sur %{level}.'
+play.cmd_flip: "Retourner l'échiquier"
+play.cmd_pgn: 'Afficher la partie en PGN'
+play.cmd_analyze: 'Analyser la position (meilleures variantes)'
+play.cmd_eval: "Afficher l'évaluation statique"
+play.cmd_book: 'Afficher les coups du livre'
+play.cmd_tablebase: 'Consulter la base de finales'
+play.cmd_redo: 'Rétablir un coup annulé'
+play.cmd_level: 'Changer le niveau du moteur (1-10)'
+play.cmd_save: 'Enregistrer la partie en PGN'
+play.cmd_load: 'Charger une partie depuis PGN'
+play.cmd_new: 'Commencer une nouvelle partie'
+progress.depth_short: 'p%{depth}/%{seldepth}'
+progress.nodes_short: '%{nodes}n %{nps}n/s'
+progress.hash_short: 'hash %{permille}‰'
+watch.book_tag: 'livre'
+watch.adjudicated: 'Adjugée : %{color} gagne de façon décisive.'
+watch.eval_curve: "Courbe d'évaluation :"
+analyze.lines_header: 'Meilleures variantes'
+analyze.accuracy: 'Précision %{color} : %{accuracy}%  (perte moyenne %{loss} cp)'
+bench.signature: 'Signature du bench : %{nodes} (comparez ce nombre entre les versions)'
+bench.threaded_note: 'Exécuté avec %{threads} threads — les nœuds ne sont pas comparables, comparez le temps.'
+cli.cmd_eval_desc: "Inspecter l'évaluation d'une position"
+cli.quickstart_analyze: 'Annoter une partie depuis un fichier PGN'
+analysis.position_required: "Fournissez 'fen' ou 'game_id' à analyser."
+analysis.state_unavailable: "L'état de la partie est temporairement indisponible."
+analysis.parameter_out_of_range: "Le paramètre '%{field}' est hors plage ; valeurs acceptées : %{range}."
+analysis.position_limit_exceeded: "Capacité d'analyse de position atteinte : actives=%{active} (max %{max_active}). Réessayez sous peu."

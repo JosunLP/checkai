@@ -41,7 +41,7 @@ pub struct AppState {
 #[openapi(
     info(
         title = "CheckAI — Chess API for AI Agents",
-        version = "0.8.0",
+        version = "1.0.0",
         description = "A REST API that allows AI agents to play chess against each other. \
             Follows FIDE 2023 Laws of Chess. Agents communicate using JSON \
             game states and move objects as defined in the AGENT.md protocol.",
@@ -1024,11 +1024,17 @@ pub async fn export_pgn(path: web::Path<String>, data: web::Data<AppState>) -> i
     }
 }
 
-/// Parses a standard 6-field FEN string into a new Game.
+/// Parses a 4–6 field FEN string into a new Game.
+///
+/// The two clock fields are optional; anything beyond six fields is rejected
+/// rather than silently ignored.
 fn parse_fen(fen: &str) -> Result<Game, String> {
     let parts: Vec<&str> = fen.split_whitespace().collect();
-    if parts.len() < 4 {
-        return Err("FEN must have at least 4 fields".to_string());
+    if !(4..=6).contains(&parts.len()) {
+        return Err(format!(
+            "FEN must have 4 to 6 fields, found {}",
+            parts.len()
+        ));
     }
 
     // Parse piece placement
@@ -1178,4 +1184,30 @@ fn game_to_pgn(game: &Game) -> String {
     pgn.push_str(result_str);
     pgn.push('\n');
     pgn
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `POST /api/games/fen` documents a 4–6 field FEN. Extra fields used to
+    /// be ignored, so a malformed request was answered with a position the
+    /// caller never described.
+    #[test]
+    fn test_parse_fen_enforces_the_documented_field_count() {
+        let start = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+        assert!(parse_fen(start).is_ok(), "six fields");
+        assert!(
+            parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -").is_ok(),
+            "the two clocks are optional"
+        );
+        assert!(
+            parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq").is_err(),
+            "fewer than four fields"
+        );
+        assert!(
+            parse_fen(&format!("{start} extra")).is_err(),
+            "trailing fields must not be ignored"
+        );
+    }
 }

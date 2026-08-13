@@ -28,13 +28,16 @@ features:
     details: JSON-based API for AI agents and the web UI. FEN/PGN import/export, real-time WebSocket events, and interactive Swagger docs.
   - icon: 🔬
     title: Analysis Engine
-    details: Iterative-deepening PVS with a transposition table, null-move pruning, LMR, SEE, futility/razoring, and quiescence search, plus a PeSTO evaluation with pawn structure, king safety, and mobility.
+    details: Iterative-deepening PVS with singular extensions, continuation history, null-move pruning, LMR, SEE and quiescence search, plus a PeSTO evaluation with pawn structure, king safety and mobility.
+  - icon: ⚡
+    title: Lazy SMP & MultiPV
+    details: Up to 64 search threads sharing one lock-free transposition table, and up to 16 principal variations from the CLI, UCI, REST API and both UIs.
   - icon: ⌨️
     title: Animated Terminal CLI
-    details: Play vs the engine (10-level ladder) or a human, watch engine-vs-engine games, analyze, bench, perft, and speak UCI for chess GUIs — with TTY-aware animations that fall back to plain text.
+    details: Play vs the engine (10-level ladder) or a human on a real chess clock, watch engine-vs-engine games, analyze PGN files, inspect the evaluation, bench, perft and speak UCI — with coloured boards and animated moves that fall back to plain text when piped.
   - icon: 🖥️
     title: Modern Web UI
-    details: TypeScript web app with bQuery signals, Tailwind CSS v4, analysis panel, FEN/PGN tools, board flip, and promotion dialog.
+    details: TypeScript web app with bQuery signals and Tailwind CSS v4 — a live engine panel with an evaluation bar, best-move hint and candidate lines, plus game review, FEN/PGN tools and a promotion dialog.
   - icon: 📖
     title: Opening Book & Tablebases
     details: Polyglot .bin opening book support plus Syzygy file detection and analytical evaluation for select endgames.

@@ -6,6 +6,7 @@ import { signal } from '@bquery/bquery/reactive';
 import type {
   AnalysisPanelState,
   ArchivedGameSummary,
+  EnginePanelState,
   Game,
   GameSummary,
   LegalMove,
@@ -53,4 +54,18 @@ export const store = {
   analysisJobId: signal<string | null>(null),
   analysisResult: signal<AnalysisPanelState | null>(null),
   analysisRunning: signal(false),
+
+  // ── Live engine panel ────────────────────────────────────────────────────
+  /** Latest single-position verdict from `POST /api/analysis/position`. */
+  engine: signal<EnginePanelState>({ running: false, error: null, analysis: null }),
+  /** Re-run the live engine automatically after every move. */
+  engineAuto: signal(false),
+  /** Search time per live evaluation, in milliseconds. */
+  engineMovetimeMs: signal(1000),
+  /** Number of principal variations the live engine reports. */
+  engineMultiPv: signal(3),
+  /** Search threads used by the live engine. */
+  engineThreads: signal(1),
+  /** Show the engine's best move as an arrow on the board. */
+  engineShowArrow: signal(true),
 };

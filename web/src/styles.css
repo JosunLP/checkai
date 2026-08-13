@@ -1093,3 +1093,191 @@ h3 {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
 }
+
+/* --------------------------------------------------------------------------
+   Live engine panel
+   -------------------------------------------------------------------------- */
+.engine-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.engine-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+
+.engine-settings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.engine-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.engine-field input {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  padding: 0.3rem 0.4rem;
+  width: 100%;
+}
+
+.engine-field input:focus {
+  border-color: var(--color-border-focus);
+  outline: none;
+}
+
+/* The evaluation bar: White's share fills from the left. */
+.eval-bar {
+  position: relative;
+  height: 1.6rem;
+  border-radius: 6px;
+  overflow: hidden;
+  background: linear-gradient(90deg, #26304a, #1a1f30);
+  border: 1px solid var(--color-border);
+  margin-bottom: 0.6rem;
+}
+
+.eval-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6a8cff, #f0c846);
+  transition: width 240ms ease;
+}
+
+.eval-bar-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #0f1117;
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.55);
+}
+
+.engine-summary {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.5rem;
+}
+
+.engine-lines {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.engine-line {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  font-size: 0.82rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 5px;
+  background: var(--color-bg);
+}
+
+.engine-line:first-child {
+  background: var(--color-primary-muted);
+}
+
+.engine-line-score {
+  flex: 0 0 3.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.engine-line-moves {
+  color: var(--color-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.engine-book {
+  margin-top: 0.5rem;
+}
+
+.engine-book h4 {
+  font-size: 0.78rem;
+  color: var(--color-text-dim);
+  margin: 0 0 0.3rem;
+}
+
+.engine-book-row {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr 3rem;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  margin-bottom: 0.2rem;
+}
+
+.engine-book-move {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+
+.engine-book-meter {
+  height: 0.45rem;
+  border-radius: 3px;
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.engine-book-fill {
+  height: 100%;
+  background: var(--color-success);
+}
+
+.engine-book-percent {
+  text-align: right;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.engine-tablebase {
+  font-size: 0.78rem;
+  color: var(--color-text-dim);
+}
+
+.engine-error {
+  font-size: 0.8rem;
+  color: var(--color-danger);
+}
+
+/* Squares of the engine's suggested move. */
+.square.engine-hint-from::after,
+.square.engine-hint-to::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px dashed var(--color-success);
+  border-radius: 4px;
+  pointer-events: none;
+}

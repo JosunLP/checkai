@@ -4,6 +4,8 @@
 
 import type {
   AnalysisJob,
+  PositionAnalysis,
+  PositionAnalysisRequest,
   ArchivedGameSummary,
   Game,
   GameSummary,
@@ -157,6 +159,19 @@ export function cancelAnalysisJob(
   jobId: string
 ): Promise<{ message: string }> {
   return request('DELETE', `/analysis/jobs/${encodeURIComponent(jobId)}`);
+}
+
+/**
+ * Analyse a single position and get the verdict in the same request.
+ *
+ * Backs the live engine panel on the board view: one bounded search that
+ * returns the evaluation, the best move and — with `multi_pv` — the top
+ * alternatives, plus book and tablebase information when the server has them.
+ */
+export function analyzePosition(
+  req: PositionAnalysisRequest
+): Promise<PositionAnalysis> {
+  return request('POST', '/analysis/position', req);
 }
 
 // ── FEN / PGN ────────────────────────────────────────────────────────────────

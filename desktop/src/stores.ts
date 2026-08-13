@@ -12,6 +12,7 @@ import {
   type StorageStats,
   type ReplayState,
   type AnalysisJob,
+  type PositionAnalysis,
 } from './shared-types.js';
 
 export type ConfirmModalState = {
@@ -80,6 +81,20 @@ export const analysisJobs = writable<AnalysisJob[]>([]);
 export const activeAnalysis = writable<AnalysisJob | null>(null);
 export const fenInput = writable('');
 export const analysisDepth = writable(30);
+
+// ── Live engine panel ────────────────────────────────────────────────────────
+/** Latest single-position verdict from `POST /api/analysis/position`. */
+export const enginePosition = writable<PositionAnalysis | null>(null);
+/** True while a live evaluation request is in flight. */
+export const engineRunning = writable(false);
+/** Re-run the live engine automatically after every move. */
+export const engineAuto = writable(false);
+/** Search time per live evaluation, in milliseconds. */
+export const engineMovetimeMs = writable(1000);
+/** Number of principal variations the live engine reports. */
+export const engineMultiPv = writable(3);
+/** Search threads used by the live engine. */
+export const engineThreads = writable(1);
 
 // Computed stores (derived)
 export const boardFlipped: Readable<boolean> = derived(

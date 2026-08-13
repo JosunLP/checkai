@@ -32,7 +32,7 @@ export default defineConfig({
       { text: 'API Reference', link: '/api/rest' },
       { text: 'Agent Protocol', link: '/agent/overview' },
       {
-        text: 'v0.8.0',
+        text: 'v1.0.0',
         items: [
           {
             text: 'Changelog',
@@ -69,6 +69,7 @@ export default defineConfig({
         {
           text: 'Engine',
           items: [
+            { text: 'The Search Engine', link: '/guide/engine' },
             { text: 'Analysis Engine', link: '/guide/analysis' },
             { text: 'Opening Book', link: '/guide/opening-book' },
             { text: 'Endgame Tablebases', link: '/guide/tablebases' },

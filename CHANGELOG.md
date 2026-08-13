@@ -7,6 +7,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-08-13
+
+The first stable release. The engine, the CLI, the web and desktop UIs and the
+npm package now all run the same search and expose the same features.
+
+### Added
+
+- **Lazy SMP multi-threaded search** — `--threads N` (or `0` for one per core) runs the search across up to 64 threads sharing a single transposition table. Available on every engine-backed command and over UCI as the `Threads` option; WebAssembly builds stay single-threaded
+- **MultiPV** — The search reports up to 16 principal variations. Exposed as `--multipv` on `analyze`/`eval`/`play`, the UCI `MultiPV` option, the `multi_pv` field of the position API, and the live engine panel in both UIs
+- **Opening book and endgame tablebase in the engine** — The Polyglot book and Syzygy tablebase are now consulted by the search itself, not just by the game-review API. `--book`, `--book-best` and `--tablebase` on every engine command; `OwnBook`, `BookFile` and `SyzygyPath` over UCI. Book moves are chosen by weight-proportional sampling so opening play is not perfectly repetitive
+- **`checkai eval`** — A new command that shows what the engine actually thinks: static evaluation, material balance, a ranked move list, search statistics, the opening-book entries for the position, and the tablebase verdict
+- **Synchronous position analysis endpoint** — `POST /api/analysis/position` runs one bounded search and answers in the same request, returning the evaluation, best move, MultiPV lines, book and tablebase information. This is what interactive clients need; the existing job API remains for full-game review
+- **Live engine panel in the web and desktop UIs** — An evaluation bar, the best-move hint on the board, the top candidate lines, opening-book statistics and the tablebase verdict, with configurable time, MultiPV width and thread count, plus an auto-analyse toggle
+- **Chess clocks** — `--time 5+3` (also `90+30`, `30s`, `1m+2s`) gives `play` and `watch` a real two-sided clock; the engine paces itself from the remaining time exactly as it would under a UCI GUI
+- **PGN import and export with real SAN** — A new PGN module renders and parses standard algebraic notation with correct disambiguation, and reads/writes complete PGN files including the Seven Tag Roster, `FEN`/`SetUp` start positions, comments, NAGs and variations. `play --pgn` resumes a game, `save`/`load` work in-game, `analyze --pgn` annotates a file, and `watch --pgn-out` saves the finished game
+- **SAN input** — Moves can be typed as `Nf3`, `exd5`, `O-O` or `Qh4#` anywhere coordinate notation was accepted
+- **Board themes and colour rendering** — `--board wood|ice|club|mono|ascii` draws the board with solid coloured squares on truecolor terminals, falling back to the classic ASCII grid otherwise
+- **In-place animation** — Boards and the search readout repaint in place instead of scrolling past, pieces slide across the board square by square, the evaluation bar is colour-graded, and checkmate is punctuated with a flash. Everything stays TTY-gated
+- **New in-game commands** — `pgn`, `eval`, `analyze`, `book`, `tb`, `redo`, `flip`, `new`, `level N`, `save`, `load`
+- **Accuracy and evaluation curves** — `analyze` reports per-side accuracy derived from average centipawn loss, and both `analyze` and `watch` print a sparkline of the evaluation over the game
+- **Parallel perft** — `checkai perft --threads N` splits the root moves across worker threads
+- **Full UCI option set** — `Threads`, `MultiPV`, `Move Overhead`, `Ponder`, `OwnBook`, `BookFile`, `SyzygyPath`, `UCI_LimitStrength`, `UCI_Elo`, `Skill Level` and `Clear Hash`, plus `go searchmoves`/`mate`/`ponder`, `ponderhit`, and the conventional `d` and `eval` debug commands. `info` lines now carry `seldepth`, `multipv`, `hashfull` and `tbhits`, and `bestmove` suggests a ponder move
+- **WASM engine API** — `analyze(fen, options)` exposes depth, movetime, nodes, MultiPV, hash size and skill limiting to JavaScript; `engineInfo()` reports the engine's version, limits and feature list. The npm CLI gains `analyze` and `info` commands
+- **`checkai bench` signature** — Single-threaded runs print a deterministic total node count, so a change to the search is visible at a glance between builds. The suite grew from six to twelve positions
+
+### Changed
+
+- **Transposition table rebuilt as a lock-free structure** — Entries are packed into two atomic words guarded by the classic XOR checksum, so one table can be shared by every search thread without locking. At 16 bytes per slot instead of ~40, the same `--hash` budget now holds four times as many entries
+- **Search strengthened** — Singular extensions, one-ply continuation history, an improving heuristic feeding reverse futility pruning / LMP / LMR, history-based pruning of repeatedly failing quiets, and an explicit root search with per-root-move aspiration windows
+- **Two-tier time management** — A hard in-tree limit plus a soft limit that gates the start of each iteration, stretching by 65% while the best move is still changing and shrinking once it has been stable for five iterations
+- **Skill-based difficulty levels** — Levels 1–6 now combine a depth cap with a skill limit, so a weak engine plays the occasional human-looking inaccuracy instead of being uniformly short-sighted. Levels 7–10 play at full strength
+- **The WebAssembly crate shares the engine source** — `wasm/src/search.rs` was a 1 400-line copy that had drifted far behind the native engine. It is gone; the WASM build now compiles the same `src/search.rs` through a small clock shim, so the npm package gets the full-strength engine and cannot fall behind again
+- **Move history and legal-move lists are shown in SAN** rather than coordinate notation
+- **`analyze` never answers from the opening book** — Analysis is expected to search, so the book is disabled for it; book information is reported separately
+
+### Fixed
+
+- **The entire analysis API was unreachable** — `/api` was registered as an actix scope before `/api/analysis`, and since the first is a prefix of the second, every analysis request was swallowed by the games scope and answered with `404`. The narrower scope is now registered first, which makes both the job API and the new position endpoint work
+- **Castling and en-passant flags survive SAN rendering** — Moves rebuilt from bare coordinates are resolved against the position before being written, so castling prints as `O-O` rather than `Kg1`
+- **Interrupted searches report the previous best move** — A search aborted before completing an iteration no longer falls back to the first legal move
+
+### Documentation
+
+- New [The Search Engine](https://josunlp.github.io/checkai/guide/engine) guide covering the search, its options, time management, Lazy SMP, strength limiting and how to verify a build
+- Rewritten [CLI Commands](https://josunlp.github.io/checkai/guide/cli) reference covering all eleven commands, the shared engine option group, every in-game command and the full UCI option table
+- The Analysis API reference documents both analysis modes and when to use which
+
 ## [0.8.0] - 2026-06-12
 
 ### Added

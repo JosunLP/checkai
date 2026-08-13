@@ -133,9 +133,12 @@ impl Game {
     /// passant square, or a position missing either king.
     pub fn from_fen(fen: &str) -> Result<Self, String> {
         let parts: Vec<&str> = fen.split_whitespace().collect();
-        if parts.len() < 4 {
+        // A FEN has six fields, of which the two clocks may be omitted.
+        // Trailing extras are malformed input: ignoring them would answer for
+        // a position the caller did not describe.
+        if !(4..=6).contains(&parts.len()) {
             return Err(format!(
-                "FEN must have at least 4 fields, found {}",
+                "FEN must have 4 to 6 fields, found {}",
                 parts.len()
             ));
         }
@@ -803,6 +806,20 @@ mod tests {
         assert!(Game::from_fen("8/8/8/8/8/8/8/8 w - - 0 1").is_err()); // no kings
         assert!(
             Game::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1").is_err()
+        );
+    }
+
+    #[test]
+    fn test_from_fen_rejects_extra_fields() {
+        // Six fields is the whole of FEN. A seventh means the caller sent
+        // something else, and answering for the first six would hide that.
+        assert!(
+            Game::from_fen("8/8/8/8/8/8/4k3/4K3 w - - 0 1 extra").is_err(),
+            "trailing fields must not be ignored"
+        );
+        assert!(
+            Game::from_fen("8/8/8/8/8/8/4k3/4K3 w - - 0 1").is_ok(),
+            "the full six fields stay valid"
         );
     }
 

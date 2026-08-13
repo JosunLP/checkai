@@ -1,6 +1,6 @@
 {
   "name": "@checkai/desktop",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "main": "dist-electron/electron-main.js",
@@ -23,20 +23,20 @@
     "dist": "bun run build && bun x electron-builder --config electron-builder.yml --publish never"
   },
   "dependencies": {
-    "electron-updater": "^6.8.3"
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
-    "@bquery/bquery": "^1.11.1",
+    "@bquery/bquery": "^1.16.0",
     "@sveltejs/vite-plugin-svelte": "^6.2.4",
-    "@tailwindcss/vite": "^4.3.0",
-    "@types/node": "^24.12.4",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.13.3",
     "electron": "^36.9.5",
-    "electron-builder": "^26.8.1",
-    "sass": "^1.99.0",
-    "svelte": "^5.55.7",
-    "svelte-check": "^4.4.8",
-    "tailwindcss": "^4.3.0",
+    "electron-builder": "^26.15.3",
+    "sass": "^1.102.0",
+    "svelte": "^5.56.9",
+    "svelte-check": "^4.7.6",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
-    "vite": "^7.3.3"
+    "vite": "^7.3.6"
   }
 }

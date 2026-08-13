@@ -164,6 +164,7 @@ fn encode_end_reason(reason: Option<&GameEndReason>) -> u8 {
         Some(GameEndReason::InsufficientMaterial) => 7,
         Some(GameEndReason::Resignation) => 8,
         Some(GameEndReason::DrawAgreement) => 9,
+        Some(GameEndReason::Timeout) => 10,
     }
 }
 
@@ -179,6 +180,7 @@ fn decode_end_reason(byte: u8) -> Option<GameEndReason> {
         7 => Some(GameEndReason::InsufficientMaterial),
         8 => Some(GameEndReason::Resignation),
         9 => Some(GameEndReason::DrawAgreement),
+        10 => Some(GameEndReason::Timeout),
         _ => None,
     }
 }

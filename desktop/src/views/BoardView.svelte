@@ -19,6 +19,7 @@
     updateDesktopState,
   } from '../workspace.js';
   import { FILES, PIECE_UNICODE, RANKS } from '../shared-types.js';
+  import EnginePanel from '../components/EnginePanel.svelte';
 
   type MovePair = {
     moveNumber: number;
@@ -191,6 +192,10 @@
         </div>
       </div>
 
+      <div class="board-engine">
+        <EnginePanel />
+      </div>
+
       <div class="btn-row">
         <button class="btn btn-sm" on:click={copyActiveFen}>📋 Copy FEN</button>
         <button class="btn btn-sm" on:click={saveActiveFen}>💾 Save FEN</button>
@@ -265,3 +270,13 @@
     </div>
   {/if}
 </div>
+
+<style>
+  .board-engine {
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    border: 1px solid rgba(120, 130, 170, 0.25);
+    border-radius: 8px;
+    background: rgba(120, 130, 170, 0.06);
+  }
+</style>

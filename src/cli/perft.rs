@@ -28,6 +28,7 @@ Examples:\n\
   checkai perft                Verify startpos depths 1-5 vs references\n\
   checkai perft 6              Up to depth 6 (slow but exact)\n\
   checkai perft 4 --divide     Per-root-move counts at depth 4\n\
+  checkai perft 6 --threads 0  Use every CPU core\n\
   checkai perft 5 --fen \"<FEN>\"   Count nodes for a custom position")]
 pub struct PerftArgs {
     /// Search depth in plies (1-7).
@@ -41,6 +42,10 @@ pub struct PerftArgs {
     /// Print per-root-move counts at the target depth.
     #[arg(long)]
     pub divide: bool,
+
+    /// Worker threads for the count (`0` = one per CPU core).
+    #[arg(long, value_name = "N")]
+    pub threads: Option<usize>,
 }
 
 impl CliCommand for PerftArgs {
@@ -50,6 +55,7 @@ impl CliCommand for PerftArgs {
         let game = fen::game_from_fen(fen_str)
             .map_err(|e| cli_error(t!("cli.invalid_fen", error = e).to_string()))?;
         let pos = fen::search_position(&game);
+        let threads = super::engine::resolve_threads(self.threads);
 
         println!();
         println!("{}", t!("perft.header").to_string().yellow().bold());
@@ -74,7 +80,7 @@ impl CliCommand for PerftArgs {
         let mut all_ok = true;
         for depth in 1..=self.depth {
             let start = Instant::now();
-            let nodes = perft(&pos, depth);
+            let nodes = perft_parallel(&pos, depth, threads);
             let elapsed = start.elapsed();
             let ms = elapsed.as_millis() as u64;
             // `.max(1)` treats a sub-millisecond run as 1 ms (no div-by-zero).
@@ -137,6 +143,52 @@ pub fn perft(pos: &SearchPosition, depth: u32) -> u64 {
         total += perft(&pos.make_move(&mv), depth - 1);
     }
     total
+}
+
+/// Counts leaf nodes using `threads` worker threads.
+///
+/// Root moves are dealt out round-robin, which keeps the split cheap and
+/// balances well in practice because sibling subtrees are similar in size.
+/// The result is identical to [`perft`] — only the wall-clock time changes.
+///
+/// # Panics
+///
+/// Re-raises a worker panic on the calling thread. `perft` is a correctness
+/// oracle, so a silently truncated total would be worse than a crash: it would
+/// print a plausible-looking number for a custom FEN and hide the real fault.
+pub fn perft_parallel(pos: &SearchPosition, depth: u32, threads: usize) -> u64 {
+    let threads = threads.max(1);
+    if threads == 1 || depth <= 1 {
+        return perft(pos, depth);
+    }
+    let moves = pos.legal_moves();
+    let workers = threads.min(moves.len().max(1));
+
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..workers)
+            .map(|worker| {
+                let slice: Vec<_> = moves
+                    .iter()
+                    .skip(worker)
+                    .step_by(workers)
+                    .map(|mv| pos.make_move(mv))
+                    .collect();
+                scope.spawn(move || {
+                    slice
+                        .iter()
+                        .map(|child| perft(child, depth - 1))
+                        .sum::<u64>()
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| match handle.join() {
+                Ok(subtotal) => subtotal,
+                Err(payload) => std::panic::resume_unwind(payload),
+            })
+            .sum()
+    })
 }
 
 /// Computes per-root-move subtotals at the given depth.
@@ -208,6 +260,20 @@ mod tests {
         assert_eq!(entries.len(), 20);
         let total: u64 = entries.iter().map(|(_, n)| n).sum();
         assert_eq!(total, perft(&pos, 3));
+    }
+
+    #[test]
+    fn test_perft_parallel_matches_serial() {
+        let pos = startpos();
+        for threads in [1usize, 2, 4, 64] {
+            assert_eq!(
+                perft_parallel(&pos, 4, threads),
+                STARTPOS_REFERENCE[3],
+                "parallel perft with {threads} threads must match the reference"
+            );
+        }
+        // Depth 1 short-circuits to the serial path but must still be right.
+        assert_eq!(perft_parallel(&pos, 1, 8), STARTPOS_REFERENCE[0]);
     }
 
     #[test]

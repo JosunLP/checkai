@@ -273,6 +273,66 @@
               </div>
             </div>
 
+            <!-- Live Engine Panel -->
+            <div class="panel-section">
+              <h3 data-i18n="engine.title">Live Engine</h3>
+              <div class="engine-controls">
+                <button
+                  id="btn-engine-run"
+                  class="btn btn-primary btn-sm"
+                  data-i18n="engine.run"
+                >
+                  Evaluate
+                </button>
+                <label class="engine-toggle">
+                  <input type="checkbox" id="toggle-engine-auto" />
+                  <span data-i18n="engine.auto">Auto</span>
+                </label>
+                <label class="engine-toggle">
+                  <input type="checkbox" id="toggle-engine-arrow" checked />
+                  <span data-i18n="engine.arrow">Best-move arrow</span>
+                </label>
+              </div>
+              <div class="engine-settings">
+                <label class="engine-field">
+                  <span data-i18n="engine.movetime">Time (ms)</span>
+                  <input
+                    type="number"
+                    id="input-engine-movetime"
+                    min="10"
+                    max="60000"
+                    step="100"
+                    value="1000"
+                  />
+                </label>
+                <label class="engine-field">
+                  <span data-i18n="engine.multipv">Lines</span>
+                  <input
+                    type="number"
+                    id="input-engine-multipv"
+                    min="1"
+                    max="16"
+                    value="3"
+                  />
+                </label>
+                <label class="engine-field">
+                  <span data-i18n="engine.threads">Threads</span>
+                  <input
+                    type="number"
+                    id="input-engine-threads"
+                    min="1"
+                    max="64"
+                    value="1"
+                  />
+                </label>
+              </div>
+              <div id="engine-content">
+                <p class="analysis-idle" data-i18n="engine.idle">
+                  Press Evaluate to see the engine's verdict.
+                </p>
+              </div>
+            </div>
+
             <!-- Analysis Panel -->
             <div class="panel-section">
               <h3 data-i18n="analysis.title">Engine Analysis</h3>

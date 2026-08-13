@@ -77,7 +77,7 @@ fn format_timestamp(ts: u64) -> String {
 }
 
 /// Converts days since Unix epoch to (year, month, day).
-fn days_to_date(days: u64) -> (u64, u64, u64) {
+pub fn days_to_date(days: u64) -> (u64, u64, u64) {
     // Algorithm from http://howardhinnant.github.io/date_algorithms.html
     let z = days + 719468;
     let era = z / 146097;

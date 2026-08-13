@@ -2,9 +2,14 @@
 
 **CheckAI chess engine compiled to WebAssembly** — use as a Node.js CLI tool or JavaScript library.
 
-Current package release: **0.8.0**.
+Current package release: **1.0.0**.
 
 Implements complete FIDE 2023 chess rules with move generation, position evaluation, deep search, full game management, and export (PGN/JSON/text).
+
+Since 1.0.0 the WebAssembly build compiles the **same search engine source** as the
+native binary — Principal Variation Search with singular extensions, continuation
+history, MultiPV and skill limiting — so the package no longer trails the CLI.
+WebAssembly has no worker threads, so the search always runs on one thread.
 
 ## Installation
 
@@ -40,6 +45,13 @@ checkai eval "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
 
 # Search for the best move
 checkai search "..." --depth 15
+checkai search "..." --movetime 2000 --skill 8
+
+# Multi-line analysis (three best lines by default)
+checkai analyze "..." --movetime 2000 --multipv 3
+
+# Engine version, limits and feature list
+checkai info
 
 # Apply a single move
 checkai move "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" e2e4
@@ -105,6 +117,16 @@ const moves = engine.legalMoves(fen);
 const score = engine.evaluate(fen);
 const result = engine.bestMove(fen, 10);
 const after = engine.makeMove(fen, "e2e4");
+
+// Full-featured analysis: depth, movetime, nodes, multiPv, hashMb, skillLevel
+const analysis = engine.analyze(fen, { movetime: 1000, multiPv: 3 });
+console.log(analysis.bestMove, analysis.score, analysis.depth, analysis.seldepth);
+for (const line of analysis.lines) {
+  console.log(line.rank, line.score, line.moves.join(" "));
+}
+
+// Engine metadata (version, limits, implemented features)
+console.log(engine.engineInfo());
 
 // Position checks
 engine.isCheckmate(fen);

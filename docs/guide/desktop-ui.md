@@ -45,6 +45,7 @@ bun run dist   # installable artifacts
 2. Optionally configure a local `checkai` executable, launch arguments, working directory, opening book, and tablebase paths in **Engine**.
 3. Use **Start backend** to launch the saved local profile.
 4. Use **Dashboard**, **Games**, **Board**, **Analysis**, and **Archive** to move through the desktop workspace views.
+   The **Board** view carries a live engine panel: press *Evaluate* (or switch on *Auto*) to get an evaluation bar, the top candidate lines, opening-book statistics and the tablebase verdict for the position in front of you, with configurable search time, line count and thread count.
 5. Use **Logs** to inspect stdout/stderr from the local backend process.
 6. Open **Settings** to adjust theme, compact mode, notifications, developer mode, and board orientation.
 
