@@ -110,8 +110,10 @@ fn ansi_segments(text: &str) -> Vec<(bool, &str)> {
                 }
                 i = (i + 1).min(bytes.len());
             }
-            // Any other two-character escape.
-            Some(_) => i += 1,
+            // Any other two-character escape. Advance a whole `char`, not a
+            // byte: a stray ESC in front of a multi-byte glyph would otherwise
+            // leave `i` on a continuation byte and the slice below would panic.
+            Some(_) => i += text[i..].chars().next().map_or(1, char::len_utf8),
             None => {}
         }
         segments.push((true, &text[escape_start..i]));
@@ -229,5 +231,25 @@ mod tests {
             cut.matches('m').count(),
             "a half-emitted CSI would leak colour into the rest of the screen"
         );
+    }
+
+    /// ESC followed by a UTF-8 lead byte used to advance a single byte, land
+    /// on a continuation byte and panic on the slice. `truncate_chars` runs on
+    /// text loaded from PGN files, so the panic was reachable from file input.
+    ///
+    /// The glyph after ESC is swallowed as the escape's second character —
+    /// which is what a terminal does with `ESC c`, `ESC 7` and friends — so it
+    /// contributes no width. The point of the test is that it does not panic.
+    #[test]
+    fn test_escape_before_multibyte_glyph_does_not_panic() {
+        assert_eq!(display_width("\u{1b}\u{e9}"), 0);
+        assert_eq!(display_width("\u{1b}\u{2654}king"), 4);
+        // The escape is passed through, so the cut is closed with a reset.
+        assert_eq!(
+            truncate_chars("\u{1b}\u{e9}abcdefghij", 4),
+            "\u{1b}\u{e9}abc\u{1b}[0m…"
+        );
+        // A lone trailing ESC must not run off the end either.
+        assert_eq!(display_width("ok\u{1b}"), 2);
     }
 }
