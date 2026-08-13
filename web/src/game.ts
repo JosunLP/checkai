@@ -101,10 +101,16 @@ export async function deleteCurrentGame(): Promise<void> {
 
   try {
     await api.deleteGame(gameId);
+    wsUnsubscribe(gameId);
     batch(() => {
       store.currentGameId.value = null;
       store.currentGame.value = null;
     });
+    // The panel still shows the deleted game's evaluation otherwise, and a
+    // search in flight for it would be discarded as stale on arrival.
+    resetEngineState();
+    resetAnalysisState();
+    lastAnalysedPly = -1;
     showToast(t('toast.game_deleted'), 'info');
     navigateTo('dashboard');
     await refreshGameList();

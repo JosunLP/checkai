@@ -1271,9 +1271,13 @@ h3 {
   color: var(--color-danger);
 }
 
-/* Squares of the engine's suggested move. */
-.square.engine-hint-from::after,
-.square.engine-hint-to::after {
+/* Squares of the engine's suggested move.
+   Drawn on `::before` because `.legal-move::after` already owns `::after`:
+   the engine's destination square is very often a legal target too, and the
+   two rules would otherwise merge into a single over-constrained box — a
+   30%-sized dashed frame stuck in the corner, still filled green. */
+.square.engine-hint-from::before,
+.square.engine-hint-to::before {
   content: '';
   position: absolute;
   inset: 0;

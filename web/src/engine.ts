@@ -77,6 +77,16 @@ export async function evaluatePosition(): Promise<void> {
     } while (rerunQueued);
   } finally {
     inFlight = null;
+    // `runEvaluation` sets `running` before it awaits and returns without
+    // clearing it when the answer turns out to be stale — which is what
+    // happens when the game is deleted or switched mid-search. Nothing else
+    // ever clears the flag, so the panel would sit on "Thinking…" forever.
+    if (store.engine.value.running) {
+      store.engine.value = { ...store.engine.value, running: false };
+    }
+    // Unconditional: the button is disabled while `inFlight` is set, so it has
+    // to be re-drawn now that the wire is free again.
+    renderEnginePanel();
   }
 }
 
@@ -116,6 +126,10 @@ export function resetEngineState(): void {
   requestToken++;
   // Whatever the queued re-run was for is no longer on the board.
   rerunQueued = false;
+  // `running` stays false: the search still on the wire belongs to the
+  // position the user just left and its answer is already invalidated, so
+  // claiming the panel is thinking about the new one would be a lie. The
+  // Evaluate button is held by `inFlight` instead — see `renderEnginePanel`.
   store.engine.value = { running: false, error: null, analysis: null };
   renderEnginePanel();
 }
@@ -126,6 +140,12 @@ export function onPositionChanged(): void {
     // A search may still be running for the position we just left; whatever
     // it returns must not land in the panel.
     requestToken++;
+    // Drop the previous position's verdict right away. It stays on screen for
+    // the whole of the next search otherwise — and the board reads
+    // `analysis.best_move` for the hint, so it would point at a move for a
+    // position that is no longer in front of the user.
+    store.engine.value = { ...store.engine.value, error: null, analysis: null };
+    renderEnginePanel();
     void evaluatePosition();
   } else {
     resetEngineState();
@@ -139,7 +159,12 @@ export function renderEnginePanel(): void {
 
   const state = store.engine.value;
   const startBtn = document.getElementById('btn-engine-run') as HTMLButtonElement | null;
-  if (startBtn) startBtn.disabled = state.running || !store.currentGameId.value;
+  // `inFlight` matters on top of `running`: a request whose answer has been
+  // invalidated is still occupying the server's engine slot, and pressing
+  // Evaluate would only queue a re-run behind it with nothing to show for it.
+  if (startBtn) {
+    startBtn.disabled = state.running || inFlight !== null || !store.currentGameId.value;
+  }
 
   if (state.error) {
     host.innerHTML = '';
@@ -147,10 +172,12 @@ export function renderEnginePanel(): void {
     return;
   }
   if (!state.analysis) {
+    const key = state.running ? 'engine.thinking' : 'engine.idle';
     host.innerHTML = '';
-    host.appendChild(
-      paragraph(state.running ? t('engine.thinking') : t('engine.idle'), 'analysis-idle'),
-    );
+    // Tagged with `data-i18n` so a later language switch re-translates it.
+    // This paragraph replaces the static one from the HTML shell, and
+    // `translateDom` only revisits nodes that carry the attribute.
+    host.appendChild(paragraph(t(key), 'analysis-idle', key));
     return;
   }
 
@@ -284,10 +311,11 @@ function buildBook(entries: { notation: string; probability: number }[]): HTMLEl
 }
 
 /** Small helper for a single styled paragraph. */
-function paragraph(text: string, className: string): HTMLElement {
+function paragraph(text: string, className: string, i18nKey?: string): HTMLElement {
   const el = document.createElement('p');
   el.className = className;
   el.textContent = text;
+  if (i18nKey) el.dataset.i18n = i18nKey;
   return el;
 }
 
