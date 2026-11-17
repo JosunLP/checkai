@@ -8,7 +8,10 @@ import {
   shell,
   type MenuItemConstructorOptions,
 } from 'electron';
-import { autoUpdater } from 'electron-updater';
+// `electron-updater` is CommonJS: Node's ESM loader cannot see `autoUpdater`
+// as a named export, so a named import throws at startup. Take it from the
+// default (module.exports) instead.
+import electronUpdater from 'electron-updater';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -24,6 +27,8 @@ import {
   type UpdateStatusPayload,
 } from './shared-types.js';
 import { DEFAULT_BACKEND_PORT, normalizeBackendUrlOrFallback } from './backend-url.js';
+
+const { autoUpdater } = electronUpdater;
 
 const MAX_LOG_LINES = 400;
 const LOG_PUSH_DELAY_MS = 250;
