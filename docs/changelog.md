@@ -4,6 +4,28 @@
 
 All notable changes to CheckAI are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] — 2026-11-17
+
+A maintenance release. Every dependency, toolchain, build target and CI action is on its current version, and the packaged desktop app — which crashed on startup in 1.0.1 — launches again.
+
+### Fixed
+
+- **Desktop — packaged app crashed on startup** — the main process imported `autoUpdater` as a named export from `electron-updater`, which is a CommonJS module. Node's ESM loader cannot see that name, so every packaged 1.0.1 build died with `SyntaxError: Named export 'autoUpdater' not found` before opening a window. The updater is now taken from the module's default export
+- **Docker image shipped without the web UI** — `web/dist` is not committed and the Dockerfile never built it, so `build.rs` only created an empty directory and the image answered `/web/index.html` with 404. A new `oven/bun` stage builds the UI before the Rust build embeds it; `.dockerignore` now also skips `node_modules`, `web/dist` and desktop build output
+- **CI never launched the desktop app** — the Linux job only checked that the app could be bundled, which is why the crash above shipped. It now starts the packaged binary under Xvfb and fails on a main-process exception or an early exit. With `CHECKAI_SMOKE_TEST=1` the app logs an uncaught exception and exits non-zero, since Electron otherwise reports one raised after startup only in a dialog
+- **`/web/` answered 404** — the embedded-asset handler only mapped `index.html` to the Vite entry point, so the bare `/web/` URL found nothing. An empty path now serves the UI as well
+
+### Changed
+
+- **Desktop runtime** — Electron 36 (end of life) → 45, electron-builder 26.18, electron-updater 6.8.11, Svelte 5.57, `@sveltejs/vite-plugin-svelte` 7
+- **Build tooling** — Vite 7 → 8 for the web UI and the desktop renderer (`build.rollupOptions` renamed to `build.rolldownOptions`, `__dirname` replaced by `import.meta.dirname` in both configs), plus the latest Tailwind CSS 4, ESLint 10, typescript-eslint 8, Prettier 3 and Sass releases
+- **Rust crates** — utoipa 6 / utoipa-swagger-ui 10 (the generated OpenAPI document is unchanged apart from the order of `oneOf` entries), zstd 0.14, tokio 1.54 and a refreshed `Cargo.lock` for the server and the WASM crate. The minimum supported Rust version is now 1.89
+- **Toolchains** — Bun 1.3.10 → 1.4.4 (CI and `packageManager`), Node.js 22 → 24 for the desktop CI job, wasm-pack 0.12.1 → 0.15.1 for the npm package
+- **Docker image** — built on `rust:1.100-trixie` and shipped on `debian:trixie-slim` (was `rust:1.93-bookworm` / `debian:bookworm-slim`)
+- **GitHub Actions** — moved every action to its current major release on the Node 24 runtime: `checkout` v7, `setup-node` v7, `upload-pages-artifact` v5, `deploy-pages` v5, `stale` v11, `ai-inference` v3, `dependency-review-action` v5, `action-gh-release` v3 and the Docker `metadata` v6 / `login` v4 / `setup-buildx` v4 / `build-push` v7 actions
+- **Clippy** — cleared the two lints new in Rust 1.100 (`needless_range_loop` in the opening book lookup, `manual_slice_fill` when resetting killer moves)
+- **Workflow permissions** — `actions/stale` v11 gets `actions: write` so it can replace its processing-state cache. `actions/ai-inference` v3 runs only through the GitHub Copilot CLI: the issue-summary workflow now installs it and authenticates with a `COPILOT_PAT` secret, and skips itself while that secret is not set
+
 ## [1.0.1] — 2026-08-13
 
 A follow-up to 1.0.0. The Linux desktop artifacts never made it into the 1.0.0 release because the packaging step failed, which also stopped the checksum file and the Docker image from being published. This release fixes that and clears the live-engine-panel defects found while reviewing both UIs.

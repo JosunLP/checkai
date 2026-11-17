@@ -26,9 +26,9 @@ By participating in this project you agree to follow our
 | Tool | Version | Used for |
 | ---- | ------- | -------- |
 | [Rust](https://rustup.rs/) | stable (edition 2024) | Core server, CLI, engine, WASM crate |
-| [Bun](https://bun.sh/) | 1.3.x (CI pins 1.3.10) | Web UI, desktop app, docs, npm package |
-| [Node.js](https://nodejs.org/) | 22 | Electron tooling for the desktop app |
-| [wasm-pack](https://rustwasm.github.io/wasm-pack/) | 0.12.x | Building the WebAssembly package (optional) |
+| [Bun](https://bun.sh/) | 1.4.x (CI pins 1.4.4) | Web UI, desktop app, docs, npm package |
+| [Node.js](https://nodejs.org/) | 24 | Electron tooling for the desktop app |
+| [wasm-pack](https://rustwasm.github.io/wasm-pack/) | 0.15.x | Building the WebAssembly package (optional) |
 
 If you use [mise](https://mise.jdx.dev/), the repository's `mise.toml` installs
 the Rust toolchain for you.

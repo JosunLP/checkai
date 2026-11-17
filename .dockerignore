@@ -1,6 +1,9 @@
 # Build artifacts
 target/
 debug/
+**/node_modules/
+web/dist/
+desktop/release/
 
 # Version control
 .git/

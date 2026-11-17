@@ -77,10 +77,11 @@ command:
 
 ## Dockerfile
 
-The Dockerfile uses a two-stage build:
+The Dockerfile uses a three-stage build:
 
-1. **Build stage** — Uses an official Rust image (as defined in the Dockerfile / project toolchain) to compile the release binary with dependency caching.
-2. **Runtime stage** — Uses `debian:bookworm-slim` with only the binary, locale files, and a non-root user.
+1. **Web stage** — Uses `oven/bun` to build the web UI (`web/dist`), which the binary embeds.
+2. **Build stage** — Uses an official Rust image (as defined in the Dockerfile / project toolchain) to compile the release binary with dependency caching.
+3. **Runtime stage** — Uses `debian:trixie-slim` with only the binary, locale files, and a non-root user.
 
 The resulting image is minimal and runs as a non-root user (`checkai`).
 
@@ -93,7 +94,7 @@ Pre-built images are published to GitHub Container Registry on every release:
 docker pull ghcr.io/josunlp/checkai:latest
 
 # Specific version
-docker pull ghcr.io/josunlp/checkai:1.0.1
+docker pull ghcr.io/josunlp/checkai:1.0.2
 
 # Run directly
 docker run -p 8080:8080 ghcr.io/josunlp/checkai:latest serve

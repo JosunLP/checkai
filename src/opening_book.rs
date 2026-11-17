@@ -189,8 +189,7 @@ impl OpeningBook {
         let start = self.entries.partition_point(|e| e.key < key);
 
         let mut results = Vec::new();
-        for i in start..self.entries.len() {
-            let entry = &self.entries[i];
+        for entry in &self.entries[start..] {
             if entry.key != key {
                 break;
             }

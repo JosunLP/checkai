@@ -20,7 +20,7 @@ jobs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
       version: ${{ steps.get_version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -46,7 +46,7 @@ jobs:
 
       - name: Create GitHub Release
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: CheckAI v${{ steps.get_version.outputs.version }}
@@ -80,7 +80,7 @@ jobs:
             artifact: checkai-windows-x86_64.exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -92,7 +92,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.10
+          bun-version: 1.4.4
 
       - name: Build web UI
         run: |
@@ -126,7 +126,7 @@ jobs:
           Copy-Item "target/${{ matrix.target }}/release/checkai.exe" "${{ matrix.artifact }}"
 
       - name: Upload release asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           files: ${{ matrix.artifact }}
@@ -166,7 +166,7 @@ jobs:
           cat checksums-sha256.txt
 
       - name: Upload checksums
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           files: artifacts/checksums-sha256.txt
@@ -180,7 +180,7 @@ jobs:
       contents: write
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -193,10 +193,10 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.10
+          bun-version: 1.4.4
 
       - name: Install wasm-pack
-        run: cargo install wasm-pack --locked --version 0.12.1
+        run: cargo install wasm-pack --locked --version 0.15.1
 
       - name: Build and prepare WASM package
         run: |
@@ -216,7 +216,7 @@ jobs:
           mv "checkai-wasm-${{ needs.create-release.outputs.version }}.tgz" ..
 
       - name: Upload WASM release asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           files: checkai-wasm-${{ needs.create-release.outputs.version }}.tgz
@@ -268,15 +268,15 @@ jobs:
               desktop/release/checkai-desktop-*.msi
               desktop/release/latest.yml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.10
+          bun-version: 1.4.4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install desktop dependencies
         working-directory: desktop
@@ -291,7 +291,7 @@ jobs:
         run: ${{ matrix.build_command }}
 
       - name: Upload desktop release asset
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           files: ${{ matrix.artifact_glob }}
@@ -302,7 +302,7 @@ jobs:
     needs: [create-release, checksums]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Normalize image name
         id: image
@@ -311,7 +311,7 @@ jobs:
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ steps.image.outputs.name }}
           tags: |
@@ -320,17 +320,17 @@ jobs:
             type=raw,value=latest
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
