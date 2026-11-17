@@ -1437,9 +1437,7 @@ impl SearchEngine {
     /// starts the next search with no memory of previous ones.
     pub fn clear_memory(&mut self) {
         self.tt.clear();
-        for k in &mut self.killers {
-            *k = [None; 2];
-        }
+        self.killers.fill([None; 2]);
         *self.history = [[0i32; 64]; 64];
         *self.counter_moves = [[None; 64]; 64];
         self.continuation = ContinuationHistory::new();
@@ -1975,9 +1973,7 @@ impl SearchEngine {
 
         // Reset killers; age (rather than clear) the history tables so useful
         // ordering hints survive into the next search.
-        for k in &mut self.killers {
-            *k = [None; 2];
-        }
+        self.killers.fill([None; 2]);
         for row in self.history.iter_mut() {
             for h in row.iter_mut() {
                 *h /= 2;

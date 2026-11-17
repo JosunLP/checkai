@@ -19,7 +19,7 @@ jobs:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -29,7 +29,7 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -44,7 +44,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --all-features
@@ -57,13 +57,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.10
+          bun-version: 1.4.4
 
       - name: Install web dependencies
         working-directory: web
@@ -81,11 +81,11 @@ jobs:
     name: Frontend (lint · format · typecheck)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.10
+          bun-version: 1.4.4
 
       - name: Install dependencies
         working-directory: web
@@ -111,15 +111,15 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.10
+          bun-version: 1.4.4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install desktop dependencies
         working-directory: desktop
@@ -133,3 +133,23 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         working-directory: desktop
         run: bun run pack
+
+      # `pack` only proves the app can be bundled. Launch the packaged binary
+      # too, so a main-process crash at startup (like the ESM/CommonJS
+      # `electron-updater` import that shipped in 1.0.1) fails CI.
+      - name: Smoke-test desktop startup (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: desktop
+        run: |
+          set +e
+          timeout 20 xvfb-run -a ./release/linux-unpacked/checkai-desktop --no-sandbox > startup.log 2>&1
+          status=$?
+          cat startup.log
+          if grep -q "Uncaught Exception" startup.log; then
+            echo "::error::The packaged desktop app crashed in the main process at startup."
+            exit 1
+          fi
+          if [ "$status" -ne 124 ]; then
+            echo "::error::The packaged desktop app exited early (status $status)."
+            exit 1
+          fi
