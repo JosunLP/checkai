@@ -1,14 +1,30 @@
 # =============================================================================
 # CheckAI — Multi-stage Docker build
 # =============================================================================
-# Stage 1: Build the Rust binary
-# Stage 2: Create a minimal runtime image
+# Stage 1: Build the web UI (embedded into the binary via rust-embed)
+# Stage 2: Build the Rust binary
+# Stage 3: Create a minimal runtime image
 # =============================================================================
 
 # ---------------------------------------------------------------------------
-# Stage 1 — Build
+# Stage 1 — Web UI
 # ---------------------------------------------------------------------------
-FROM rust:1.93-bookworm AS builder
+# `web/dist` is not committed. Without this stage `build.rs` only creates an
+# empty directory, and the image serves no web UI at `/web/`.
+FROM oven/bun:1.4.4 AS web
+
+WORKDIR /usr/src/web
+
+COPY web/package.json web/bun.lock ./
+RUN bun install --frozen-lockfile
+
+COPY web/ ./
+RUN bun run build
+
+# ---------------------------------------------------------------------------
+# Stage 2 — Build
+# ---------------------------------------------------------------------------
+FROM rust:1.100-trixie AS builder
 
 WORKDIR /usr/src/checkai
 
@@ -23,6 +39,9 @@ RUN rm -rf src
 # Copy the full source tree
 COPY . .
 
+# Bring in the web UI built in stage 1
+COPY --from=web /usr/src/web/dist ./web/dist
+
 # Touch main.rs so Cargo rebuilds our code (not just deps)
 RUN touch src/main.rs
 
@@ -30,9 +49,9 @@ RUN touch src/main.rs
 RUN cargo build --release --locked
 
 # ---------------------------------------------------------------------------
-# Stage 2 — Runtime
+# Stage 3 — Runtime
 # ---------------------------------------------------------------------------
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
