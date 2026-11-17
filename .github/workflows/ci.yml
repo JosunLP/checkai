@@ -140,6 +140,8 @@ jobs:
       - name: Smoke-test desktop startup (Linux only)
         if: matrix.os == 'ubuntu-latest'
         working-directory: desktop
+        env:
+          CHECKAI_SMOKE_TEST: "1"
         run: |
           set +e
           timeout 20 xvfb-run -a ./release/linux-unpacked/checkai-desktop --no-sandbox > startup.log 2>&1

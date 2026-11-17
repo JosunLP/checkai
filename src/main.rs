@@ -138,7 +138,13 @@ struct DistAssets;
 async fn serve_web_asset(path: web::Path<String>) -> HttpResponse {
     let file_path = path.into_inner();
 
-    // Map index.html → index.vite.html (Vite output filename)
+    // `/web/` (empty filename) and `index.html` both map to the Vite entry
+    // point, which keeps its source name `index.vite.html` in the bundle.
+    let file_path = if file_path.is_empty() {
+        "index.html".to_string()
+    } else {
+        file_path
+    };
     let dist_path = if file_path == "index.html" {
         "index.vite.html"
     } else {

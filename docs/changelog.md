@@ -11,8 +11,9 @@ A maintenance release. Every dependency, toolchain, build target and CI action i
 ### Fixed
 
 - **Desktop — packaged app crashed on startup** — the main process imported `autoUpdater` as a named export from `electron-updater`, which is a CommonJS module. Node's ESM loader cannot see that name, so every packaged 1.0.1 build died with `SyntaxError: Named export 'autoUpdater' not found` before opening a window. The updater is now taken from the module's default export
-- **Docker image shipped without the web UI** — `web/dist` is not committed and the Dockerfile never built it, so `build.rs` only created an empty directory and the image answered `/web/` with 404. A new `oven/bun` stage builds the UI before the Rust build embeds it; `.dockerignore` now also skips `node_modules`, `web/dist` and desktop build output
-- **CI never launched the desktop app** — the Linux job only checked that the app could be bundled, which is why the crash above shipped. It now starts the packaged binary under Xvfb and fails on a main-process exception or an early exit
+- **Docker image shipped without the web UI** — `web/dist` is not committed and the Dockerfile never built it, so `build.rs` only created an empty directory and the image answered `/web/index.html` with 404. A new `oven/bun` stage builds the UI before the Rust build embeds it; `.dockerignore` now also skips `node_modules`, `web/dist` and desktop build output
+- **CI never launched the desktop app** — the Linux job only checked that the app could be bundled, which is why the crash above shipped. It now starts the packaged binary under Xvfb and fails on a main-process exception or an early exit. With `CHECKAI_SMOKE_TEST=1` the app logs an uncaught exception and exits non-zero, since Electron otherwise reports one raised after startup only in a dialog
+- **`/web/` answered 404** — the embedded-asset handler only mapped `index.html` to the Vite entry point, so the bare `/web/` URL found nothing. An empty path now serves the UI as well
 
 ### Changed
 
@@ -23,6 +24,7 @@ A maintenance release. Every dependency, toolchain, build target and CI action i
 - **Docker image** — built on `rust:1.100-trixie` and shipped on `debian:trixie-slim` (was `rust:1.93-bookworm` / `debian:bookworm-slim`)
 - **GitHub Actions** — moved every action to its current major release on the Node 24 runtime: `checkout` v7, `setup-node` v7, `upload-pages-artifact` v5, `deploy-pages` v5, `stale` v11, `ai-inference` v3, `dependency-review-action` v5, `action-gh-release` v3 and the Docker `metadata` v6 / `login` v4 / `setup-buildx` v4 / `build-push` v7 actions
 - **Clippy** — cleared the two lints new in Rust 1.100 (`needless_range_loop` in the opening book lookup, `manual_slice_fill` when resetting killer moves)
+- **Workflow permissions** — `actions/stale` v11 gets `actions: write` so it can replace its processing-state cache. `actions/ai-inference` v3 runs only through the GitHub Copilot CLI: the issue-summary workflow now installs it and authenticates with a `COPILOT_PAT` secret, and skips itself while that secret is not set
 
 ## [1.0.1] — 2026-08-13
 

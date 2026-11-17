@@ -30,6 +30,19 @@ import { DEFAULT_BACKEND_PORT, normalizeBackendUrlOrFallback } from './backend-u
 
 const { autoUpdater } = electronUpdater;
 
+// CI smoke test: Electron's default handler reports an uncaught main-process
+// exception in a GUI dialog, which never reaches stderr once the app is ready
+// and keeps the process alive. Under CHECKAI_SMOKE_TEST, log it and exit
+// non-zero instead so the CI startup check can see it.
+if (process.env.CHECKAI_SMOKE_TEST === '1') {
+  const failSmokeTest = (error: unknown): void => {
+    console.error('Uncaught Exception (smoke test):', error);
+    app.exit(1);
+  };
+  process.on('uncaughtException', failSmokeTest);
+  process.on('unhandledRejection', failSmokeTest);
+}
+
 const MAX_LOG_LINES = 400;
 const LOG_PUSH_DELAY_MS = 250;
 const BACKEND_FORCE_KILL_TIMEOUT_MS = 10_000;

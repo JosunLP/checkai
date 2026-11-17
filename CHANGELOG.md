@@ -22,13 +22,18 @@ startup in 1.0.1 — launches again.
   window. The updater is now taken from the module's default export
 - **Docker image shipped without the web UI** — `web/dist` is not committed and
   the Dockerfile never built it, so `build.rs` only created an empty directory
-  and the image answered `/web/` with 404. A new `oven/bun` stage builds the UI
-  before the Rust build embeds it; `.dockerignore` now also skips
+  and the image answered `/web/index.html` with 404. A new `oven/bun` stage
+  builds the UI before the Rust build embeds it; `.dockerignore` now also skips
   `node_modules`, `web/dist` and desktop build output
 - **CI never launched the desktop app** — the Linux job only checked that the
   app could be bundled, which is why the crash above shipped. It now starts the
   packaged binary under Xvfb and fails on a main-process exception or an early
-  exit
+  exit. With `CHECKAI_SMOKE_TEST=1` the app logs an uncaught exception and exits
+  non-zero, since Electron otherwise reports one raised after startup only in a
+  dialog
+- **`/web/` answered 404** — the embedded-asset handler only mapped `index.html`
+  to the Vite entry point, so the bare `/web/` URL found nothing. An empty path
+  now serves the UI as well
 
 ### Changed
 
@@ -53,6 +58,11 @@ startup in 1.0.1 — launches again.
   `setup-buildx` v4 / `build-push` v7 actions
 - **Clippy** — cleared the two lints new in Rust 1.100 (`needless_range_loop` in
   the opening book lookup, `manual_slice_fill` when resetting killer moves)
+- **Workflow permissions** — `actions/stale` v11 gets `actions: write` so it can
+  replace its processing-state cache. `actions/ai-inference` v3 runs only
+  through the GitHub Copilot CLI: the issue-summary workflow now installs it and
+  authenticates with a `COPILOT_PAT` secret, and skips itself while that secret
+  is not set
 
 ## [1.0.1] - 2026-08-13
 
